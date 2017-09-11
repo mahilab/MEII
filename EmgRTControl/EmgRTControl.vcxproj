@@ -56,8 +56,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="EmgRTControl.cpp" />
-    <ClCompile Include="EmgTraining.cpp" />
-    <ClCompile Include="FesExperiment.cpp" />
+    <ClCompile Include="EmgTraining.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="FesExperiment.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="mahiexoii_util.cpp" />
     <ClCompile Include="main.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -77,11 +81,20 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EmgRTControl.h" />
-    <ClInclude Include="EmgTraining.h" />
-    <ClInclude Include="FesExperiment.h" />
+    <ClInclude Include="EmgTraining.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
+    <ClInclude Include="FesExperiment.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="mahiexoii_util.h" />
     <ClInclude Include="SmoothPositionControl.h" />
     <ClInclude Include="TransparentMode.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\MEL\MEL\MEL.vcxproj">
+      <Project>{071e0de1-8c63-468c-a3a7-4b7bbc5ab350}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -6,13 +6,13 @@
 
 using namespace mel;
 
-class SmoothPositionControlData : public EventData {
+class SmoothPositionControlData : public util::EventData {
 
 public:
 
 };
 
-class SmoothPositionControl : public StateMachine {
+class SmoothPositionControl : public util::StateMachine {
 
 public:
 
@@ -20,7 +20,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    SmoothPositionControl(Clock& clock, Daq* daq, MahiExoII& meii);
+    SmoothPositionControl(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii);
 
 private:
 
@@ -39,24 +39,24 @@ private:
     };
 
     // STATE FUNCTIONS
-    void sf_init(const NoEventData*);
-    StateAction<SmoothPositionControl, NoEventData, &SmoothPositionControl::sf_init> sa_init;
+    void sf_init(const util::NoEventData*);
+    util::StateAction<SmoothPositionControl, util::NoEventData, &SmoothPositionControl::sf_init> sa_init;
 
-    void sf_transparent(const NoEventData*);
-    StateAction<SmoothPositionControl, NoEventData, &SmoothPositionControl::sf_transparent> sa_transparent;
+    void sf_transparent(const util::NoEventData*);
+    util::StateAction<SmoothPositionControl, util::NoEventData, &SmoothPositionControl::sf_transparent> sa_transparent;
 
-    void sf_waypoint(const NoEventData*);
-    StateAction<SmoothPositionControl, NoEventData, &SmoothPositionControl::sf_waypoint> sa_waypoint;
+    void sf_waypoint(const util::NoEventData*);
+    util::StateAction<SmoothPositionControl, util::NoEventData, &SmoothPositionControl::sf_waypoint> sa_waypoint;
 
-    void sf_finish(const NoEventData*);
-    StateAction<SmoothPositionControl, NoEventData, &SmoothPositionControl::sf_finish> sa_finish;
+    void sf_finish(const util::NoEventData*);
+    util::StateAction<SmoothPositionControl, util::NoEventData, &SmoothPositionControl::sf_finish> sa_finish;
 
-    void sf_stop(const NoEventData*);
-    StateAction<SmoothPositionControl, NoEventData, &SmoothPositionControl::sf_stop> sa_stop;
+    void sf_stop(const util::NoEventData*);
+    util::StateAction<SmoothPositionControl, util::NoEventData, &SmoothPositionControl::sf_stop> sa_stop;
 
     // STATE MAP
-    virtual const StateMapRow* get_state_map() {
-        static const StateMapRow STATE_MAP[] = {
+    virtual const util::StateMapRow* get_state_map() {
+        static const util::StateMapRow STATE_MAP[] = {
             &sa_init,
             &sa_transparent,
             &sa_waypoint,
@@ -77,11 +77,11 @@ private:
     //-------------------------------------------------------------------------
 
     // HARDWARE CLOCK
-    Clock clock_;
+    util::Clock clock_;
 
     // HARDWARE
-    Daq* daq_;
-    MahiExoII meii_;
+    core::Daq* daq_;
+    exo::MahiExoII meii_;
 
     // EXO PARAMETERS
     int rps_control_mode_ = 1; // 0 = robot joint space (parallel), 1 = anatomical joint space (serial)
@@ -108,7 +108,7 @@ private:
     // WAYPOINTS
     int num_wp_ = 1;
     int current_wp_ = 0;
-    double_vec wp_1_ = { -10.0 * DEG2RAD, 0.0 * DEG2RAD, 0.0 * DEG2RAD, 0.0 * DEG2RAD,  0.11 }; // anatomical joint positions
+    double_vec wp_1_ = { -10.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD,  0.11 }; // anatomical joint positions
 
     // TEMPORARY WAYPOINT CONTAINERS
     double_vec start_pos_ = double_vec(5, 0.0);
@@ -116,7 +116,7 @@ private:
 
     // CHECKING WAYPOINT REACHED
     char_vec check_joint_ = { 1, 1, 1, 1, 1 };
-    double_vec pos_tol_ = { 1.0 * DEG2RAD, 1.0 * DEG2RAD, 1.0 * DEG2RAD, 1.0 * DEG2RAD, 0.01 };
+    double_vec pos_tol_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
 
     double init_transparent_time_ = 1.0;
 

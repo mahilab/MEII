@@ -6,13 +6,13 @@
 
 using namespace mel;
 
-class TransparentModeData : public EventData {
+class TransparentModeData : public util::EventData {
 
 public:
 
 };
 
-class TransparentMode : public StateMachine {
+class TransparentMode : public util::StateMachine {
 
 public:
 
@@ -20,7 +20,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    TransparentMode(Clock& clock, Daq* daq, MahiExoII& meii);
+    TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii);
 
 private:
 
@@ -37,18 +37,18 @@ private:
     };
 
     // STATE FUNCTIONS
-    void sf_init(const NoEventData*);
-    StateAction<TransparentMode, NoEventData, &TransparentMode::sf_init> sa_init;
+    void sf_init(const util::NoEventData*);
+    util::StateAction<TransparentMode, util::NoEventData, &TransparentMode::sf_init> sa_init;
 
-    void sf_transparent(const NoEventData*);
-    StateAction<TransparentMode, NoEventData, &TransparentMode::sf_transparent> sa_transparent;
+    void sf_transparent(const util::NoEventData*);
+    util::StateAction<TransparentMode, util::NoEventData, &TransparentMode::sf_transparent> sa_transparent;
 
-    void sf_stop(const NoEventData*);
-    StateAction<TransparentMode, NoEventData, &TransparentMode::sf_stop> sa_stop;
+    void sf_stop(const util::NoEventData*);
+    util::StateAction<TransparentMode, util::NoEventData, &TransparentMode::sf_stop> sa_stop;
 
     // STATE MAP
-    virtual const StateMapRow* get_state_map() {
-        static const StateMapRow STATE_MAP[] = {
+    virtual const util::StateMapRow* get_state_map() {
+        static const util::StateMapRow STATE_MAP[] = {
             &sa_init,
             &sa_transparent,
             &sa_stop,
@@ -66,11 +66,11 @@ private:
     //-------------------------------------------------------------------------
 
     // HARDWARE CLOCK
-    Clock clock_;
+    util::Clock clock_;
 
     // HARDWARE
-    Daq* daq_;
-    MahiExoII meii_;
+    core::Daq* daq_;
+    exo::MahiExoII meii_;
 
     // GENERIC STATE FUNCTIONS
     void sf_transparent_start();

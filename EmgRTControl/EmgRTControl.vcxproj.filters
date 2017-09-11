@@ -13,15 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Archived">
+      <UniqueIdentifier>{cd5606da-d3c7-4820-8e3e-cc59ae238759}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="EmgRTControl.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="EmgTraining.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="FesExperiment.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="mahiexoii_util.cpp">
@@ -33,12 +30,6 @@
     <ClCompile Include="main_emg_rt_control.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main_emg_training.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="main_fes.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="main_testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -48,15 +39,21 @@
     <ClCompile Include="TransparentMode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="FesExperiment.cpp">
+      <Filter>Archived</Filter>
+    </ClCompile>
+    <ClCompile Include="EmgTraining.cpp">
+      <Filter>Archived</Filter>
+    </ClCompile>
+    <ClCompile Include="main_fes.cpp">
+      <Filter>Archived</Filter>
+    </ClCompile>
+    <ClCompile Include="main_emg_training.cpp">
+      <Filter>Archived</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EmgRTControl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="EmgTraining.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="FesExperiment.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mahiexoii_util.h">
@@ -67,6 +64,12 @@
     </ClInclude>
     <ClInclude Include="TransparentMode.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="EmgTraining.h">
+      <Filter>Archived</Filter>
+    </ClInclude>
+    <ClInclude Include="FesExperiment.h">
+      <Filter>Archived</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -4,7 +4,7 @@
 
 using namespace mel;
 
-EmgRTControl::EmgRTControl(mel::Clock& clock, mel::Daq* q8_emg, MahiExoIIEmg& meii, GuiFlag& gui_flag, int input_mode) :
+EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* q8_emg, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode) :
     StateMachine(9),
     clock_(clock),
     q8_emg_(q8_emg),
@@ -16,26 +16,26 @@ EmgRTControl::EmgRTControl(mel::Clock& clock, mel::Daq* q8_emg, MahiExoIIEmg& me
 
 void EmgRTControl::wait_for_input() {
     if (INPUT_MODE_ == 0) {
-        mel::Input::wait_for_key_press(mel::Input::Key::Space);
+        util::Input::wait_for_key_press(util::Input::Key::Space);
     }
     else if (INPUT_MODE_ = 1) {
         gui_flag_.wait_for_flag(1);
-        mel::print("");
+        util::print("");
     }
 }
 
 bool EmgRTControl::check_stop() {
-    return mel::Input::is_key_pressed(mel::Input::Escape) || (mel::Input::is_key_pressed(mel::Input::LControl) && mel::Input::is_key_pressed(mel::Input::C));
+    return util::Input::is_key_pressed(util::Input::Escape) || (util::Input::is_key_pressed(util::Input::LControl) && util::Input::is_key_pressed(util::Input::C));
 }
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_init(const mel::NoEventData* data) {
+void EmgRTControl::sf_init(const util::NoEventData* data) {
 
     // enable MEII EMG DAQ
-    mel::print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    util::print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     q8_emg_->enable();
     if (!q8_emg_->is_enabled()) {
         event(ST_STOP);
@@ -49,14 +49,14 @@ void EmgRTControl::sf_init(const mel::NoEventData* data) {
         event(ST_STOP);
         return;
     }
-    if (!Q8Usb::check_digital_loopback(0, 7)) {
+    if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
         event(ST_STOP);
         return;
     }
 
     // enable MEII
-    mel::print("\nPress Enter to enable MEII.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    util::print("\nPress Enter to enable MEII.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -64,9 +64,9 @@ void EmgRTControl::sf_init(const mel::NoEventData* data) {
     }
 
     // confirm start of experiment
-    mel::print("\nPress Enter to run EMG Real-Time Control");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
-    mel::print("\nRunning EMG Real-Time Control ... ");
+    util::print("\nPress Enter to run EMG Real-Time Control");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::print("\nRunning EMG Real-Time Control ... ");
 
     // start the watchdog
     q8_emg_->start_watchdog(0.1);
@@ -87,8 +87,8 @@ void EmgRTControl::sf_init(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "TRANSPARENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_transparent(const mel::NoEventData* data) {
-    mel::print("Robot Transparent");
+void EmgRTControl::sf_transparent(const util::NoEventData* data) {
+    util::print("Robot Transparent");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
@@ -145,7 +145,7 @@ void EmgRTControl::sf_transparent(const mel::NoEventData* data) {
         event(ST_TO_CENTER);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -154,8 +154,8 @@ void EmgRTControl::sf_transparent(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "GO TO CENTER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_to_center(const mel::NoEventData* data) {
-    mel::print("Go to Center");
+void EmgRTControl::sf_to_center(const util::NoEventData* data) {
+    util::print("Go to Center");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
@@ -199,7 +199,7 @@ void EmgRTControl::sf_to_center(const mel::NoEventData* data) {
         // compute pd torques
         for (auto i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -240,7 +240,7 @@ void EmgRTControl::sf_to_center(const mel::NoEventData* data) {
         event(ST_HOLD_CENTER);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -248,8 +248,8 @@ void EmgRTControl::sf_to_center(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "HOLD AT CENTER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_hold_center(const mel::NoEventData* data) {
-    mel::print("Hold at Center");
+void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
+    util::print("Hold at Center");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
@@ -285,7 +285,7 @@ void EmgRTControl::sf_hold_center(const mel::NoEventData* data) {
         // compute pd torques
         for (int i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -326,7 +326,7 @@ void EmgRTControl::sf_hold_center(const mel::NoEventData* data) {
         event(ST_PRESENT_TARGET);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -334,8 +334,8 @@ void EmgRTControl::sf_hold_center(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "PRESENT TARGET" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_present_target(const mel::NoEventData* data) {
-    mel::print("Present Target");
+void EmgRTControl::sf_present_target(const util::NoEventData* data) {
+    util::print("Present Target");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
@@ -388,7 +388,7 @@ void EmgRTControl::sf_present_target(const mel::NoEventData* data) {
         init_time_ = 0;
         for (auto i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -443,7 +443,7 @@ void EmgRTControl::sf_present_target(const mel::NoEventData* data) {
         event(ST_TRAIN_CLASSIFIER);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -451,8 +451,8 @@ void EmgRTControl::sf_present_target(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "PROCESS EMG DATA" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_process_emg(const mel::NoEventData* data) {
-    mel::print("Process EMG Data");
+void EmgRTControl::sf_process_emg(const util::NoEventData* data) {
+    util::print("Process EMG Data");
 
     // extract features from EMG data
     feature_vec_ = feature_extract(emg_data_buffer_);
@@ -477,9 +477,9 @@ void EmgRTControl::sf_process_emg(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "TRAIN CLASSIFIER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_train_classifier(const mel::NoEventData* data) {
+void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
     
-    mel::print("Training Complete");
+    util::print("Training Complete");
 
     meii_.disable();
 
@@ -487,7 +487,7 @@ void EmgRTControl::sf_train_classifier(const mel::NoEventData* data) {
     //system("start EMG_FS_LDA.py &");
 
     // create vector to send training data to python
-    mel::double_vec emg_training_data_vec_(N_train_ * num_emg_channels_ * num_features_);
+    double_vec emg_training_data_vec_(N_train_ * num_emg_channels_ * num_features_);
     for (int i = 0; i < N_train_; ++i) {
         std::copy_n(emg_training_data_[i].begin(), num_emg_channels_ * num_features_, emg_training_data_vec_.begin());
     }
@@ -502,7 +502,7 @@ void EmgRTControl::sf_train_classifier(const mel::NoEventData* data) {
 
     std::array<int, 2> training_data_size2;
     std::vector<int> sel_feats(training_data_size2[1]);
-    mel::double_vec lda_coeff_c(num_class_, training_data_size2[1]); //replaced 2nd index (num_emg_channels_ * num_features_)
+    double_vec lda_coeff_c(num_class_, training_data_size2[1]); //replaced 2nd index (num_emg_channels_ * num_features_)
 
     // wait for python to receive
     // restart the clock
@@ -549,9 +549,9 @@ void EmgRTControl::sf_train_classifier(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "FINISH Experiment" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_finish(const mel::NoEventData* data) {
+void EmgRTControl::sf_finish(const util::NoEventData* data) {
 
-    mel::print("Finish Experiment");
+    util::print("Finish Experiment");
 
     event(ST_STOP);
 
@@ -561,7 +561,7 @@ void EmgRTControl::sf_finish(const mel::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void EmgRTControl::sf_stop(const mel::NoEventData* data) {
+void EmgRTControl::sf_stop(const util::NoEventData* data) {
     std::cout << "State Stop " << std::endl;
     if (meii_.is_enabled()) {
         meii_.disable();
@@ -575,14 +575,14 @@ void EmgRTControl::sf_stop(const mel::NoEventData* data) {
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-bool EmgRTControl::check_target_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec target_check_joint, bool print_output) {
+bool EmgRTControl::check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec target_check_joint, bool print_output) {
 
     bool target_reached = true;
     for (int i = 0; i < 5; ++i) {
         if (target_check_joint[i]) {
             if (std::abs(goal_pos[i] - current_pos[i]) > std::abs(target_tol_[i])) {
                 if (print_output && target_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*mel::RAD2DEG) << std::endl;
+                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*math::RAD2DEG) << std::endl;
                 }
                 target_reached = false;
             }
@@ -602,20 +602,20 @@ bool EmgRTControl::check_force_mag_reached(double force_mag_goal, double force_m
     return force_mag_maintained_ > force_mag_dwell_time_;
 }
 
-mel::double_vec EmgRTControl::feature_extract(EmgDataBuffer& emg_data_buffer) {
+double_vec EmgRTControl::feature_extract(EmgDataBuffer& emg_data_buffer) {
 
-    mel::double_vec feature_vec;
+    double_vec feature_vec;
     feature_vec.reserve(num_emg_channels_*num_features_);
-    mel::double_vec nrms_vec(num_emg_channels_, 0.0);
-    mel::double_vec nmav_vec(num_emg_channels_, 0.0);
-    mel::double_vec nwl_vec(num_emg_channels_, 0.0);
-    mel::double_vec nzc_vec(num_emg_channels_, 0.0);
-    mel::double_vec nssc_vec(num_emg_channels_, 0.0);
-    mel::double_vec ar_vec(4,0.0);
-    mel::double_vec ar1_vec(num_emg_channels_, 0.0);
-    mel::double_vec ar2_vec(num_emg_channels_, 0.0);
-    mel::double_vec ar3_vec(num_emg_channels_, 0.0);
-    mel::double_vec ar4_vec(num_emg_channels_, 0.0);
+    double_vec nrms_vec(num_emg_channels_, 0.0);
+    double_vec nmav_vec(num_emg_channels_, 0.0);
+    double_vec nwl_vec(num_emg_channels_, 0.0);
+    double_vec nzc_vec(num_emg_channels_, 0.0);
+    double_vec nssc_vec(num_emg_channels_, 0.0);
+    double_vec ar_vec(4,0.0);
+    double_vec ar1_vec(num_emg_channels_, 0.0);
+    double_vec ar2_vec(num_emg_channels_, 0.0);
+    double_vec ar3_vec(num_emg_channels_, 0.0);
+    double_vec ar4_vec(num_emg_channels_, 0.0);
 
     
 
@@ -720,15 +720,15 @@ double EmgRTControl::ssc_feature_extract(boost::circular_buffer<double> emg_chan
     return sum_abs_diff_sign_diff / 2;
 }
 
-void EmgRTControl::ar4_feature_extract(mel::double_vec& coeffs, const mel::double_vec& emg_channel_buffer) {
+void EmgRTControl::ar4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer) {
 
     // initialize
     size_t N = emg_channel_buffer.size();
     size_t m = coeffs.size();
-    mel::double_vec A_k(m + 1, 0.0);
+    double_vec A_k(m + 1, 0.0);
     A_k[0] = 1.0;
-    mel::double_vec f(emg_channel_buffer);
-    mel::double_vec b(emg_channel_buffer);
+    double_vec f(emg_channel_buffer);
+    double_vec b(emg_channel_buffer);
     double D_k = 0;
     for (size_t j = 0; j <= N; ++j) {
         D_k += 2.0 * std::pow(f[j], 2);

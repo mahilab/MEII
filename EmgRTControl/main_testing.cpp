@@ -3,7 +3,7 @@
 #include "Q8Usb.h"
 #include "Clock.h"
 #include "MahiExoII.h"
-#include "util.h"
+#include "mel_util.h"
 #include "mahiexoii_util.h"
 #include <boost/program_options.hpp>
 #include "TransparentMode.h"
@@ -12,7 +12,7 @@
 #include "GuiFlag.h"
 #include "Input.h"
 
-
+using namespace mel;
 
 int main(int argc, char * argv[]) {
     
@@ -30,35 +30,35 @@ int main(int argc, char * argv[]) {
     boost::program_options::notify(var_map);
 
     if (var_map.count("help")) {
-        mel::print(desc);
+        util::print(desc);
         return 0;
     }
 
     //  create a Q8Usb object for the board connected to robot motors
-    mel::uint32 id_mot = 0;
-    mel::channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  ao_channels = { 1, 2, 3, 4, 5 };
-    mel::channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec enc_channels = { 1, 2, 3, 4, 5 };
-    mel::Q8Usb::Options options;
+    uint32 id_mot = 0;
+    channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  ao_channels = { 1, 2, 3, 4, 5 };
+    channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec enc_channels = { 1, 2, 3, 4, 5 };
+    dev::Q8Usb::Options options;
     for (int i = 0; i < 8; ++i) {
         options.do_initial_signals_[i] = 1;
         options.do_final_signals_[i] = 1;
         options.do_expire_signals_[i] = 1;
     }
-    mel::Daq* q8_mot = new mel::Q8Usb(id_mot, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
+    core::Daq* q8_mot = new dev::Q8Usb(id_mot, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
 
 
     // create and configure a MahiExoII object
-    mel::MahiExoII::Config config;
+    exo::MahiExoII::Config config;
     for (int i = 0; i < 5; ++i) {
         config.enable_[i] = q8_mot->do_(i+1);
         config.command_[i] = q8_mot->ao_(i+1);
         config.encoder_[i] = q8_mot->encoder_(i+1);
         config.encrate_[i] = q8_mot->encrate_(i+1);
     }
-    mel::MahiExoII meii(config);
+    exo::MahiExoII meii(config);
 
     // manual zero joint positions
     if (var_map.count("zero")) {
@@ -70,7 +70,7 @@ int main(int argc, char * argv[]) {
     }
 
     // run transparent mode
-    mel::Clock clock(1000);
+    util::Clock clock(1000);
     SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
     pos_ctrl.execute();
     delete q8_mot;

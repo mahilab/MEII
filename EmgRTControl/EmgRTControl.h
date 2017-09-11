@@ -12,13 +12,13 @@
 
 using namespace mel;
 
-class EmgRTControlData : public EventData {
+class EmgRTControlData : public util::EventData {
 
 public:
 
 };
 
-class EmgRTControl : public StateMachine {
+class EmgRTControl : public util::StateMachine {
 
 public:
 
@@ -26,7 +26,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    EmgRTControl(Clock& clock, Daq* q8_emg, MahiExoIIEmg& meii, GuiFlag& gui_flag, int input_mode);
+    EmgRTControl(util::Clock& clock, core::Daq* q8_emg, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode);
 
 private:
 
@@ -49,36 +49,36 @@ private:
     };
 
     // STATE FUNCTIONS
-    void sf_init(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_init> sa_init;
+    void sf_init(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_init> sa_init;
 
-    void sf_transparent(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_transparent> sa_transparent;
+    void sf_transparent(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_transparent> sa_transparent;
 
-    void sf_to_center(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_to_center> sa_to_center;
+    void sf_to_center(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center> sa_to_center;
 
-    void sf_hold_center(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_hold_center> sa_hold_center;
+    void sf_hold_center(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_hold_center> sa_hold_center;
 
-    void sf_present_target(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_present_target> sa_present_target;
+    void sf_present_target(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_present_target> sa_present_target;
 
-    void sf_process_emg(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_process_emg> sa_process_emg;
+    void sf_process_emg(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_process_emg> sa_process_emg;
 
-    void sf_train_classifier(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_train_classifier> sa_train_classifier;
+    void sf_train_classifier(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_train_classifier> sa_train_classifier;
 
-    void sf_finish(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_finish> sa_finish;
+    void sf_finish(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_finish> sa_finish;
 
-    void sf_stop(const mel::NoEventData*);
-    mel::StateAction<EmgRTControl, mel::NoEventData, &EmgRTControl::sf_stop> sa_stop;
+    void sf_stop(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_stop> sa_stop;
 
     // STATE MAP
-    virtual const mel::StateMapRow* get_state_map() {
-        static const mel::StateMapRow STATE_MAP[] = {
+    virtual const util::StateMapRow* get_state_map() {
+        static const util::StateMapRow STATE_MAP[] = {
             &sa_init,
             &sa_transparent,
             &sa_to_center,
@@ -105,8 +105,8 @@ private:
     int current_target_ = 0;
     double init_transparent_time_ = 3.0; // [s]
     std::vector<int> target_sequence_ = { 1, 2, 1, 2 };
-    mel::char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
-    mel::double_vec target_tol_ = { 1.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 0.01 };
+    char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
+    double_vec target_tol_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
     double hold_center_time_ = 1.0; // time to hold at center target [s]
     double force_mag_goal_ = 1000.0; // [N^2]
     double force_mag_tol_ = 100.0; // [N]
@@ -115,42 +115,42 @@ private:
     double force_mag_time_now_ = 0.0;
     double force_mag_time_last_ = 0.0;
 
-    mel::double_vec center_pos_ = { -35 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD,  0.09 };
+    double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 };
 
     //-------------------------------------------------------------------------
     // EXPERIMENT COMPONENTS
     //-------------------------------------------------------------------------
 
     // GUI FLAGS
-    GuiFlag& gui_flag_;
+    util::GuiFlag& gui_flag_;
 
     // HARDWARE CLOCK
-    mel::Clock clock_;
+    util::Clock clock_;
 
     // HARDWARE
-    mel::Daq* q8_emg_;
-    MahiExoIIEmg meii_;
+    core::Daq* q8_emg_;
+    exo::MahiExoIIEmg meii_;
 
     // MEII PARAMETERS
-    mel::int8_vec backdrive_ = { 0,1,1,1,1 }; // anatomical joints; 1 = backdrivable, 0 = active
+    int8_vec backdrive_ = { 0,1,1,1,1 }; // anatomical joints; 1 = backdrivable, 0 = active
 
     // MEII POSITION CONTROL
-    mel::double_vec kp_ = { 50, 7, 25, 30, 0 };
-    mel::double_vec kd_ = { 0.25, 0.06, 0.05, 0.08, 0.0 };
-    mel::double_vec init_pos_ = mel::double_vec(5, 0.0);
-    mel::double_vec goal_pos_ = mel::double_vec(5, 0.0);
+    double_vec kp_ = { 50, 7, 25, 30, 0 };
+    double_vec kd_ = { 0.25, 0.06, 0.05, 0.08, 0.0 };
+    double_vec init_pos_ = double_vec(5, 0.0);
+    double_vec goal_pos_ = double_vec(5, 0.0);
     double init_time_ = 0.0;
-    mel::double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
-    mel::double_vec x_ref_ = mel::double_vec(5, 0);
-    mel::double_vec set_points_ = mel::double_vec(5, 0.0);
-    mel::double_vec new_torques_ = mel::double_vec(5, 0.0);
+    double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
+    double_vec x_ref_ = double_vec(5, 0);
+    double_vec set_points_ = double_vec(5, 0.0);
+    double_vec new_torques_ = double_vec(5, 0.0);
 
     // FORCE SENSING
-    mel::double_vec commanded_torques_ = mel::double_vec(5, 0);
+    double_vec commanded_torques_ = double_vec(5, 0);
 
     // EMG SENSING
     static const int num_emg_channels_ = 8;
-    mel::double_vec emg_voltages_ = mel::double_vec(num_emg_channels_, 0);
+    double_vec emg_voltages_ = double_vec(num_emg_channels_, 0);
     struct EmgDataBuffer {
         EmgDataBuffer(size_t num_channels, size_t length) :
             num_channels_(num_channels),
@@ -160,23 +160,23 @@ private:
                 data_buffer_.push_back(boost::circular_buffer<double>(length_,0.0));
             }
         }
-        void push_back(mel::double_vec data_vec) {
+        void push_back(double_vec data_vec) {
             if (data_vec.size() != num_channels_) {
-                mel::print("ERROR: Incorrect number of rows when calling EmgDataBuffer::push_back().");
+                util::print("ERROR: Incorrect number of rows when calling EmgDataBuffer::push_back().");
             }
             for (int i = 0; i < num_channels_; ++i) {
                 data_buffer_[i].push_back(data_vec[i]);
             }
         }
-        mel::double_vec at(int index) {
-            mel::double_vec data_vec;
+        double_vec at(int index) {
+            double_vec data_vec;
             for (int i = 0; i < num_channels_; ++i) {
                 data_vec.push_back(data_buffer_[i][index]);
             }
             return data_vec;
         }
-        mel::double_vec get_channel(int index) {
-            mel::double_vec channel_vec;
+        double_vec get_channel(int index) {
+            double_vec channel_vec;
             for (int i = 0; i < length_; ++i) {
                 channel_vec.push_back(data_buffer_[index][i]);
             }
@@ -190,26 +190,26 @@ private:
 
     // EMG FEATURE EXTRACTION
     static const int num_features_ = 9;
-    mel::double_vec feature_vec_ = mel::double_vec(num_features_*num_emg_channels_, 0);
+    double_vec feature_vec_ = double_vec(num_features_*num_emg_channels_, 0);
     std::array<double, num_features_*num_emg_channels_> feature_array_;
-    mel::double_vec feature_extract(EmgDataBuffer& emg_data_buffer);
+    double_vec feature_extract(EmgDataBuffer& emg_data_buffer);
     double rms_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double mav_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double wl_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double zc_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double ssc_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
-    void ar4_feature_extract(mel::double_vec& coeffs, const mel::double_vec& emg_channel_buffer);
+    void ar4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer);
 
     // EMG TRAINING DATA
     static const int num_class_ = 2;
     std::vector<std::array<double,num_features_*num_emg_channels_>> emg_training_data_;
     int N_train_ = target_sequence_.size();
-    mel::share::MelShare trng_size_ = mel::share::MelShare("trng_size");
-    mel::share::MelShare trng_share_ = mel::share::MelShare("trng_share");
-    mel::share::MelShare label_share_ = mel::share::MelShare("label_share");
-    mel::share::MelShare lda_coeff_ = mel::share::MelShare("LDA_coeff");
-    mel::share::MelShare trng_size2_ = mel::share::MelShare("trng_size2");
-    mel::share::MelShare feat_id_ = mel::share::MelShare("feat_id");
+    comm::MelShare trng_size_ = comm::MelShare("trng_size");
+    comm::MelShare trng_share_ = comm::MelShare("trng_share");
+    comm::MelShare label_share_ = comm::MelShare("label_share");
+    comm::MelShare lda_coeff_ = comm::MelShare("LDA_coeff");
+    comm::MelShare trng_size2_ = comm::MelShare("trng_size2");
+    comm::MelShare feat_id_ = comm::MelShare("feat_id");
     
     // STATE TRANSITION EVENTS
     bool init_transparent_time_reached_ = false;
@@ -223,22 +223,22 @@ private:
     double st_enter_time_;
 
     // UTILITY FUNCTIONS
-    bool check_target_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec check_joint, bool print_output = false);
+    bool check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, bool print_output = false);
     bool check_wait_time_reached(double wait_time, double init_time, double current_time);
     bool check_force_mag_reached(double force_mag_goal, double force_mag);
 
     // UNITY INPUT/OUTPUT
     int scene_num_share = 0;
-    mel::share::MelShare scene_num_ = mel::share::MelShare("scene_num");
+    comm::MelShare scene_num_ = comm::MelShare("scene_num");
     int target_share_ = 0;
-    mel::share::MelShare target_ = mel::share::MelShare("target");
+    comm::MelShare target_ = comm::MelShare("target");
     double force_share_ = 0.0;
-    mel::share::MelShare force_mag_ = mel::share::MelShare("force_mag");
+    comm::MelShare force_mag_ = comm::MelShare("force_mag");
 
     // MELSCOPE VARIABLES
-    mel::share::MelShare pos_share_ = mel::share::MelShare("pos_share");
-    mel::share::MelShare vel_share_ = mel::share::MelShare("vel_share");
-    mel::share::MelShare emg_share_ = mel::share::MelShare("emg_share");
-    mel::share::MelShare torque_share_ = mel::share::MelShare("torque_share");
+    comm::MelShare pos_share_ = comm::MelShare("pos_share");
+    comm::MelShare vel_share_ = comm::MelShare("vel_share");
+    comm::MelShare emg_share_ = comm::MelShare("emg_share");
+    comm::MelShare torque_share_ = comm::MelShare("torque_share");
 
 };

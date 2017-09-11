@@ -5,7 +5,7 @@
 
 using namespace mel;
 
-SmoothPositionControl::SmoothPositionControl(Clock& clock, Daq* daq, MahiExoII& meii) :
+SmoothPositionControl::SmoothPositionControl(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii) :
     StateMachine(5),
     clock_(clock),
     daq_(daq),
@@ -14,21 +14,21 @@ SmoothPositionControl::SmoothPositionControl(Clock& clock, Daq* daq, MahiExoII& 
 }
 
 void SmoothPositionControl::wait_for_input() {
-    Input::wait_for_key_press(Input::Key::Space);
+    util::Input::wait_for_key_press(util::Input::Key::Space);
 }
 
 bool SmoothPositionControl::check_stop() {
-    return Input::is_key_pressed(Input::Escape) || (Input::is_key_pressed(Input::LControl) && Input::is_key_pressed(Input::C));
+    return util::Input::is_key_pressed(util::Input::Escape) || (util::Input::is_key_pressed(util::Input::LControl) && util::Input::is_key_pressed(util::Input::C));
 }
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_init(const NoEventData* data) {
+void SmoothPositionControl::sf_init(const util::NoEventData* data) {
 
     // enable MEII EMG DAQ
-    print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    Input::wait_for_key_press(Input::Key::Return);
+    util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -48,8 +48,8 @@ void SmoothPositionControl::sf_init(const NoEventData* data) {
     }
 
     // enable MEII
-    print("\nPress Enter to enable MEII.");
-    Input::wait_for_key_press(Input::Key::Return);
+    util::print("\nPress Enter to enable MEII.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -57,9 +57,9 @@ void SmoothPositionControl::sf_init(const NoEventData* data) {
     }
 
     // confirm start of experiment
-    print("\nPress Enter to run Position Control");
-    Input::wait_for_key_press(Input::Key::Return);
-    print("\nRunning Position Control ... ");
+    util::print("\nPress Enter to run Position Control");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::print("\nRunning Position Control ... ");
 
     // start the watchdog
     daq_->start_watchdog(0.1);
@@ -80,8 +80,8 @@ void SmoothPositionControl::sf_init(const NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "TRANSPARENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_transparent(const NoEventData* data) {
-    print("Robot Transparent");
+void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
+    util::print("Robot Transparent");
 
     // restart the clock
     clock_.start();
@@ -93,7 +93,7 @@ void SmoothPositionControl::sf_transparent(const NoEventData* data) {
         daq_->reload_watchdog();
         daq_->read_all();
 
-        print("meow");
+        util::print("meow");
 
         // update robot kinematics
         meii_.update_kinematics();
@@ -132,7 +132,7 @@ void SmoothPositionControl::sf_transparent(const NoEventData* data) {
         event(ST_WAYPOINT);
     }
     else {
-        print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -141,8 +141,8 @@ void SmoothPositionControl::sf_transparent(const NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "WAYPOINT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
-    mel::print("Moving to Waypoint");
+void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
+    util::print("Moving to Waypoint");
 
     // restart the clock
     clock_.start();
@@ -183,7 +183,6 @@ void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
             meii_.inverse_kinematics(q_ser_ref_, q_par_ref_);
             std::copy(q_par_ref_.begin(), q_par_ref_.end(), ref_pos_.begin() + 2);
             for (auto i = 0; i < 5; ++i) {
-                //pd_torques_[i] = mel::pd_controller(kp_[i], kd_[i], ref_pos_[i], meii_.joints_[i]->get_position(), 0, meii_.joints_[i]->get_velocity());
                 pd_torques_[i] = meii_.robot_joint_pd_controllers_[i].calculate(ref_pos_[i], meii_.joints_[i]->get_position(), 0, meii_.joints_[i]->get_velocity());
                 if (robot_joint_backdrive_[i] == 1) {
                     commanded_torques_[i] = 0;
@@ -194,7 +193,7 @@ void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
             }
 
             // set command torques
-            mel::print(pd_torques_);
+            util::print(pd_torques_);
             
             meii_.set_joint_torques(commanded_torques_);
 
@@ -220,11 +219,11 @@ void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
             //mel::print(pd_torques_);
             meii_.set_anatomical_joint_torques(commanded_torques_);
             switch (meii_.error_code_) {
-            case -1: mel::print("ERROR: Eigensolver did not converge!");
+            case -1: util::print("ERROR: Eigensolver did not converge!");
                 break;
-            case -2: mel::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
+            case -2: util::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
                 break;
-            case -3: mel::print("ERROR: Spectral norm of wrist Jacobian matrix too large");
+            case -3: util::print("ERROR: Spectral norm of wrist Jacobian matrix too large");
                 break;
             }
             break;
@@ -265,7 +264,7 @@ void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
         }
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -273,8 +272,8 @@ void SmoothPositionControl::sf_waypoint(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "FINISH" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_finish(const mel::NoEventData* data) {
-    mel::print("Finish Execution");
+void SmoothPositionControl::sf_finish(const util::NoEventData* data) {
+    util::print("Finish Execution");
 
     if (meii_.is_enabled()) {
         meii_.disable();
@@ -289,7 +288,7 @@ void SmoothPositionControl::sf_finish(const mel::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void SmoothPositionControl::sf_stop(const mel::NoEventData* data) {
+void SmoothPositionControl::sf_stop(const util::NoEventData* data) {
     std::cout << "Stop Robot" << std::endl;
     if (meii_.is_enabled()) {
         meii_.disable();
@@ -303,14 +302,14 @@ void SmoothPositionControl::sf_stop(const mel::NoEventData* data) {
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-bool SmoothPositionControl::check_waypoint_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec target_check_joint, bool print_output) {
+bool SmoothPositionControl::check_waypoint_reached(double_vec goal_pos, double_vec current_pos, char_vec target_check_joint, bool print_output) {
 
     bool target_reached = true;
     for (int i = 0; i < 5; ++i) {
         if (target_check_joint[i]) {
             if (std::abs(goal_pos[i] - current_pos[i]) > std::abs(pos_tol_[i])) {
                 if (print_output && target_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*mel::RAD2DEG) << std::endl;
+                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*math::RAD2DEG) << std::endl;
                 }
                 target_reached = false;
             }

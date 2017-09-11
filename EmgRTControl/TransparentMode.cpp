@@ -4,7 +4,7 @@
 
 using namespace mel;
 
-TransparentMode::TransparentMode(Clock& clock, Daq* daq, MahiExoII& meii) :
+TransparentMode::TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii) :
     StateMachine(3),
     clock_(clock),
     daq_(daq),
@@ -13,21 +13,21 @@ TransparentMode::TransparentMode(Clock& clock, Daq* daq, MahiExoII& meii) :
 }
 
 void TransparentMode::wait_for_input() {
-    mel::Input::wait_for_key_press(mel::Input::Key::Space);
+    util::Input::wait_for_key_press(util::Input::Key::Space);
 }
 
 bool TransparentMode::check_stop() {
-    return mel::Input::is_key_pressed(mel::Input::Escape) || (mel::Input::is_key_pressed(mel::Input::LControl) && mel::Input::is_key_pressed(mel::Input::C));
+    return util::Input::is_key_pressed(util::Input::Escape) || (util::Input::is_key_pressed(util::Input::LControl) && util::Input::is_key_pressed(util::Input::C));
 }
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void TransparentMode::sf_init(const mel::NoEventData* data) {
+void TransparentMode::sf_init(const util::NoEventData* data) {
 
     // enable MEII EMG DAQ
-    mel::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -41,14 +41,14 @@ void TransparentMode::sf_init(const mel::NoEventData* data) {
         event(ST_STOP);
         return;
     }
-    if (!Q8Usb::check_digital_loopback(0, 7)) {
+    if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
         event(ST_STOP);
         return;
     }
 
     // enable MEII
-    mel::print("\nPress Enter to enable MEII.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    util::print("\nPress Enter to enable MEII.");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -56,9 +56,9 @@ void TransparentMode::sf_init(const mel::NoEventData* data) {
     }
 
     // confirm start of experiment
-    mel::print("\nPress Enter to run Transparent Mode");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
-    mel::print("\nRunning Transparent Mode ... ");
+    util::print("\nPress Enter to run Transparent Mode");
+    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::print("\nRunning Transparent Mode ... ");
 
     // start the watchdog
     daq_->start_watchdog(0.1);
@@ -79,8 +79,8 @@ void TransparentMode::sf_init(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "TRANSPARENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void TransparentMode::sf_transparent(const mel::NoEventData* data) {
-    mel::print("Robot Transparent");
+void TransparentMode::sf_transparent(const util::NoEventData* data) {
+    util::print("Robot Transparent");
 
     // TRANSPARENT START
     sf_transparent_start();
@@ -107,9 +107,9 @@ void TransparentMode::sf_transparent(const mel::NoEventData* data) {
         // set zero torques
         meii_.set_anatomical_joint_torques({ 0,0,0,0,0 }, meii_.error_code_);
         switch (meii_.error_code_) {
-            case -1 : mel::print("ERROR: Eigensolver did not converge!");
+            case -1 : util::print("ERROR: Eigensolver did not converge!");
                 break;
-            case -2: mel::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
+            case -2: util::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
                 break;
         }
         if (meii_.error_code_ < 0) {
@@ -136,7 +136,7 @@ void TransparentMode::sf_transparent(const mel::NoEventData* data) {
         event(ST_STOP);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -146,7 +146,7 @@ void TransparentMode::sf_transparent(const mel::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void TransparentMode::sf_stop(const mel::NoEventData* data) {
+void TransparentMode::sf_stop(const util::NoEventData* data) {
     std::cout << "State Stop " << std::endl;
     if (meii_.is_enabled()) {
         meii_.disable();
