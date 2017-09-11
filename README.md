@@ -15,6 +15,6 @@ This repository includes all active and past software development for the MAHI E
 
 ## Project Directory
 
-- [**EMG RT Control**](https://github.com/ecraigmc707/MEII/tree/master/EmgRTControl) - TODO
-- [**Python LDA**](https://github.com/ecraigmc707/MEII/tree/master/PythonLDA) - TODO
-- [**MEII Scope**](https://github.com/ecraigmc707/MEII/tree/master/MEIIScope) - TODO
+- [**EMG RT Control**](https://github.com/craigmc707/MEII/tree/master/EmgRTControl) - TODO
+- [**Python LDA**](https://github.com/craigmc707/MEII/tree/master/PythonLDA) - TODO
+- [**MEII Scope**](https://github.com/craigmc707/MEII/tree/master/MEIIScope) - TODO
