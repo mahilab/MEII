@@ -3,6 +3,7 @@
 #include "Clock.h"
 #include "Daq.h"
 #include "MahiExoII.h"
+#include "MelShare.h"
 
 using namespace mel;
 
@@ -84,7 +85,9 @@ private:
     // STATE TRANSITION EVENTS
 
     // USEFUL STATE VARIABLES
-    double st_enter_time_;
 
+    // MELSCOPE VARIABLES
+    comm::MelShare pos_share_ = comm::MelShare("pos_share");
+    comm::MelShare vel_share_ = comm::MelShare("vel_share");
 
 };

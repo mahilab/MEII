@@ -1,6 +1,7 @@
 #include "TransparentMode.h"
 #include "Input.h"
 #include "mahiexoii_util.h"
+#include "Q8Usb.h"
 
 using namespace mel;
 
@@ -41,6 +42,7 @@ void TransparentMode::sf_init(const util::NoEventData* data) {
         event(ST_STOP);
         return;
     }
+    
     if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
         event(ST_STOP);
         return;
@@ -103,6 +105,10 @@ void TransparentMode::sf_transparent(const util::NoEventData* data) {
             stop_ = true;
             break;
         }
+
+        // write kinematics to MelScope
+        pos_share_.write(meii_.get_anatomical_joint_positions());
+        vel_share_.write(meii_.get_anatomical_joint_velocities());
 
         // set zero torques
         meii_.set_anatomical_joint_torques({ 0,0,0,0,0 }, meii_.error_code_);

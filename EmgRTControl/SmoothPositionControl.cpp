@@ -42,7 +42,7 @@ void SmoothPositionControl::sf_init(const util::NoEventData* data) {
         event(ST_STOP);
         return;
     }
-    if (!Q8Usb::check_digital_loopback(0, 7)) {
+    if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
         event(ST_STOP);
         return;
     }
@@ -93,11 +93,8 @@ void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
         daq_->reload_watchdog();
         daq_->read_all();
 
-        util::print("meow");
-
         // update robot kinematics
         meii_.update_kinematics();
-
 
         // check joint limits
         if (meii_.check_all_joint_limits()) {
@@ -193,7 +190,7 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
             }
 
             // set command torques
-            util::print(pd_torques_);
+            util::print(pd_torques_[0]);
             
             meii_.set_joint_torques(commanded_torques_);
 

@@ -26,7 +26,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    EmgRTControl(util::Clock& clock, core::Daq* q8_emg, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode);
+    EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode);
 
 private:
 
@@ -38,7 +38,8 @@ private:
     enum States {
         ST_INIT,
         ST_TRANSPARENT,
-        ST_TO_CENTER,
+        ST_TO_CENTER_PAR,
+        ST_TO_CENTER_SER,
         ST_HOLD_CENTER,
         ST_PRESENT_TARGET,
         ST_PROCESS_EMG,
@@ -55,8 +56,11 @@ private:
     void sf_transparent(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_transparent> sa_transparent;
 
-    void sf_to_center(const util::NoEventData*);
-    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center> sa_to_center;
+    void sf_to_center_par(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center_par> sa_to_center_par;
+
+    void sf_to_center_ser(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center_ser> sa_to_center_ser;
 
     void sf_hold_center(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_hold_center> sa_hold_center;
@@ -81,7 +85,8 @@ private:
         static const util::StateMapRow STATE_MAP[] = {
             &sa_init,
             &sa_transparent,
-            &sa_to_center,
+            &sa_to_center_par,
+            &sa_to_center_ser,
             &sa_hold_center,
             &sa_present_target,
             &sa_process_emg,
@@ -99,14 +104,15 @@ private:
     bool stop_ = false;
 
     //-------------------------------------------------------------------------
-    // EXPERIMENT SETUP
+    // EXPERIMENT SETUP & COMPONENTS
     //-------------------------------------------------------------------------
 
     int current_target_ = 0;
-    double init_transparent_time_ = 3.0; // [s]
+    double init_transparent_time_ = 2.0; // [s]
     std::vector<int> target_sequence_ = { 1, 2, 1, 2 };
     char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
-    double_vec target_tol_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
+    double_vec target_tol_par_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 0.05 };
+    double_vec target_tol_ser_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.5 * math::DEG2RAD, 0.5 * math::DEG2RAD, 0.005 };
     double hold_center_time_ = 1.0; // time to hold at center target [s]
     double force_mag_goal_ = 1000.0; // [N^2]
     double force_mag_tol_ = 100.0; // [N]
@@ -115,11 +121,8 @@ private:
     double force_mag_time_now_ = 0.0;
     double force_mag_time_last_ = 0.0;
 
-    double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 };
+    double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
 
-    //-------------------------------------------------------------------------
-    // EXPERIMENT COMPONENTS
-    //-------------------------------------------------------------------------
 
     // GUI FLAGS
     util::GuiFlag& gui_flag_;
@@ -128,25 +131,26 @@ private:
     util::Clock clock_;
 
     // HARDWARE
-    core::Daq* q8_emg_;
+    core::Daq* daq_;
     exo::MahiExoIIEmg meii_;
 
-    // MEII PARAMETERS
-    int8_vec backdrive_ = { 0,1,1,1,1 }; // anatomical joints; 1 = backdrivable, 0 = active
-
-    // MEII POSITION CONTROL
-    double_vec kp_ = { 50, 7, 25, 30, 0 };
-    double_vec kd_ = { 0.25, 0.06, 0.05, 0.08, 0.0 };
-    double_vec init_pos_ = double_vec(5, 0.0);
-    double_vec goal_pos_ = double_vec(5, 0.0);
-    double init_time_ = 0.0;
+    // EXO PARAMETERS
+    int rps_control_mode_ = 0; // 0 = robot joint space (parallel), 1 = anatomical joint space (serial)
+    char_vec robot_joint_backdrive_ = { 0, 0, 0, 0, 0 }; // 1 = backdrivable, 0 = active
+    char_vec anatomical_joint_backdrive_ = { 0, 0, 0, 0, 1 }; // 1 = backdrivable, 0 = active
     double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
-    double_vec x_ref_ = double_vec(5, 0);
-    double_vec set_points_ = double_vec(5, 0.0);
-    double_vec new_torques_ = double_vec(5, 0.0);
 
-    // FORCE SENSING
-    double_vec commanded_torques_ = double_vec(5, 0);
+    // SMOOTH REFERENCE TRAJECTORY
+    double_vec ref_pos_ = double_vec(5, 0.0);
+    double_vec q_ser_ref_ = double_vec(3, 0.0);
+    double_vec q_par_ref_ = double_vec(3, 0.0);
+    double init_time_ = 0.0;
+    double_vec start_pos_ = double_vec(5, 0.0);
+    double_vec goal_pos_ = double_vec(5, 0.0);
+
+    // ACTUATOR CONTROL
+    double_vec pd_torques_ = double_vec(5, 0.0);
+    double_vec commanded_torques_ = double_vec(5, 0.0);
 
     // EMG SENSING
     static const int num_emg_channels_ = 8;
@@ -203,7 +207,7 @@ private:
     // EMG TRAINING DATA
     static const int num_class_ = 2;
     std::vector<std::array<double,num_features_*num_emg_channels_>> emg_training_data_;
-    int N_train_ = target_sequence_.size();
+    size_t N_train_ = target_sequence_.size();
     comm::MelShare trng_size_ = comm::MelShare("trng_size");
     comm::MelShare trng_share_ = comm::MelShare("trng_share");
     comm::MelShare label_share_ = comm::MelShare("label_share");
@@ -223,7 +227,7 @@ private:
     double st_enter_time_;
 
     // UTILITY FUNCTIONS
-    bool check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, bool print_output = false);
+    bool check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, double_vec target_tol, bool print_output = false);
     bool check_wait_time_reached(double wait_time, double init_time, double current_time);
     bool check_force_mag_reached(double force_mag_goal, double force_mag);
 
