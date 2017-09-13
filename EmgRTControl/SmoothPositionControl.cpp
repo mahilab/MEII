@@ -167,6 +167,10 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
             break;
         }
 
+        // write kinematics to MelScope
+        pos_share_.write(meii_.get_anatomical_joint_positions());
+        vel_share_.write(meii_.get_anatomical_joint_velocities());
+
         switch (rps_control_mode_) {
 
         // robot joint space (parallel)
@@ -190,8 +194,6 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
             }
 
             // set command torques
-            util::print(pd_torques_[0]);
-            
             meii_.set_joint_torques(commanded_torques_);
 
             break;

@@ -7,7 +7,7 @@
 #include "Clock.h"
 #include "mel_util.h"
 #include "mahiexoii_util.h"
-#include "GuiFlag.h"
+#include "ExternalApp.h"
 #include <boost/circular_buffer.hpp>
 
 using namespace mel;
@@ -26,7 +26,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode);
+    EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii);
 
 private:
 
@@ -98,7 +98,6 @@ private:
     }
 
     // USER INPUT CONTROL
-    int INPUT_MODE_;
     void wait_for_input();
     bool check_stop();
     bool stop_ = false;
@@ -108,11 +107,11 @@ private:
     //-------------------------------------------------------------------------
 
     int current_target_ = 0;
-    double init_transparent_time_ = 2.0; // [s]
+    //double init_transparent_time_ = 2.0; // [s]
     std::vector<int> target_sequence_ = { 1, 2, 1, 2 };
-    char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
+    
     double_vec target_tol_par_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 0.05 };
-    double_vec target_tol_ser_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.5 * math::DEG2RAD, 0.5 * math::DEG2RAD, 0.005 };
+    double_vec target_tol_ser_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
     double hold_center_time_ = 1.0; // time to hold at center target [s]
     double force_mag_goal_ = 1000.0; // [N^2]
     double force_mag_tol_ = 100.0; // [N]
@@ -120,12 +119,14 @@ private:
     double force_mag_maintained_ = 0.0; // [s]
     double force_mag_time_now_ = 0.0;
     double force_mag_time_last_ = 0.0;
+    double_vec force_dof_scale_ = { 0.002, 0.001, 0.0005, 0.0005 };
+    char_vec target_dir_ = { 1, -1, 1, -1 };
 
     double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
 
+    // UNITY GAME
+    util::ExternalApp game = mel::util::ExternalApp("2D_targets", "C:\\Users\\Ted\\GitHub\\MEII\\Exo Visualization\\Builds\\Exo_Vis_Build_1.exe");
 
-    // GUI FLAGS
-    util::GuiFlag& gui_flag_;
 
     // HARDWARE CLOCK
     util::Clock clock_;
@@ -138,6 +139,7 @@ private:
     int rps_control_mode_ = 0; // 0 = robot joint space (parallel), 1 = anatomical joint space (serial)
     char_vec robot_joint_backdrive_ = { 0, 0, 0, 0, 0 }; // 1 = backdrivable, 0 = active
     char_vec anatomical_joint_backdrive_ = { 0, 0, 0, 0, 1 }; // 1 = backdrivable, 0 = active
+    char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
     double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
 
     // SMOOTH REFERENCE TRAJECTORY
@@ -216,7 +218,8 @@ private:
     comm::MelShare feat_id_ = comm::MelShare("feat_id");
     
     // STATE TRANSITION EVENTS
-    bool init_transparent_time_reached_ = false;
+    //bool init_transparent_time_reached_ = false;
+    bool scene_selected_ = false;
     bool target_reached_ = false;
     bool hold_center_time_reached_ = false;
     bool force_mag_reached_ = false;
@@ -232,12 +235,15 @@ private:
     bool check_force_mag_reached(double force_mag_goal, double force_mag);
 
     // UNITY INPUT/OUTPUT
-    int scene_num_share = 0;
+    int scene_num_share_ = 0;
     comm::MelShare scene_num_ = comm::MelShare("scene_num");
     int target_share_ = 0;
     comm::MelShare target_ = comm::MelShare("target");
     double force_share_ = 0.0;
     comm::MelShare force_mag_ = comm::MelShare("force_mag");
+
+    bool training_ = false;
+    int dof_ = 0;
 
     // MELSCOPE VARIABLES
     comm::MelShare pos_share_ = comm::MelShare("pos_share");

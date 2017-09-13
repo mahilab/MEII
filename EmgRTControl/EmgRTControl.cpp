@@ -4,24 +4,16 @@
 
 using namespace mel;
 
-EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii, util::GuiFlag& gui_flag, int input_mode) :
+EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
     StateMachine(10),
     clock_(clock),
     daq_(daq),
-    meii_(meii),
-    gui_flag_(gui_flag),
-    INPUT_MODE_(input_mode)
+    meii_(meii)
 {
 }
 
 void EmgRTControl::wait_for_input() {
-    if (INPUT_MODE_ == 0) {
-        util::Input::wait_for_key_press(util::Input::Key::Space);
-    }
-    else if (INPUT_MODE_ = 1) {
-        gui_flag_.wait_for_flag(1);
-        util::print("");
-    }
+    util::Input::wait_for_key_press(util::Input::Key::Space);
 }
 
 bool EmgRTControl::check_stop() {
@@ -33,9 +25,12 @@ bool EmgRTControl::check_stop() {
 //-----------------------------------------------------------------------------
 void EmgRTControl::sf_init(const util::NoEventData* data) {
 
+    // launch game
+    game.launch();
+
     // enable MEII EMG DAQ
-    util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    //util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
+    //util::Input::wait_for_key_press(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -55,8 +50,8 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     }
 
     // enable MEII
-    util::print("\nPress Enter to enable MEII.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    //util::print("\nPress Enter to enable MEII.");
+    //util::Input::wait_for_key_press(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -64,8 +59,8 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     }
 
     // confirm start of experiment
-    util::print("\nPress Enter to run EMG Real-Time Control");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    //util::print("\nPress Enter to run EMG Real-Time Control");
+    //util::Input::wait_for_key_press(util::Input::Key::Return);
     util::print("\nRunning EMG Real-Time Control ... ");
 
     // start the watchdog
@@ -92,10 +87,10 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
 
     // initialize event variables
     st_enter_time_ = clock_.time();
-    
 
     // enter the control loop
-    while (!init_transparent_time_reached_ && !stop_) {
+    //while (!init_transparent_time_reached_ && !stop_) {
+    while (!scene_selected_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -124,8 +119,16 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
         // write to daq
         daq_->write_all();
 
+        // read from Unity
+        scene_num_.read(scene_num_share_);
+
+        // check if scene selected in Unity
+        if (scene_num_share_ > 0) {
+            scene_selected_ = true;
+        }
+
         // check for init transparent time reached
-        init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
+        //init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
@@ -139,7 +142,8 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (init_transparent_time_reached_) {
+    else if (scene_selected_) {
+        util::print(scene_num_share_);
         start_pos_ = meii_.get_anatomical_joint_positions(); // set starting position as current position
         event(ST_TO_CENTER_PAR);
     }
@@ -205,6 +209,7 @@ void EmgRTControl::sf_to_center_par(const util::NoEventData* data) {
 
         // set command torques
         meii_.set_joint_torques(commanded_torques_);
+        //util::print(commanded_torques_);
 
         // write motor commands to MelScope
         torque_share_.write(commanded_torques_);
@@ -358,8 +363,7 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     target_share_ = 0;
 
     // enter the control loop
-    //while (!hold_center_time_reached_ && !stop_) {
-    while (!stop_) {
+    while (!hold_center_time_reached_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -409,7 +413,6 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
 
         // write motor commands to MelScope
         torque_share_.write(commanded_torques_);
-        util::print(pd_torques_[3]);
 
         // write to unity
         target_.write(target_share_);
@@ -434,7 +437,7 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     }
     else if (hold_center_time_reached_) {
         hold_center_time_reached_ = false; // reset flag
-        event(ST_STOP);
+        event(ST_PRESENT_TARGET);
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -466,6 +469,15 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         end_of_target_sequence_ = true;
     }
     force_share_ = 0;
+    util::print(target_share_);
+    
+    // check to see if we're in training mode
+    if ( (scene_num_share_-2) % 3 == 0) {
+        training_ = true;
+
+        // which dof are we looking at
+        dof_ = (scene_num_share_ - 2) / 3;
+    }
 
     // initialize force checking algorithm
     force_mag_maintained_ = 0; // [s]
@@ -528,8 +540,17 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         // write motor commands to MelScope
         torque_share_.write(commanded_torques_);
 
-        // artificial force input
-        force_share_ = 1000.0;
+        // measure interaction force for specified dof(s)
+        if (dof_ < 4) {
+            force_share_ = commanded_torques_[dof_] / force_dof_scale_[dof_] * target_dir_[current_target_] * (-1) ;
+        }
+        else if (dof_ == 4) {
+            force_share_ = (commanded_torques_[0] / force_dof_scale_[0] * target_dir_[current_target_] * (-1) + commanded_torques_[1] / force_dof_scale_[1] * target_dir_[current_target_] * (-1)) / 2;
+        }
+        else if (dof_ == 5) {
+            force_share_ = (commanded_torques_[2] / force_dof_scale_[2] * target_dir_[current_target_] * (-1) + commanded_torques_[3] / force_dof_scale_[3] * target_dir_[current_target_] * (-1)) / 2;
+        }
+        
 
         // get measured emg voltages
         // TO DO: add in band pass filtering
@@ -605,6 +626,10 @@ void EmgRTControl::sf_process_emg(const util::NoEventData* data) {
 void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
     
     util::print("Training Complete");
+
+    // write to Unity
+    scene_num_share_ = 0;
+    scene_num_.write(scene_num_share_);
 
     meii_.disable();
 

@@ -3,6 +3,7 @@
 #include "Clock.h"
 #include "Daq.h"
 #include "MahiExoII.h"
+#include "MelShare.h"
 
 using namespace mel;
 
@@ -106,7 +107,7 @@ private:
     // WAYPOINTS
     int num_wp_ = 1;
     int current_wp_ = 0;
-    double_vec wp_1_ = { -10.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD,  0.11 }; // anatomical joint positions
+    double_vec wp_1_ = { -35.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD, 0.0 * math::DEG2RAD,  0.11 }; // anatomical joint positions
 
     // TEMPORARY WAYPOINT CONTAINERS
     double_vec start_pos_ = double_vec(5, 0.0);
@@ -125,5 +126,10 @@ private:
     // UTILITY FUNCTIONS
     bool check_waypoint_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, bool print_output = false);
     bool check_wait_time_reached(double wait_time, double init_time, double current_time);
+
+    // MELSCOPE VARIABLES
+    comm::MelShare pos_share_ = comm::MelShare("pos_share");
+    comm::MelShare vel_share_ = comm::MelShare("vel_share");
+    comm::MelShare torque_share_ = comm::MelShare("torque_share");
 
 };
