@@ -11,6 +11,7 @@
 #include "MelShare.h"
 #include "GuiFlag.h"
 #include "Input.h"
+#include "EmgRTControl.h"
 
 using namespace mel;
 
@@ -71,9 +72,11 @@ int main(int argc, char * argv[]) {
 
     // run transparent mode
     util::Clock clock(1000);
+    util::enable_realtime();
     SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
     pos_ctrl.execute();
     delete q8_mot;
+    util::disable_realtime();
     return 0;
 
 }

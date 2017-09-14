@@ -1,11 +1,14 @@
 #include "EmgRTControl.h"
 #include "Input.h"
 #include "Motor.h"
+#include <iostream>
+#include <fstream>
+#include <string>
 
 using namespace mel;
 
 EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
-    StateMachine(10),
+    StateMachine(11),
     clock_(clock),
     daq_(daq),
     meii_(meii)
@@ -21,16 +24,57 @@ bool EmgRTControl::check_stop() {
 }
 
 //-----------------------------------------------------------------------------
-// "INITIALIZATION" STATE FUNCTION
+// "WAIT FOR GUI" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_init(const util::NoEventData* data) {
+void EmgRTControl::sf_wait_for_gui(const util::NoEventData* data) {
+    util::print("Waiting for Gui Input");
+
+    // initialize event variables
+    st_enter_time_ = clock_.time();
 
     // launch game
     game.launch();
 
+    // enter the control loop
+    while (!scene_selected_ && !stop_) {
+
+        // read from Unity
+        scene_num_share_.read(scene_num_);
+
+        // check if scene selected in Unity
+        if (scene_num_ > 0) {
+            scene_selected_ = true;
+        }
+
+        // check for stop input
+        stop_ = check_stop();
+
+        // wait for the next clock cycle
+        clock_.hybrid_wait();
+    }
+
+    // transition to next state
+    if (stop_) {
+        // stop if user provided input
+        event(ST_STOP);
+    }
+    else if (scene_selected_) {
+        set_experiment_conditions(scene_num_);
+        event(ST_INIT);
+    }
+    else {
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
+        event(ST_STOP);
+    }
+}
+
+
+//-----------------------------------------------------------------------------
+// "INITIALIZATION" STATE FUNCTION
+//-----------------------------------------------------------------------------
+void EmgRTControl::sf_init(const util::NoEventData* data) {
+
     // enable MEII EMG DAQ
-    //util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    //util::Input::wait_for_key_press(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -50,18 +94,30 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     }
 
     // enable MEII
-    //util::print("\nPress Enter to enable MEII.");
-    //util::Input::wait_for_key_press(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
         return;
     }
 
+    // read in target sequence from file
+    std::ifstream input("target_sequences.txt");
+    if (input.is_open()) {
+        while(!input.eof()) {
+            std::string number;
+            int data;
+            std::getline(input, number);
+            data = std::atoi(number.c_str());
+            target_sequence_.push_back(data);
+        }
+    }
+
     // confirm start of experiment
-    //util::print("\nPress Enter to run EMG Real-Time Control");
-    //util::Input::wait_for_key_press(util::Input::Key::Return);
     util::print("\nRunning EMG Real-Time Control ... ");
+
+    // write to Unity
+    target_num_ = 0;
+    target_num_share_.write(target_num_);
 
     // start the watchdog
     daq_->start_watchdog(0.1);
@@ -88,9 +144,11 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
     // initialize event variables
     st_enter_time_ = clock_.time();
 
+    // initialize temporary variables for control
+    const double_vec commanded_torques(meii_.N_aj_, 0.0);
+
     // enter the control loop
-    //while (!init_transparent_time_reached_ && !stop_) {
-    while (!scene_selected_ && !stop_) {
+    while (!init_transparent_time_reached_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -110,31 +168,19 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
         }
 
         // set zero torques
-        commanded_torques_ = { 0,0,0,0,0 };
-        meii_.set_anatomical_joint_torques(commanded_torques_);
-
-        // write motor commands to MelScope
-        torque_share_.write(commanded_torques_);
+        meii_.set_anatomical_joint_torques(commanded_torques);
 
         // write to daq
         daq_->write_all();
-
-        // read from Unity
-        scene_num_.read(scene_num_share_);
-
-        // check if scene selected in Unity
-        if (scene_num_share_ > 0) {
-            scene_selected_ = true;
-        }
 
         // check for init transparent time reached
-        //init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
+        init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
 
     // transition to next state
@@ -142,10 +188,8 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (scene_selected_) {
-        util::print(scene_num_share_);
-        start_pos_ = meii_.get_anatomical_joint_positions(); // set starting position as current position
-        event(ST_TO_CENTER_PAR);
+    else if (init_transparent_time_reached_) {
+        event(ST_INIT_RPS);
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -155,22 +199,27 @@ void EmgRTControl::sf_transparent(const util::NoEventData* data) {
 
 
 //-----------------------------------------------------------------------------
-// "GO TO CENTER UNDER PARALLEL CONTROL" STATE FUNCTION
+// "INITIALIZE RPS MECHANISM" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_to_center_par(const util::NoEventData* data) {
-    util::print("Go to Center under Parallel Control");
+void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
+    util::print("Initialize RPS Mechanism");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
 
-    // set goal position for trajectory
-    goal_pos_ = center_pos_;
+    // initialize temporary variables
+    meii_.update_kinematics();
+    double_vec rps_start_pos = meii_.get_wrist_parallel_positions();
+    double_vec rps_ref_pos = rps_start_pos;
+    double_vec rps_pd_torques(3, 0.0);
+    double_vec commanded_torques(meii_.N_aj_, 0.0);
 
-    // MelShare unity interface
-    target_share_ = 0;
+    // write to Unity
+    target_num_ = 0;
+    target_num_share_.write(target_num_);
 
     // enter the control loop
-    while (!target_reached_ && !stop_) {
+    while (!rps_init_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -179,66 +228,61 @@ void EmgRTControl::sf_to_center_par(const util::NoEventData* data) {
         // update robot kinematics
         meii_.update_kinematics();
 
-        // write kinematics to MelScope
-        pos_share_.write(meii_.get_anatomical_joint_positions());
-        vel_share_.write(meii_.get_anatomical_joint_velocities());
-
         // check joint limits
         if (meii_.check_all_joint_limits()) {
             stop_ = true;
             break;
         }
 
-        // robot joint space control (parallel)
-        // compute pd torques
-        for (auto i = 0; i < 5; ++i) {
-            ref_pos_[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
+        // write kinematics to MelScope
+        pos_share_.write(meii_.get_anatomical_joint_positions());
+        vel_share_.write(meii_.get_anatomical_joint_velocities());
+
+        // set zero torque for elbow and forearm joints (joints 0 and 1)
+        commanded_torques[0] = 0.0;
+        commanded_torques[1] = 0.0;
+
+        // compute wrist pd torques
+        for (auto i = 0; i < 3; ++i) {
+            rps_ref_pos[i] = moving_set_point(rps_start_pos[i], rps_init_pos_[i], st_enter_time_, clock_.time(), robot_joint_speed_[i + 2]);
+            rps_pd_torques[i] = meii_.robot_joint_pd_controllers_[i + 2].calculate(rps_ref_pos[i], meii_.joints_[i + 2]->get_position(), 0, meii_.joints_[i + 2]->get_velocity());
         }
-        std::copy(ref_pos_.begin() + 2, ref_pos_.end(), q_ser_ref_.begin());
-        meii_.inverse_kinematics(q_ser_ref_, q_par_ref_);
-        std::copy(q_par_ref_.begin(), q_par_ref_.end(), ref_pos_.begin() + 2);
-        for (auto i = 0; i < 5; ++i) {
-            pd_torques_[i] = meii_.robot_joint_pd_controllers_[i].calculate(ref_pos_[i], meii_.joints_[i]->get_position(), 0, meii_.joints_[i]->get_velocity());
-            if (robot_joint_backdrive_[i] == 1) {
-                commanded_torques_[i] = 0;
-            }
-            else {
-                commanded_torques_[i] = pd_torques_[i];
-            }
+        if (rps_backdrive_ == 1) {
+            commanded_torques[2] = 0;
+            commanded_torques[3] = 0;
+            commanded_torques[4] = 0;
+        }
+        else {
+            commanded_torques[2] = rps_pd_torques[0];
+            commanded_torques[3] = rps_pd_torques[1];
+            commanded_torques[4] = rps_pd_torques[2];
         }
 
         // set command torques
-        meii_.set_joint_torques(commanded_torques_);
-        //util::print(commanded_torques_);
-
-        // write motor commands to MelScope
-        torque_share_.write(commanded_torques_);
-
-        // write to Unity
-        target_.write(target_share_);
+        meii_.set_joint_torques(commanded_torques);
 
         // write to daq
         daq_->write_all();
 
-        // check for target reached
-        target_reached_ = check_target_reached(goal_pos_, meii_.get_anatomical_joint_positions(), target_check_joint_, target_tol_par_);
+        // check for rps mechanism in intialization position
+        rps_init_ = check_rps_init(rps_init_pos_, meii_.get_wrist_parallel_positions(), { 1, 1, 1 });
 
         // check for stop input
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
+
 
     // transition to next state
     if (stop_) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (target_reached_) {
-        target_reached_ = false; // reset flag
-        start_pos_ = meii_.get_anatomical_joint_positions(); // set starting position as current position
-        event(ST_TO_CENTER_SER);
+    else if (rps_init_) {
+        start_pos_ = meii_.get_anatomical_joint_positions(); // set initial waypoint as current position
+        event(ST_TO_CENTER);
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -246,20 +290,28 @@ void EmgRTControl::sf_to_center_par(const util::NoEventData* data) {
     }
 }
 
+
+
 //-----------------------------------------------------------------------------
-// "GO TO CENTER UNDER SERIAL CONTROL" STATE FUNCTION
+// "GO TO CENTER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgRTControl::sf_to_center_ser(const util::NoEventData* data) {
-    util::print("Go to Center under Serial Control");
+void EmgRTControl::sf_to_center(const util::NoEventData* data) {
+    util::print("Go to Center");
 
     // initialize event variables
     st_enter_time_ = clock_.time();
+    target_reached_ = false; // reset flag
+
+    // initialize temporary variables for control
+    double_vec ref_pos = start_pos_;
+    double_vec pd_torques(meii_.N_aj_, 0.0);
+    double_vec commanded_torques(meii_.N_aj_, 0.0);
 
     // set goal position for trajectory
     goal_pos_ = center_pos_;
 
     // MelShare unity interface
-    target_share_ = 0;
+    target_num_ = 0;
 
     // enter the control loop
     while (!target_reached_ && !stop_) {
@@ -281,21 +333,20 @@ void EmgRTControl::sf_to_center_ser(const util::NoEventData* data) {
             break;
         }
 
-        // anatomical joint space control (serial)
-        // compute pd torques
-        for (auto i = 0; i < 5; ++i) {
-            ref_pos_[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            pd_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+        // compute pd torques in anatomical joint space (serial wrist)
+        for (auto i = 0; i < meii_.N_aj_; ++i) {
+            ref_pos[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), anatomical_joint_speed_[i]);
+            pd_torques[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (anatomical_joint_backdrive_[i] == 1) {
-                commanded_torques_[i] = 0;
+                commanded_torques[i] = 0;
             }
             else {
-                commanded_torques_[i] = pd_torques_[i];
+                commanded_torques[i] = pd_torques[i];
             }
         }
 
         // set command torques
-        meii_.set_anatomical_joint_torques(commanded_torques_, meii_.error_code_);
+        meii_.set_anatomical_joint_torques(commanded_torques, meii_.error_code_);
         switch (meii_.error_code_) {
         case -1: util::print("ERROR: Eigensolver did not converge!");
             break;
@@ -311,23 +362,22 @@ void EmgRTControl::sf_to_center_ser(const util::NoEventData* data) {
         }
 
         // write motor commands to MelScope
-        torque_share_.write(commanded_torques_);
-        //util::print(commanded_torques_);
+        torque_share_.write(commanded_torques);
 
         // write to Unity
-        target_.write(target_share_);
+        target_num_share_.write(target_num_);
 
         // write to daq
         daq_->write_all();
 
         // check for target reached
-        target_reached_ = check_target_reached(goal_pos_, meii_.get_anatomical_joint_positions(), target_check_joint_, target_tol_ser_);
+        target_reached_ = check_target_reached(goal_pos_, meii_.get_anatomical_joint_positions(), target_check_joint_, target_anatomical_pos_tol_);
 
         // check for stop input
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
 
     // transition to next state
@@ -336,7 +386,7 @@ void EmgRTControl::sf_to_center_ser(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (target_reached_) {
-        target_reached_ = false; // reset flag
+        start_pos_ = meii_.get_anatomical_joint_positions(); // set starting position as current position
         event(ST_HOLD_CENTER);
     }
     else {
@@ -344,6 +394,7 @@ void EmgRTControl::sf_to_center_ser(const util::NoEventData* data) {
         event(ST_STOP);
     }
 }
+
 
 //-----------------------------------------------------------------------------
 // "HOLD AT CENTER" STATE FUNCTION
@@ -355,12 +406,17 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     st_enter_time_ = clock_.time();
     hold_center_time_reached_ = false;
 
+    // initialize temporary variables for control
+    double_vec ref_pos = start_pos_;
+    double_vec pd_torques(meii_.N_aj_, 0.0);
+    double_vec commanded_torques(meii_.N_aj_, 0.0);
+
     // initialize trajectory
     start_pos_ = center_pos_;
     goal_pos_ = center_pos_;
 
     // MelShare unity interface
-    target_share_ = 0;
+    target_num_ = 0;
 
     // enter the control loop
     while (!hold_center_time_reached_ && !stop_) {
@@ -382,21 +438,20 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
             break;
         }
 
-        // anatomical joint space control (serial)
-        // compute pd torques
-        for (auto i = 0; i < 5; ++i) {
-            ref_pos_[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            pd_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+        // compute pd torques in anatomical joint space (serial wrist)
+        for (auto i = 0; i < meii_.N_aj_; ++i) {
+            ref_pos[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), anatomical_joint_speed_[i]);
+            pd_torques[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (anatomical_joint_backdrive_[i] == 1) {
-                commanded_torques_[i] = 0;
+                commanded_torques[i] = 0;
             }
             else {
-                commanded_torques_[i] = pd_torques_[i];
+                commanded_torques[i] = pd_torques[i];
             }
         }
 
         // set command torques
-        meii_.set_anatomical_joint_torques(commanded_torques_,meii_.error_code_);
+        meii_.set_anatomical_joint_torques(commanded_torques, meii_.error_code_);
         switch (meii_.error_code_) {
         case -1: util::print("ERROR: Eigensolver did not converge!");
             break;
@@ -412,10 +467,10 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         }
 
         // write motor commands to MelScope
-        torque_share_.write(commanded_torques_);
+        torque_share_.write(commanded_torques);
 
         // write to unity
-        target_.write(target_share_);
+        target_num_share_.write(target_num_);
 
         // write to daq
         daq_->write_all();
@@ -427,7 +482,7 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
 
     // transition to next state
@@ -436,7 +491,6 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (hold_center_time_reached_) {
-        hold_center_time_reached_ = false; // reset flag
         event(ST_PRESENT_TARGET);
     }
     else {
@@ -456,33 +510,32 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     // initialize event variables
     st_enter_time_ = clock_.time();
 
+    // initialize temporary variables for control
+    double_vec ref_pos = start_pos_;
+    double_vec pd_torques(meii_.N_aj_, 0.0);
+    double_vec commanded_torques(meii_.N_aj_, 0.0);
+
     // initialize trajectory
     start_pos_ = center_pos_;
     goal_pos_ = center_pos_;
 
-    // MelShare unity interface
-    if (current_target_ < target_sequence_.size()) {
-        target_share_ = target_sequence_[current_target_];
-    }
-    else {
-        target_share_ = target_sequence_.back();
-        end_of_target_sequence_ = true;
-    }
-    force_share_ = 0;
-    util::print(target_share_);
-    
-    // check to see if we're in training mode
-    if ( (scene_num_share_-2) % 3 == 0) {
-        training_ = true;
-
-        // which dof are we looking at
-        dof_ = (scene_num_share_ - 2) / 3;
-    }
-
     // initialize force checking algorithm
+    force_mag_ = 0;
     force_mag_maintained_ = 0; // [s]
     force_mag_time_now_ = clock_.global_time();
     force_mag_time_last_ = clock_.global_time();
+
+    // MelShare unity interface
+    if (current_target_idx_ < target_sequence_.size()) {
+        target_num_ = target_sequence_[current_target_idx_];
+    }
+    else {
+        target_num_ = target_sequence_.back();
+        end_of_target_sequence_ = true;
+    }
+    
+    
+    
 
     // initialize emg data buffer
     //boost::circular_buffer<double> emg_data_buffer_(200);
@@ -508,21 +561,20 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
             break;
         }
 
-        // anatomical joint space control (serial)
-        // compute pd torques
-        for (auto i = 0; i < 5; ++i) {
-            ref_pos_[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            pd_torques_[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+        // compute pd torques in anatomical joint space (serial wrist)
+        for (auto i = 0; i < meii_.N_aj_; ++i) {
+            ref_pos[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), anatomical_joint_speed_[i]);
+            pd_torques[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (anatomical_joint_backdrive_[i] == 1) {
-                commanded_torques_[i] = 0;
+                commanded_torques[i] = 0;
             }
             else {
-                commanded_torques_[i] = pd_torques_[i];
+                commanded_torques[i] = pd_torques[i];
             }
         }
 
         // set command torques
-        meii_.set_anatomical_joint_torques(commanded_torques_, meii_.error_code_);
+        meii_.set_anatomical_joint_torques(commanded_torques, meii_.error_code_);
         switch (meii_.error_code_) {
         case -1: util::print("ERROR: Eigensolver did not converge!");
             break;
@@ -538,19 +590,12 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         }
 
         // write motor commands to MelScope
-        torque_share_.write(commanded_torques_);
+        torque_share_.write(commanded_torques);
 
         // measure interaction force for specified dof(s)
-        if (dof_ < 4) {
-            force_share_ = commanded_torques_[dof_] / force_dof_scale_[dof_] * target_dir_[current_target_] * (-1) ;
-        }
-        else if (dof_ == 4) {
-            force_share_ = (commanded_torques_[0] / force_dof_scale_[0] * target_dir_[current_target_] * (-1) + commanded_torques_[1] / force_dof_scale_[1] * target_dir_[current_target_] * (-1)) / 2;
-        }
-        else if (dof_ == 5) {
-            force_share_ = (commanded_torques_[2] / force_dof_scale_[2] * target_dir_[current_target_] * (-1) + commanded_torques_[3] / force_dof_scale_[3] * target_dir_[current_target_] * (-1)) / 2;
-        }
+        force_mag_ = measure_task_force(commanded_torques, target_num_, dof_, condition_);
         
+        //util::print(force_mag_);
 
         // get measured emg voltages
         // TO DO: add in band pass filtering
@@ -558,12 +603,11 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         emg_share_.write(emg_data_buffer_.at(0));
 
         // check force magnitude
-        force_mag_reached_ = check_force_mag_reached(force_mag_goal_, force_share_);
+        force_mag_reached_ = check_force_mag_reached(force_mag_goal_, force_mag_);
 
         // write to unity
-        target_.write(target_share_);
-        //pos_data_.write(meii_.get_anatomical_joint_positions());
-        force_mag_.write(force_share_);
+        target_num_share_.write(target_num_);
+        force_mag_share_.write(force_mag_);
 
         // write to daq
         daq_->write_all();
@@ -572,7 +616,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
 
     // transition to next state
@@ -582,7 +626,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     }
     else if (force_mag_reached_) {
         force_mag_reached_ = false; // reset flag
-        current_target_++;
+        current_target_idx_++;
         event(ST_PROCESS_EMG);
     }
     else if (end_of_target_sequence_) {
@@ -627,9 +671,9 @@ void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
     
     util::print("Training Complete");
 
-    // write to Unity
-    scene_num_share_ = 0;
-    scene_num_.write(scene_num_share_);
+    // write to Unity (hasn't been working)
+    // scene_num_ = 0;
+    // scene_num_share_.write(scene_num_);
 
     meii_.disable();
 
@@ -690,7 +734,7 @@ void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        clock_.hybrid_wait();
     }
 
     event(ST_FINISH);
@@ -725,7 +769,29 @@ void EmgRTControl::sf_stop(const util::NoEventData* data) {
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-bool EmgRTControl::check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec target_check_joint, double_vec target_tol, bool print_output) {
+void EmgRTControl::set_experiment_conditions(int scene_num) {
+    dof_ = (scene_num - 2) / 3;
+    condition_ = (scene_num - 2) % 3;
+}
+
+
+bool EmgRTControl::check_rps_init(double_vec rps_init_pos, double_vec rps_current_pos, char_vec check_joint, bool print_output) const {
+
+    bool pos_reached = true;
+    for (int i = 0; i < 3; ++i) {
+        if (check_joint[i]) {
+            if (std::abs(rps_init_pos[i] - rps_current_pos[i]) > std::abs(rps_pos_tol_)) {
+                if (print_output && pos_reached) {
+                    std::cout << "Joint " << std::to_string(i) << " error is " << (std::abs(rps_init_pos[i] - rps_current_pos[i])) << std::endl;
+                }
+                pos_reached = false;
+            }
+        }
+    }
+    return pos_reached;
+}
+
+bool EmgRTControl::check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec target_check_joint, double_vec target_tol, bool print_output) const {
 
     bool target_reached = true;
     for (int i = 0; i < 5; ++i) {
@@ -741,8 +807,22 @@ bool EmgRTControl::check_target_reached(double_vec goal_pos, double_vec current_
     return target_reached;
 }
 
-bool EmgRTControl::check_wait_time_reached(double wait_time, double init_time, double current_time) {
+bool EmgRTControl::check_wait_time_reached(double wait_time, double init_time, double current_time) const {
     return (current_time - init_time) > wait_time;
+}
+
+double EmgRTControl::measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const {
+    double signed_task_force;
+    if (dof < 4) {
+        signed_task_force = (-1.0) * (commanded_torques[dof] + gravity_offsets_[dof]) * force_mag_goal_ / force_dof_scale_[dof] * target_dir_[dof][target_num-1];
+    }
+    else if (dof == 4) {
+        signed_task_force = (-1.0) * ((commanded_torques[0] + gravity_offsets_[0]) * force_mag_goal_ / force_dof_scale_[0] * target_dir_[dof][target_num-1] + (commanded_torques[1] + gravity_offsets_[1]) * force_mag_goal_ / force_dof_scale_[1] * target_dir_[dof+1][target_num-1]) / 2.0;
+    }
+    else if (dof == 5) {
+        signed_task_force = (-1.0) * ((commanded_torques[2] + gravity_offsets_[2]) * force_mag_goal_ / force_dof_scale_[2] * target_dir_[dof][target_num-1] + (commanded_torques[3] + gravity_offsets_[3]) * force_mag_goal_ / force_dof_scale_[3] * target_dir_[dof+1][target_num-1]) / 2.0;
+    }
+    return std::max(0.0, signed_task_force);
 }
 
 bool EmgRTControl::check_force_mag_reached(double force_mag_goal, double force_mag) {
@@ -752,7 +832,7 @@ bool EmgRTControl::check_force_mag_reached(double force_mag_goal, double force_m
     return force_mag_maintained_ > force_mag_dwell_time_;
 }
 
-double_vec EmgRTControl::feature_extract(EmgDataBuffer& emg_data_buffer) {
+double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) {
 
     double_vec feature_vec;
     feature_vec.reserve(num_emg_channels_*num_features_);
@@ -767,8 +847,6 @@ double_vec EmgRTControl::feature_extract(EmgDataBuffer& emg_data_buffer) {
     double_vec ar3_vec(num_emg_channels_, 0.0);
     double_vec ar4_vec(num_emg_channels_, 0.0);
 
-    
-
     // extract unnormalized features
     for (int i = 0; i < num_emg_channels_; ++i) {
         nrms_vec[i] = rms_feature_extract(emg_data_buffer.data_buffer_[i]);        
@@ -781,8 +859,7 @@ double_vec EmgRTControl::feature_extract(EmgDataBuffer& emg_data_buffer) {
         ar2_vec[i] = ar_vec[1];
         ar3_vec[i] = ar_vec[2];
         ar4_vec[i] = ar_vec[3];
-    }
-    
+    }    
 
     // normalize features
     double rms_mean = 0.0;

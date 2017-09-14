@@ -8,7 +8,7 @@
 #include "mel_util.h"
 #include "mahiexoii_util.h"
 #include "ExternalApp.h"
-#include <boost/circular_buffer.hpp>
+
 
 using namespace mel;
 
@@ -36,10 +36,11 @@ private:
 
     // STATES
     enum States {
+        ST_WAIT_FOR_GUI,
         ST_INIT,
         ST_TRANSPARENT,
-        ST_TO_CENTER_PAR,
-        ST_TO_CENTER_SER,
+        ST_INIT_RPS,
+        ST_TO_CENTER,
         ST_HOLD_CENTER,
         ST_PRESENT_TARGET,
         ST_PROCESS_EMG,
@@ -50,17 +51,20 @@ private:
     };
 
     // STATE FUNCTIONS
+    void sf_wait_for_gui(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_wait_for_gui> sa_wait_for_gui;
+
     void sf_init(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_init> sa_init;
 
     void sf_transparent(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_transparent> sa_transparent;
 
-    void sf_to_center_par(const util::NoEventData*);
-    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center_par> sa_to_center_par;
+    void sf_init_rps(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_init_rps> sa_init_rps;
 
-    void sf_to_center_ser(const util::NoEventData*);
-    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center_ser> sa_to_center_ser;
+    void sf_to_center(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_to_center> sa_to_center;
 
     void sf_hold_center(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_hold_center> sa_hold_center;
@@ -83,10 +87,11 @@ private:
     // STATE MAP
     virtual const util::StateMapRow* get_state_map() {
         static const util::StateMapRow STATE_MAP[] = {
+            &sa_wait_for_gui,
             &sa_init,
             &sa_transparent,
-            &sa_to_center_par,
-            &sa_to_center_ser,
+            &sa_init_rps,
+            &sa_to_center,
             &sa_hold_center,
             &sa_present_target,
             &sa_process_emg,
@@ -106,27 +111,8 @@ private:
     // EXPERIMENT SETUP & COMPONENTS
     //-------------------------------------------------------------------------
 
-    int current_target_ = 0;
-    //double init_transparent_time_ = 2.0; // [s]
-    std::vector<int> target_sequence_ = { 1, 2, 1, 2 };
-    
-    double_vec target_tol_par_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 5.0 * math::DEG2RAD, 0.05 };
-    double_vec target_tol_ser_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
-    double hold_center_time_ = 1.0; // time to hold at center target [s]
-    double force_mag_goal_ = 1000.0; // [N^2]
-    double force_mag_tol_ = 100.0; // [N]
-    double force_mag_dwell_time_ = 1.0; // [s]
-    double force_mag_maintained_ = 0.0; // [s]
-    double force_mag_time_now_ = 0.0;
-    double force_mag_time_last_ = 0.0;
-    double_vec force_dof_scale_ = { 0.002, 0.001, 0.0005, 0.0005 };
-    char_vec target_dir_ = { 1, -1, 1, -1 };
-
-    double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
-
     // UNITY GAME
     util::ExternalApp game = mel::util::ExternalApp("2D_targets", "C:\\Users\\Ted\\GitHub\\MEII\\Exo Visualization\\Builds\\Exo_Vis_Build_1.exe");
-
 
     // HARDWARE CLOCK
     util::Clock clock_;
@@ -135,70 +121,100 @@ private:
     core::Daq* daq_;
     exo::MahiExoIIEmg meii_;
 
-    // EXO PARAMETERS
-    int rps_control_mode_ = 0; // 0 = robot joint space (parallel), 1 = anatomical joint space (serial)
-    char_vec robot_joint_backdrive_ = { 0, 0, 0, 0, 0 }; // 1 = backdrivable, 0 = active
-    char_vec anatomical_joint_backdrive_ = { 0, 0, 0, 0, 1 }; // 1 = backdrivable, 0 = active
-    char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
-    double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
+    // EXPERIMENT CONDITION
+    int dof_ = 0; // 0-3 is single-dof; 4-5 is multi-dof
+    int condition_ = 0; // 0 = training; 1 = blind testing; 2 = full testing
 
-    // SMOOTH REFERENCE TRAJECTORY
-    double_vec ref_pos_ = double_vec(5, 0.0);
-    double_vec q_ser_ref_ = double_vec(3, 0.0);
-    double_vec q_par_ref_ = double_vec(3, 0.0);
-    double init_time_ = 0.0;
+    // EXO PARAMETERS
+    bool rps_backdrive_ = false; // 1 = backdrivable, 0 = active
+    char_vec anatomical_joint_backdrive_ = { 0, 0, 1, 1, 1 }; // 1 = backdrivable, 0 = active
+    const double_vec robot_joint_speed_ = { 0.25, 0.25, 0.015, 0.015, 0.015 }; // constant speed at which robot joint reference trajectories are interpolated
+    const double_vec anatomical_joint_speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 }; // constant speed at which anatomical joint reference trajectories are interpolated
+
+    // RPS MECHANISM SAFE INITIALIZATION PARAMETERS
+    const double_vec rps_init_pos_ = { 0.10, 0.10, 0.10 };
+    const double rps_pos_tol_ = 0.005; // tolerance in [m] for checking that initialization position is reached
+
+    // RANDOMIZED TARGET LISTS
+    int current_target_idx_ = 0;
+    std::vector<int> target_sequence_;
+
+    // EXPERIMENT TIMING PARAMETERS
+    double st_enter_time_;
+    const double init_transparent_time_ = 2.0; // [s]
+    const double hold_center_time_ = 1.0; // time to hold at center target [s]
+
+    // TEMPORARY WAYPOINT CONTAINERS
     double_vec start_pos_ = double_vec(5, 0.0);
     double_vec goal_pos_ = double_vec(5, 0.0);
 
-    // ACTUATOR CONTROL
-    double_vec pd_torques_ = double_vec(5, 0.0);
-    double_vec commanded_torques_ = double_vec(5, 0.0);
+    // PREDEFINED WAYPOINTS
+    const double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
 
-    // EMG SENSING
+    // TARGET CHECKING PARAMETERS
+    char_vec target_check_joint_ = { 1, 1, 0, 0, 0 };
+    const double_vec target_anatomical_pos_tol_ = { 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 1.0 * math::DEG2RAD, 0.01 };
+
+    // FORCE MEASUREMENT PARAMETERS
+    const double_vec force_dof_scale_ = { 3, 0.5, 0.5, 0.5 }; // [Nm]
+    const std::vector<char_vec> target_dir_ = {
+        { 1, -1 },
+        { -1, 1 },
+        { 1, -1 },
+        { 1, -1 },
+        { 1, 1, -1, -1 },
+        { -1, 1, -1, 1 },
+        { 1, 1, -1, -1 },
+        { 1, -1, 1, -1 } };
+    const double_vec gravity_offsets_ = { 1.0, 0.0, 0.0, 0.1, 0.0}; // for all 5 anatomical dofs
+    double force_mag_goal_ = 3000.0; //
+    double force_mag_tol_ = 100.0; //
+    double force_mag_dwell_time_ = 1.0; // [s]
+    double force_mag_maintained_ = 0.0; // [s]
+    double force_mag_time_now_ = 0.0;
+    double force_mag_time_last_ = 0.0;
+
+    
+
+    // UNITY INPUT/OUTPUT
+    int scene_num_ = 0;
+    int target_num_ = 0;
+    double force_mag_ = 0.0;
+    comm::MelShare scene_num_share_ = comm::MelShare("scene_num");
+    comm::MelShare target_num_share_ = comm::MelShare("target");
+    comm::MelShare force_mag_share_ = comm::MelShare("force_mag");
+    
+    // EMG SENSING PARAMETERS
     static const int num_emg_channels_ = 8;
-    double_vec emg_voltages_ = double_vec(num_emg_channels_, 0);
-    struct EmgDataBuffer {
-        EmgDataBuffer(size_t num_channels, size_t length) :
-            num_channels_(num_channels),
-            length_(length)
-        {
-            for (size_t i = 0; i < num_channels_; ++i) {
-                data_buffer_.push_back(boost::circular_buffer<double>(length_,0.0));
-            }
-        }
-        void push_back(double_vec data_vec) {
-            if (data_vec.size() != num_channels_) {
-                util::print("ERROR: Incorrect number of rows when calling EmgDataBuffer::push_back().");
-            }
-            for (int i = 0; i < num_channels_; ++i) {
-                data_buffer_[i].push_back(data_vec[i]);
-            }
-        }
-        double_vec at(int index) {
-            double_vec data_vec;
-            for (int i = 0; i < num_channels_; ++i) {
-                data_vec.push_back(data_buffer_[i][index]);
-            }
-            return data_vec;
-        }
-        double_vec get_channel(int index) {
-            double_vec channel_vec;
-            for (int i = 0; i < length_; ++i) {
-                channel_vec.push_back(data_buffer_[index][i]);
-            }
-            return channel_vec;
-        }
-        size_t num_channels_;
-        size_t length_;
-        std::vector<boost::circular_buffer<double>> data_buffer_;
-    };
-    EmgDataBuffer emg_data_buffer_ = EmgDataBuffer(num_emg_channels_, 200);
 
-    // EMG FEATURE EXTRACTION
+    // EMG FEATURE EXTRACTION PARAMETERS
     static const int num_features_ = 9;
+   
+    // STATE TRANSITION EVENT VARIABLES
+    bool scene_selected_ = false;
+    bool init_transparent_time_reached_ = false;
+    bool rps_init_ = false;
+    bool target_reached_ = false;
+    bool hold_center_time_reached_ = false;
+    bool force_mag_reached_ = false;
+    bool emg_data_processed_ = false;
+    bool end_of_target_sequence_ = false;
+
+    double_vec emg_voltages_ = double_vec(num_emg_channels_, 0);
     double_vec feature_vec_ = double_vec(num_features_*num_emg_channels_, 0);
     std::array<double, num_features_*num_emg_channels_> feature_array_;
-    double_vec feature_extract(EmgDataBuffer& emg_data_buffer);
+    exo::MahiExoIIEmg::EmgDataBuffer emg_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(num_emg_channels_, 200);
+
+    // UTILITY FUNCTIONS
+    void set_experiment_conditions(int scene_num);
+    bool check_rps_init(double_vec rps_init_pos, double_vec rps_current_pos, char_vec check_joint, bool print_output = false) const;
+    bool check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, double_vec target_tol, bool print_output = false) const;
+    bool check_wait_time_reached(double wait_time, double init_time, double current_time) const;
+    double measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const;
+    bool check_force_mag_reached(double force_mag_goal, double force_mag);
+
+    // EMG FEATURE EXTRACTION FUNCTIONS
+    double_vec feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer);
     double rms_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double mav_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double wl_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
@@ -211,39 +227,12 @@ private:
     std::vector<std::array<double,num_features_*num_emg_channels_>> emg_training_data_;
     size_t N_train_ = target_sequence_.size();
     comm::MelShare trng_size_ = comm::MelShare("trng_size");
-    comm::MelShare trng_share_ = comm::MelShare("trng_share");
+    comm::MelShare trng_share_ = comm::MelShare("trng_share", 4096);
     comm::MelShare label_share_ = comm::MelShare("label_share");
-    comm::MelShare lda_coeff_ = comm::MelShare("LDA_coeff");
+    comm::MelShare lda_coeff_ = comm::MelShare("LDA_coeff", 1024);
     comm::MelShare trng_size2_ = comm::MelShare("trng_size2");
     comm::MelShare feat_id_ = comm::MelShare("feat_id");
     
-    // STATE TRANSITION EVENTS
-    //bool init_transparent_time_reached_ = false;
-    bool scene_selected_ = false;
-    bool target_reached_ = false;
-    bool hold_center_time_reached_ = false;
-    bool force_mag_reached_ = false;
-    bool emg_data_processed_ = false;
-    bool end_of_target_sequence_ = false;
-
-    // USEFUL STATE VARIABLES
-    double st_enter_time_;
-
-    // UTILITY FUNCTIONS
-    bool check_target_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, double_vec target_tol, bool print_output = false);
-    bool check_wait_time_reached(double wait_time, double init_time, double current_time);
-    bool check_force_mag_reached(double force_mag_goal, double force_mag);
-
-    // UNITY INPUT/OUTPUT
-    int scene_num_share_ = 0;
-    comm::MelShare scene_num_ = comm::MelShare("scene_num");
-    int target_share_ = 0;
-    comm::MelShare target_ = comm::MelShare("target");
-    double force_share_ = 0.0;
-    comm::MelShare force_mag_ = comm::MelShare("force_mag");
-
-    bool training_ = false;
-    int dof_ = 0;
 
     // MELSCOPE VARIABLES
     comm::MelShare pos_share_ = comm::MelShare("pos_share");

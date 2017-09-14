@@ -24,12 +24,6 @@
     <ClCompile Include="mahiexoii_util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="main_testing.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="SmoothPositionControl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -47,6 +41,12 @@
     </ClCompile>
     <ClCompile Include="main_emg_training.cpp">
       <Filter>Archived</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="main_testing.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
