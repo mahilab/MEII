@@ -12,12 +12,56 @@
 #include "GuiFlag.h"
 #include "Input.h"
 #include "EmgRTControl.h"
+#include <iostream>
+#include <fstream>
+#include <string>
 
 using namespace mel;
 
 int main(int argc, char * argv[]) {
-    
-    // ignore CTRL-C signal (we can do this with Input)
+
+    /*std::vector<double> lda_classifier_;
+
+    std::ifstream input("LDA_coeffs.csv");
+    if (input.is_open()) {
+        while (!input.eof()) {
+            std::string number;
+            double data;
+            std::getline(input, number, ',');
+            data = std::atof(number.c_str());
+            lda_classifier_.push_back(data);
+            util::print(data);
+        }
+    }*/
+
+    std::vector<std::vector<double>> lda_classifier_;
+
+    std::ifstream input("LDA_coeffs.csv");
+    if (input.is_open()) {
+        std::string csv_line;
+        while (std::getline(input, csv_line)) {
+            std::istringstream csv_stream(csv_line);
+            std::vector<double> row;
+            std::string number;
+            double data;
+            while (std::getline(csv_stream, number, ',')) {
+                data = std::atof(number.c_str());
+                row.push_back(data);
+            }
+            lda_classifier_.push_back(row);
+        }
+    }
+    else {
+        util::print("ERROR: File not found.");
+    }
+
+    for (int i = 0; i < lda_classifier_.size(); ++i) {
+        util::print(lda_classifier_[i]);
+        util::print("\n");
+    }
+  
+
+    /*// ignore CTRL-C signal (we can do this with Input)
     signal(SIGINT, SIG_IGN);
 
     // set up program options 
@@ -53,7 +97,7 @@ int main(int argc, char * argv[]) {
 
     // create and configure a MahiExoII object
     exo::MahiExoII::Config config;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < exo::MahiExoII::N_rj_; ++i) {
         config.enable_[i] = q8_mot->do_(i+1);
         config.command_[i] = q8_mot->ao_(i+1);
         config.encoder_[i] = q8_mot->encoder_(i+1);
@@ -76,7 +120,7 @@ int main(int argc, char * argv[]) {
     SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
     pos_ctrl.execute();
     delete q8_mot;
-    util::disable_realtime();
+    util::disable_realtime();*/
     return 0;
 
 }

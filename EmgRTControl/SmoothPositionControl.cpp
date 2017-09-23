@@ -6,7 +6,7 @@
 using namespace mel;
 
 SmoothPositionControl::SmoothPositionControl(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii) :
-    StateMachine(6),
+    StateMachine(7),
     clock_(clock),
     daq_(daq),
     meii_(meii)
@@ -14,7 +14,7 @@ SmoothPositionControl::SmoothPositionControl(util::Clock& clock, core::Daq* daq,
 }
 
 void SmoothPositionControl::wait_for_input() {
-    util::Input::wait_for_key_press(util::Input::Key::Space);
+    util::Input::wait_for_key(util::Input::Key::Space);
 }
 
 bool SmoothPositionControl::check_stop() {
@@ -28,7 +28,7 @@ void SmoothPositionControl::sf_init(const util::NoEventData* data) {
 
     // enable MEII EMG DAQ
     util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -49,7 +49,7 @@ void SmoothPositionControl::sf_init(const util::NoEventData* data) {
 
     // enable MEII
     util::print("\nPress Enter to enable MEII.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -58,7 +58,7 @@ void SmoothPositionControl::sf_init(const util::NoEventData* data) {
 
     // confirm start of experiment
     util::print("\nPress Enter to run Position Control");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     util::print("\nRunning Position Control ... ");
 
     // start the watchdog
@@ -72,22 +72,22 @@ void SmoothPositionControl::sf_init(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else {
-        event(ST_TRANSPARENT);
+        event(ST_BACKDRIVE);
     }
 }
 
 
 //-----------------------------------------------------------------------------
-// "TRANSPARENT" STATE FUNCTION
+// "BACKDRIVE" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
-    util::print("Robot Transparent");
+void SmoothPositionControl::sf_backdrive(const util::NoEventData* data) {
+    util::print("Robot Backdriviable");
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    double st_enter_time = clock_.time();
 
     // enter the control loop
-    while (!init_transparent_time_reached_ && !stop_) {
+    while (!init_backdrive_time_reached_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -108,8 +108,8 @@ void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
         // write to daq
         daq_->write_all();
 
-        // check for init transparent time reached
-        init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
+        // check for init backdrive time reached
+        init_backdrive_time_reached_ = check_wait_time_reached(init_backdrive_time_, st_enter_time, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
@@ -123,7 +123,7 @@ void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (init_transparent_time_reached_) {
+    else if (init_backdrive_time_reached_) {
         event(ST_INIT_RPS);
     }
     else {
@@ -139,15 +139,10 @@ void SmoothPositionControl::sf_transparent(const util::NoEventData* data) {
 void SmoothPositionControl::sf_init_rps(const util::NoEventData* data) {
     util::print("Initialize RPS Mechanism");
 
-    // initialize event variables
-    st_enter_time_ = clock_.time();
-
-    // initialize temporary variables
+    // initialize rps initialization position controller
+    meii_.set_rps_control_mode(0);
     meii_.update_kinematics();
-    double_vec rps_start_pos = meii_.get_wrist_parallel_positions();
-    double_vec rps_ref_pos = rps_start_pos;
-    double_vec rps_pd_torques(3, 0.0);
-    double_vec commanded_torques(meii_.N_aj_, 0.0);
+    meii_.rps_init_par_ref_.start(meii_.get_wrist_parallel_positions(), clock_.time());
 
     // enter the control loop
     while (!rps_init_ && !stop_) {
@@ -170,33 +165,17 @@ void SmoothPositionControl::sf_init_rps(const util::NoEventData* data) {
         vel_share_.write(meii_.get_anatomical_joint_velocities());
 
         // set zero torque for elbow and forearm joints (joints 0 and 1)
-        commanded_torques[0] = 0.0;
-        commanded_torques[1] = 0.0;
+        meii_.joints_[0]->set_torque(0.0);
+        meii_.joints_[1]->set_torque(0.0);
 
-        // compute wrist pd torques
-        for (auto i = 0; i < 3; ++i) {
-            rps_ref_pos[i] = moving_set_point(rps_start_pos[i], rps_init_pos_[i], st_enter_time_, clock_.time(), robot_joint_speed_[i+2]);
-            rps_pd_torques[i] = meii_.robot_joint_pd_controllers_[i+2].calculate(rps_ref_pos[i], meii_.joints_[i+2]->get_position(), 0, meii_.joints_[i+2]->get_velocity());
-        }
-        if (rps_backdrive_ == 1) {
-            commanded_torques[2] = 0;
-            commanded_torques[3] = 0;
-            commanded_torques[4] = 0;
-        }
-        else {
-            commanded_torques[2] = rps_pd_torques[0];
-            commanded_torques[3] = rps_pd_torques[1];
-            commanded_torques[4] = rps_pd_torques[2];
-        }
-
-        // set command torques
-        meii_.set_joint_torques(commanded_torques);  
+        // run rps position control
+        meii_.set_rps_pos_ctrl_torques(meii_.rps_init_par_ref_, clock_.time());
 
         // write to daq
         daq_->write_all();
 
         // check for rps mechanism in intialization position
-        rps_init_ = check_rps_init(rps_init_pos_, meii_.get_wrist_parallel_positions(), { 1, 1, 1 });
+        rps_init_ = meii_.check_rps_init();
 
         // check for stop input
         stop_ = check_stop();
@@ -205,6 +184,8 @@ void SmoothPositionControl::sf_init_rps(const util::NoEventData* data) {
         clock_.hybrid_wait();
     }
 
+    // stop the rps intialization position controller
+    meii_.rps_init_par_ref_.stop();
 
     // transition to next state
     if (stop_) {
@@ -212,8 +193,11 @@ void SmoothPositionControl::sf_init_rps(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (rps_init_) {
-        start_pos_ = meii_.get_anatomical_joint_positions(); // set initial waypoint as current position
-        event(ST_WAYPOINT);
+        meii_.set_rps_control_mode(1); // initialize rps position controller mode and reference
+        //meii_.rps_par_ref_.start(wp_[current_wp_idx_], meii_.get_wrist_parallel_positions(), clock_.time());
+        //meii_.rps_ser_ref_.start(wp_[current_wp_idx_], meii_.get_wrist_serial_positions(), clock_.time());
+        meii_.anat_ref_.start(wp_[current_wp_idx_], meii_.get_anatomical_joint_positions(), clock_.time());
+        event(ST_TO_WAYPOINT);
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -224,28 +208,16 @@ void SmoothPositionControl::sf_init_rps(const util::NoEventData* data) {
 
 
 //-----------------------------------------------------------------------------
-// "WAYPOINT" STATE FUNCTION
+// "GO TO WAYPOINT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
+void SmoothPositionControl::sf_to_waypoint(const util::NoEventData* data) {
     util::print("Moving to Waypoint");
-
-    // initialize event variables
-    st_enter_time_ = clock_.time();
 
     // initialize event variables
     waypoint_reached_ = false;
 
-    // initialize temporary variables 
-    double_vec ref_pos = start_pos_;
-    double_vec pd_torques(meii_.N_aj_, 0.0);
-    double_vec commanded_torques(meii_.N_aj_, 0.0);
-
-    // set goal position as next waypoint position
-    goal_pos_ = wp_1_;
-
     // enter the control loop
-    //while (!waypoint_reached_ && !stop_) {
-    while (!stop_) {
+    while (!waypoint_reached_ && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -264,47 +236,29 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
         pos_share_.write(meii_.get_anatomical_joint_positions());
         vel_share_.write(meii_.get_anatomical_joint_velocities());
 
-        // compute pd torques in anatomical joint space (serial wrist)
-        for (auto i = 0; i < meii_.N_aj_; ++i) {
-            ref_pos[i] = moving_set_point(start_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), anatomical_joint_speed_[i]);
-            pd_torques[i] = meii_.anatomical_joint_pd_controllers_[i].calculate(ref_pos[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
-            if (anatomical_joint_backdrive_[i] == 1) {
-                commanded_torques[i] = 0;
-            }
-            else {
-                commanded_torques[i] = pd_torques[i];
-            }
-        }
+        // set zero torque for elbow and forearm joints (joints 0 and 1)
+        //meii_.joints_[0]->set_torque(0.0);
+        //meii_.joints_[1]->set_torque(0.0);
 
-        // set command torques
-        meii_.set_anatomical_joint_torques(commanded_torques, meii_.error_code_);
-        switch (meii_.error_code_) {
-        case -1: util::print("ERROR: Eigensolver did not converge!");
-            break;
-        case -2: util::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
-            break;
-        case -3: util::print("ERROR: Spectral norm of wrist Jacobian matrix too large");
-            break;
-        }
-
-        if (meii_.error_code_ < 0) {
-            stop_ = true;
-            break;
-        }
-
-        util::print(commanded_torques[2]);
+        // run position control
+        //meii_.set_rps_pos_ctrl_torques(meii_.rps_par_ref_, clock_.time());
+        //meii_.set_rps_pos_ctrl_torques(meii_.rps_ser_ref_, clock_.time());
+        meii_.set_anat_pos_ctrl_torques(meii_.anat_ref_, clock_.time());
 
         // write to daq
         daq_->write_all();
 
         // check for waypoint reached
-        waypoint_reached_ = check_waypoint_reached(goal_pos_, meii_.get_anatomical_joint_positions(), check_joint_);
+        //waypoint_reached_ = meii_.check_goal_rps_par_pos(wp_[current_wp_idx_], { 1, 1, 1 });
+        //waypoint_reached_ = meii_.check_goal_rps_ser_pos(wp_[current_wp_idx_], { 1, 1, 0 });
+        waypoint_reached_ = meii_.check_goal_anat_pos(wp_[current_wp_idx_], { 1, 1, 1, 1, 0 });
 
         // check for stop input
         stop_ = check_stop();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
+
     }
 
 
@@ -314,12 +268,86 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (waypoint_reached_) {
-        ++current_wp_;
-        if (current_wp_ < num_wp_) {
-            start_pos_ = goal_pos_; // set starting position as current waypoint
-            event(ST_WAYPOINT);
+        event(ST_HOLD_WAYPOINT);
+    }
+    else {
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
+        event(ST_STOP);
+    }
+}
+
+
+//-----------------------------------------------------------------------------
+// "HOLD AT WAYPOINT" STATE FUNCTION
+//-----------------------------------------------------------------------------
+void SmoothPositionControl::sf_hold_waypoint(const util::NoEventData* data) {
+    util::print("Holding at Waypoint");
+
+    // initialize event variables
+    double st_enter_time = clock_.time();
+    hold_time_reached_ = false;
+
+    // enter the control loop
+    while (!hold_time_reached_ && !stop_) {
+
+        // read and reload DAQs
+        daq_->reload_watchdog();
+        daq_->read_all();
+
+        // update robot kinematics
+        meii_.update_kinematics();
+
+        // check joint limits
+        if (meii_.check_all_joint_limits()) {
+            stop_ = true;
+            break;
+        }
+
+        // write kinematics to MelScope
+        pos_share_.write(meii_.get_anatomical_joint_positions());
+        vel_share_.write(meii_.get_anatomical_joint_velocities());
+
+        // set zero torque for elbow and forearm joints (joints 0 and 1)
+        //meii_.joints_[0]->set_torque(0.0);
+        //meii_.joints_[1]->set_torque(0.0);
+
+        // run position control
+        //meii_.set_rps_pos_ctrl_torques(meii_.rps_par_ref_, clock_.time());
+        //meii_.set_rps_pos_ctrl_torques(meii_.rps_ser_ref_, clock_.time());
+        meii_.set_anat_pos_ctrl_torques(meii_.anat_ref_, clock_.time());
+
+        // write to daq
+        daq_->write_all();
+
+        // check for hold time reached
+        hold_time_reached_ = check_wait_time_reached(hold_time_, st_enter_time, clock_.time());
+
+        // check for stop input
+        stop_ = check_stop();
+
+        // wait for the next clock cycle
+        clock_.hybrid_wait();
+    }
+
+
+
+    // transition to next state
+    if (stop_) {
+        // stop if user provided input
+        event(ST_STOP);
+    }
+    else if (hold_time_reached_) {
+        ++current_wp_idx_;
+        if (current_wp_idx_ < num_wp_) {
+            //meii_.rps_par_ref_.set_ref(wp_[current_wp_idx_], clock_.time());
+            //meii_.rps_ser_ref_.set_ref(wp_[current_wp_idx_], clock_.time());
+            meii_.anat_ref_.set_ref(wp_[current_wp_idx_], clock_.time());
+            event(ST_TO_WAYPOINT);
         }
         else {
+            //meii_.rps_par_ref_.stop();
+            //meii_.rps_ser_ref_.stop();
+            meii_.anat_ref_.stop();
             event(ST_FINISH);
         }
     }
@@ -328,6 +356,7 @@ void SmoothPositionControl::sf_waypoint(const util::NoEventData* data) {
         event(ST_STOP);
     }
 }
+
 
 //-----------------------------------------------------------------------------
 // "FINISH" STATE FUNCTION
@@ -361,38 +390,6 @@ void SmoothPositionControl::sf_stop(const util::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
-
-bool SmoothPositionControl::check_rps_init(double_vec rps_init_pos, double_vec rps_current_pos, char_vec check_joint, bool print_output) const {
-
-    bool pos_reached = true;
-    for (int i = 0; i < 3; ++i) {
-        if (check_joint[i]) {
-            if (std::abs(rps_init_pos[i] - rps_current_pos[i]) > std::abs(rps_pos_tol_)) {
-                if (print_output && pos_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (std::abs(rps_init_pos[i] - rps_current_pos[i])) << std::endl;
-                }
-                pos_reached = false;
-            }
-        }
-    }
-    return pos_reached;
-}
-
-bool SmoothPositionControl::check_waypoint_reached(double_vec goal_pos, double_vec current_pos, char_vec check_joint, bool print_output) const {
-
-    bool pos_reached = true;
-    for (int i = 0; i < 5; ++i) {
-        if (check_joint[i]) {
-            if (std::abs(goal_pos[i] - current_pos[i]) > std::abs(pos_tol_[i])) {
-                if (print_output && pos_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (std::abs(goal_pos[i] - current_pos[i])*math::RAD2DEG) << std::endl;
-                }
-                pos_reached = false;
-            }
-        }
-    }
-    return pos_reached;
-}
 
 bool SmoothPositionControl::check_wait_time_reached(double wait_time, double init_time, double current_time) const {
     return (current_time - init_time) > wait_time;

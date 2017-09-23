@@ -70,7 +70,6 @@ int main(int argc, char * argv[]) {
 
 
     // run the experiment
-    int input_mode = 0;
     util::Clock clock(1000);
     util::enable_realtime();
     EmgRTControl emg_rt_control(clock, q8_emg, meii);

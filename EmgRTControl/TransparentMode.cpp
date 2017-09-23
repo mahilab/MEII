@@ -14,7 +14,7 @@ TransparentMode::TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiEx
 }
 
 void TransparentMode::wait_for_input() {
-    util::Input::wait_for_key_press(util::Input::Key::Space);
+    util::Input::wait_for_key(util::Input::Key::Space);
 }
 
 bool TransparentMode::check_stop() {
@@ -28,7 +28,7 @@ void TransparentMode::sf_init(const util::NoEventData* data) {
 
     // enable MEII EMG DAQ
     util::print("\nPress Enter to enable MEII EMG Daq <" + daq_->name_ + ">.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     daq_->enable();
     if (!daq_->is_enabled()) {
         event(ST_STOP);
@@ -50,7 +50,7 @@ void TransparentMode::sf_init(const util::NoEventData* data) {
 
     // enable MEII
     util::print("\nPress Enter to enable MEII.");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -59,7 +59,7 @@ void TransparentMode::sf_init(const util::NoEventData* data) {
 
     // confirm start of experiment
     util::print("\nPress Enter to run Transparent Mode");
-    util::Input::wait_for_key_press(util::Input::Key::Return);
+    util::Input::wait_for_key(util::Input::Key::Return);
     util::print("\nRunning Transparent Mode ... ");
 
     // start the watchdog

@@ -63,7 +63,7 @@ void FesExperiment::log_row() {
 }
 
 void FesExperiment::wait_for_input() {
-     mel::Input::wait_for_key_press(mel::Input::Key::Space);
+     mel::Input::wait_for_key(mel::Input::Key::Space);
 }
 
 bool FesExperiment::check_stop() {
