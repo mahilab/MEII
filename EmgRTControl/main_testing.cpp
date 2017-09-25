@@ -2,7 +2,7 @@
 #include <csignal>
 #include "Q8Usb.h"
 #include "Clock.h"
-#include "MahiExoII.h"
+#include "MahiExoIIEmg.h"
 #include "mel_util.h"
 #include "mahiexoii_util.h"
 #include <boost/program_options.hpp>
@@ -20,48 +20,7 @@ using namespace mel;
 
 int main(int argc, char * argv[]) {
 
-    /*std::vector<double> lda_classifier_;
-
-    std::ifstream input("LDA_coeffs.csv");
-    if (input.is_open()) {
-        while (!input.eof()) {
-            std::string number;
-            double data;
-            std::getline(input, number, ',');
-            data = std::atof(number.c_str());
-            lda_classifier_.push_back(data);
-            util::print(data);
-        }
-    }*/
-
-    std::vector<std::vector<double>> lda_classifier_;
-
-    std::ifstream input("LDA_coeffs.csv");
-    if (input.is_open()) {
-        std::string csv_line;
-        while (std::getline(input, csv_line)) {
-            std::istringstream csv_stream(csv_line);
-            std::vector<double> row;
-            std::string number;
-            double data;
-            while (std::getline(csv_stream, number, ',')) {
-                data = std::atof(number.c_str());
-                row.push_back(data);
-            }
-            lda_classifier_.push_back(row);
-        }
-    }
-    else {
-        util::print("ERROR: File not found.");
-    }
-
-    for (int i = 0; i < lda_classifier_.size(); ++i) {
-        util::print(lda_classifier_[i]);
-        util::print("\n");
-    }
-  
-
-    /*// ignore CTRL-C signal (we can do this with Input)
+    // ignore CTRL-C signal (we can do this with Input)
     signal(SIGINT, SIG_IGN);
 
     // set up program options 
@@ -95,7 +54,7 @@ int main(int argc, char * argv[]) {
     core::Daq* q8_mot = new dev::Q8Usb(id_mot, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
 
 
-    // create and configure a MahiExoII object
+    /*// create and configure a MahiExoII object
     exo::MahiExoII::Config config;
     for (int i = 0; i < exo::MahiExoII::N_rj_; ++i) {
         config.enable_[i] = q8_mot->do_(i+1);
@@ -103,7 +62,20 @@ int main(int argc, char * argv[]) {
         config.encoder_[i] = q8_mot->encoder_(i+1);
         config.encrate_[i] = q8_mot->encrate_(i+1);
     }
-    exo::MahiExoII meii(config);
+    exo::MahiExoII meii(config);*/
+
+    // create and configure a MahiExoIIEmg object
+    exo::MahiExoIIEmg::Config config;
+    for (int i = 0; i < 5; ++i) {
+        config.enable_[i] = q8_mot->do_(i + 1);
+        config.command_[i] = q8_mot->ao_(i + 1);
+        config.encoder_[i] = q8_mot->encoder_(i + 1);
+        config.encrate_[i] = q8_mot->encrate_(i + 1);
+    }
+    for (int i = 0; i < 8; ++i) {
+        config.emg_[i] = q8_mot->ai_(i);
+    }
+    exo::MahiExoIIEmg meii(config);
 
     // manual zero joint positions
     if (var_map.count("zero")) {
@@ -114,13 +86,16 @@ int main(int argc, char * argv[]) {
         return 0;
     }
 
-    // run transparent mode
+
+    // run state machine
     util::Clock clock(1000);
     util::enable_realtime();
-    SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
-    pos_ctrl.execute();
+    //TransparentMode tp(clock, q8_mot, meii);
+    //tp.execute();
+    //SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
+    //pos_ctrl.execute();
     delete q8_mot;
-    util::disable_realtime();*/
+    util::disable_realtime();
     return 0;
 
 }

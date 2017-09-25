@@ -2,7 +2,7 @@
 #include "StateMachine.h"
 #include "Clock.h"
 #include "Daq.h"
-#include "MahiExoII.h"
+#include "MahiExoIIEmg.h"
 #include "MelShare.h"
 
 using namespace mel;
@@ -21,7 +21,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii);
+    TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii);
 
 private:
 
@@ -71,7 +71,7 @@ private:
 
     // HARDWARE
     core::Daq* daq_;
-    exo::MahiExoII meii_;
+    exo::MahiExoIIEmg meii_;
 
     // GENERIC STATE FUNCTIONS
     void sf_transparent_start();
@@ -82,12 +82,14 @@ private:
     // TRANSPARENT MODE
     //-------------------------------------------------------------------------
 
-    // STATE TRANSITION EVENTS
 
-    // USEFUL STATE VARIABLES
+    double_vec emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
+    double_vec filtered_emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
 
     // MELSCOPE VARIABLES
     comm::MelShare pos_share_ = comm::MelShare("pos_share");
     comm::MelShare vel_share_ = comm::MelShare("vel_share");
+    comm::MelShare emg_share_ = comm::MelShare("emg_share");
+    comm::MelShare filter_emg_share_ = comm::MelShare("filter_emg_share");
 
 };

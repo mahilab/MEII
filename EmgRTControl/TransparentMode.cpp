@@ -5,7 +5,7 @@
 
 using namespace mel;
 
-TransparentMode::TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoII& meii) :
+TransparentMode::TransparentMode(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
     StateMachine(3),
     clock_(clock),
     daq_(daq),
@@ -87,6 +87,9 @@ void TransparentMode::sf_transparent(const util::NoEventData* data) {
     // TRANSPARENT START
     sf_transparent_start();
 
+    // initialize local state variables
+    const double_vec command_torques(meii_.N_aj_, 0.0);
+
     // enter the control loop
     while (!stop_) {
 
@@ -111,17 +114,7 @@ void TransparentMode::sf_transparent(const util::NoEventData* data) {
         vel_share_.write(meii_.get_anatomical_joint_velocities());
 
         // set zero torques
-        meii_.set_anatomical_joint_torques({ 0,0,0,0,0 }, meii_.error_code_);
-        switch (meii_.error_code_) {
-            case -1 : util::print("ERROR: Eigensolver did not converge!");
-                break;
-            case -2: util::print("ERROR: Discontinuity in spectral norm of wrist jacobian");
-                break;
-        }
-        if (meii_.error_code_ < 0) {
-            stop_ = true;
-            break;
-        }
+        meii_.set_joint_torques(command_torques);
 
         // write to daq
         daq_->write_all();
@@ -187,6 +180,13 @@ void TransparentMode::sf_transparent_step() {
 
     // print
     std::cout << q_ser_2_ << " " << meii_.get_anatomical_joint_position(4) << std::endl;*/
+
+    // get measured emg voltages
+    emg_voltages_ = meii_.get_emg_voltages();
+    filtered_emg_voltages_ = meii_.butter_hp_.filter(meii_.get_emg_voltages());
+    emg_share_.write(emg_voltages_);
+    filter_emg_share_.write(filtered_emg_voltages_);
+
 }
 
 void TransparentMode::sf_transparent_stop() {

@@ -122,10 +122,11 @@ private:
     
     // SUBJECT/CONDITION
     int subject_number_ = 0;
-    int trial_;
     int dof_ = 0; // 0-3 is single-dof; 4-5 is multi-dof
     int condition_ = 0; // 0 = training; 1 = blind testing; 2 = full testing
-    std::string hand_def_ = "R"; // "L" or "R" for Left or Right arm of the user
+    std::vector<std::string> hand_defs = { "L","R" };
+    int hand_num_ = 1; // 0 or 1 for Left or Right arm of the user
+    std::string hand_def_ = hand_defs[hand_num_];
 
     // SUBJECT DIRECTORY
     std::string directory_;
@@ -146,8 +147,21 @@ private:
     
     // PREDEFINED TARGETS
     const double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
-    const std::vector<double_vec> single_dof_targets_ = { {  -5 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 },
-                                                        { -65 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 } };
+    const std::vector<std::vector<std::vector<double_vec>>> single_dof_targets_ = { { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } },
+            
+                                                                                    { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } } };
+
+    const std::vector<std::vector<std::vector<double_vec>>>  multi_dof_targets_ = { { { {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } },
+
+                                                                                    { { {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
+                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 } } } };
 
     // EXPERIMENT TIMING PARAMETERS
     const double init_backdrive_time_ = 2.0; // [s] time to be in backdrive mode initially
@@ -155,7 +169,8 @@ private:
     const double hold_target_time_ = 1.0; // time to hold at target [s]
 
     // TASK FORCE MEASUREMENT
-    const double_vec force_dof_scale_ = { 3, 0.5, 0.5, 0.5 }; // [Nm]
+    int task_force_measurement_mode_ = 0; // 0 = commanded torques, dof/direction specific; 1 = commanded torques, dof specific, direction agnostic; 2 = commanded torques, dof/direction agnostic
+    const double_vec force_dof_scale_ = { 3, 0.5, 0.25, 0.25 }; // [Nm]
     const std::vector<char_vec> target_dir_L_ = {
         { 1, -1 },
         { -1, 1 },
@@ -174,9 +189,9 @@ private:
         { 1, -1, 1, -1 },
         { 1, 1, -1, -1 },
         { -1, 1, -1, 1 } };
-    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.20, 0.0}; // for all 5 anatomical dofs
-    double force_mag_goal_ = 3000.0; // 
-    double force_mag_tol_ = 100.0; //
+    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.20, 0.0}; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
+    double force_mag_goal_ = 3050.0; // 
+    double force_mag_tol_ = 200.0; //
     double force_mag_dwell_time_ = 1.0; // [s]
 
     // FROCE MAGNITUDE CHECKING ALGORITHM VARIABLES
@@ -202,10 +217,10 @@ private:
     int classifier_result_;
     std::vector<std::vector<double>> lda_classifier_;
     std::vector<std::vector<double>> lda_intercept_;
-    std::vector<std::vector<double>> lda_feature_weights_;
+    std::vector<std::vector<int>> sel_feats_;
     Eigen::MatrixXd lda_class_eig_;
     Eigen::VectorXd lda_inter_eig_;
-    Eigen::VectorXd lda_prob_eig_;
+    Eigen::VectorXd lda_dist_eig_;
    
     // STATE TRANSITION EVENT VARIABLES
     bool menu_selected_ = false;
@@ -233,13 +248,16 @@ private:
     // UTILITY FUNCTIONS
     void set_experiment_conditions(int scene_num);
     void set_viz_target_num(int class_label);
+    double_vec get_target_position(int class_label);
     bool is_single_dof();
     bool is_training();
     bool is_testing();
+    bool is_blind();
     bool check_wait_time_reached(double wait_time, double init_time, double current_time) const;
     double measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const;
     bool check_force_mag_reached(double force_mag_goal, double force_mag);
     void read_csv(std::string filename, std::vector<std::vector<double>>& output);
+    void read_csv(std::string filename, std::vector<std::vector<int>>& output);
 
     // USER INPUT CONTROL
     void wait_for_input();
