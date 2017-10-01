@@ -4,22 +4,24 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <random>
+
 
 using namespace mel;
 
 EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
-    StateMachine(14),
+    StateMachine(15),
     clock_(clock),
     daq_(daq),
     meii_(meii)
 {
     // create subject folder for data logging
+    subject_directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\EmgRTControl\\EMG_S";
     if (subject_number_ < 10) {
-        directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\EmgRTControl\\EMG_S0" + std::to_string(subject_number_);
+        subject_directory_ += "0";
     }
-    else {
-        directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\EmgRTControl\\EMG_S" + std::to_string(subject_number_);
-    } 
+    subject_directory_ += std::to_string(subject_number_);
+
 }   
 
 
@@ -29,21 +31,24 @@ EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg
 void EmgRTControl::sf_wait_for_gui(const util::NoEventData* data) {
     util::print("Waiting for Gui Input");
 
-    // initialize global event variables
-    scene_selected_ = false;
+    // start the clock
+    clock_.start();
+
+    // initialize local state variables
+    bool scene_selected = false;
 
     // launch game
     game.launch();
 
-    // enter the control loop
-    while (!scene_selected_ && !stop_) {
+    // wait for gui input
+    while (!scene_selected && !stop_) {
 
         // read from Unity
         scene_num_share_.read(SCENE_NUM_);
 
         // check if scene selected in Unity
         if (SCENE_NUM_ > 0) {
-            scene_selected_ = true;
+            scene_selected = true;
         }
 
         // check for stop input
@@ -58,7 +63,7 @@ void EmgRTControl::sf_wait_for_gui(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (scene_selected_) {
+    else if (scene_selected) {
         event(ST_INIT);
     }
     else {
@@ -75,24 +80,10 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
 
     // set experiment condition variables dof_ and condition_ based on scene number
     set_experiment_conditions(SCENE_NUM_);
-
-    std::vector<std::string> str_conditions = { "Training", "Blind Testing", "Full Testing" };
-    std::vector<std::string> str_dofs = { "Elbow F/E Single-DoF", "Forearm P/S Single-Dof", "Wrist F/E Single-DoF", "Wrist R/U Single-DoF", "Elbow F/E & Forearm P/S Multi-DoF", "Wrist F/E & Wrist R/U Multi-DoF" };
-    util::print("Initializing for " + str_conditions[condition_] + " of " + str_dofs[dof_]);
-
-    // initialize global event variables
-    menu_selected_ = false;
-    scene_selected_ = true;
-    init_backdrive_time_reached_ = false;
-    rps_init_ = false;
-    target_reached_ = false;
-    hold_target_time_reached_ = false;
-    force_mag_reached_ = false;
-    emg_data_processed_ = false;
-    end_of_target_sequence_ = false;
-    lda_training_complete_ = 0;
+    util::print("Initializing for " + str_conditions_long_[condition_] + " of " + str_dofs_long_[dof_]);
 
     // reset global experiment variables
+    end_of_label_sequence_ = true;
     class_label_sequence_.clear();
     current_class_label_idx_ = -1;
     viz_target_num_ = 0;
@@ -101,56 +92,82 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     lda_intercept_.clear();
     emg_training_data_.clear();
 
-    // reset position control
-    meii_.rps_init_par_ref_.stop();
-    meii_.anat_ref_.stop();
-    
-    // read in class label sequence from file
-    if (is_single_dof()) { // single-DoF
-        std::ifstream input("target_sequences.txt");
-        if (input.is_open()) {
-            while (!input.eof()) {
-                std::string number;
-                int data;
-                std::getline(input, number);
-                data = std::atoi(number.c_str());
-                class_label_sequence_.push_back(data);
-            }
-        }
-    }
-    else { // multi-DoF
-        std::ifstream input("target_sequences_multi.txt");
-        if (input.is_open()) {
-            while (!input.eof()) {
-                std::string number;
-                int data;
-                std::getline(input, number);
-                data = std::atoi(number.c_str());
-                class_label_sequence_.push_back(data);
-            }
-        }
-    }
-    util::print("Reading in Class Label Sequence: ");
-    util::print(class_label_sequence_);
-    
+    // create subject and DoF specific folder for data logging
+    subject_dof_directory_ = subject_directory_ + "\\" + str_dofs_[dof_];
 
-    if (dof_ >= 4) {
-        N_train_ = 8;
-        num_class_ = 4;
+    // generate file names
+    if (subject_number_ < 10) {
+        training_data_filename_ = "S0";
+        lda_classifier_filename_ = "S0";
     }
     else {
-        //N_train_ = 10;
-        N_train_ = class_label_sequence_.size();
-        util::print(N_train_);
-        num_class_ = 2;
+        training_data_filename_ = "S";
+        lda_classifier_filename_ = "S";
+    }
+    training_data_filename_ += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_training_data";
+    lda_classifier_filename_ += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_lda_classifier";
+
+    // reset robot
+    meii_.disable();
+
+    /*// ask user if they want to use the existing training data
+    util::print("Press Enter to collect new training data, or press L to Load previous training data...");
+    bool load_training_data = false;
+    bool key_pressed = false;
+    util::Input::Key key;
+    double init_time = clock_.time();
+    double user_input_timeout = 5.0;
+    while (!key_pressed && !stop_) {
+
+        // check timeout
+        if (check_wait_time_reached(user_input_timeout, init_time, clock_.time())) {
+            key_pressed = false;
+            break;
+        }
+
+        // check for user input
+        key = util::Input::are_any_keys_pressed({ util::Input::Enter,util::Input::L },false);
+        switch (key) {
+        case util::Input::Key::Enter:
+            key_pressed = true;
+            break;
+        case util::Input::Key::L:
+            key_pressed = true;
+            load_training_data = true;
+            break;
+        default: key_pressed = false;
+        }
+
+        // check for stop input
+        stop_ = check_stop();
+
+        // wait for the next clock cycle
+        clock_.hybrid_wait();
+    }
+    if (load_training_data) {
+        util::print("Loading previous training data.");
+    }
+    else {
+        util::print("Collecting new training data.");
     }
 
+    // load existing training data
+    std::vector<std::vector<double>> old_training_data_;
+    if (load_training_data) {
+        util::print(subject_dof_directory_ + training_data_filename_);
+        read_csv(subject_dof_directory_ + training_data_filename_, old_training_data_);
+        util::print(old_training_data_[0]);
+    }*/
+    
+    
 
-    // read in LDA classifier
+    
+    
+    /*// read in LDA classifier
     if (is_testing()) {
-        read_csv("LDA_coeffs.csv", lda_classifier_);
-        read_csv("intercept.csv", lda_intercept_);
-        read_csv("feat_sel.csv", sel_feats_);
+        read_csv(program_directory_+"LDA_coeffs.csv", lda_classifier_);
+        read_csv(program_directory_+"intercept.csv", lda_intercept_);
+        read_csv(program_directory_+"feat_sel.csv", sel_feats_);
 
         size_t lda_rows = lda_classifier_.size();
         size_t lda_cols = lda_classifier_[0].size();
@@ -162,27 +179,32 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
             lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
         }
         lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
-    }
+    }*/
 
     
 
-    // Add columns to logger
-    log_.add_col("Time [s]").add_col("DoF").add_col("Condition");
+    // Add columns to training logger
+    training_log_.add_col("Time [s]").add_col("DoF").add_col("Condition");
     for (int i = 0; i < num_emg_channels_ * num_features_; ++i) {
-        log_.add_col("Feat. " + std::to_string(i));
+        training_log_.add_col("Feat. " + std::to_string(i));
     }
-        /*.add_col("Ch. 1 RMS").add_col("Ch. 1 MAV").add_col("Ch. 1 WL").add_col("Ch. 1 ZC").add_col("Ch. 1 SSC").add_col("Ch. 1 AR1").add_col("Ch. 1 AR2").add_col("Ch. 1 AR3").add_col("Ch. 1 AR4")
-        .add_col("Ch. 2 RMS").add_col("Ch. 2 MAV").add_col("Ch. 2 WL").add_col("Ch. 2 ZC").add_col("Ch. 2 SSC").add_col("Ch. 2 AR1").add_col("Ch. 2 AR2").add_col("Ch. 2 AR3").add_col("Ch. 2 AR4")
-        .add_col("Ch. 3 RMS").add_col("Ch. 3 MAV").add_col("Ch. 3 WL").add_col("Ch. 3 ZC").add_col("Ch. 3 SSC").add_col("Ch. 3 AR1").add_col("Ch. 3 AR2").add_col("Ch. 3 AR3").add_col("Ch. 3 AR4")
-        .add_col("Ch. 4 RMS").add_col("Ch. 4 MAV").add_col("Ch. 4 WL").add_col("Ch. 4 ZC").add_col("Ch. 4 SSC").add_col("Ch. 4 AR1").add_col("Ch. 4 AR2").add_col("Ch. 4 AR3").add_col("Ch. 4 AR4")
-        .add_col("Ch. 5 RMS").add_col("Ch. 5 MAV").add_col("Ch. 5 WL").add_col("Ch. 5 ZC").add_col("Ch. 5 SSC").add_col("Ch. 5 AR1").add_col("Ch. 5 AR2").add_col("Ch. 5 AR3").add_col("Ch. 5 AR4")
-        .add_col("Ch. 6 RMS").add_col("Ch. 6 MAV").add_col("Ch. 6 WL").add_col("Ch. 6 ZC").add_col("Ch. 6 SSC").add_col("Ch. 6 AR1").add_col("Ch. 6 AR2").add_col("Ch. 6 AR3").add_col("Ch. 6 AR4")
-        .add_col("Ch. 7 RMS").add_col("Ch. 7 MAV").add_col("Ch. 7 WL").add_col("Ch. 7 ZC").add_col("Ch. 7 SSC").add_col("Ch. 7 AR1").add_col("Ch. 7 AR2").add_col("Ch. 7 AR3").add_col("Ch. 7 AR4")
-        .add_col("Ch. 8 RMS").add_col("Ch. 8 MAV").add_col("Ch. 8 WL").add_col("Ch. 8 ZC").add_col("Ch. 8 SSC").add_col("Ch. 8 AR1").add_col("Ch. 8 AR2").add_col("Ch. 8 AR3").add_col("Ch. 8 AR4")
-        .add_col("Target No.");*/
+    training_log_.add_col("Target");
     if (is_testing()) {
-        log_.add_col("LDA class").add_col("LDA Probability");
+        training_log_.add_col("LDA Prob");
+        training_log_.add_col("LDA Dist1");
+            for (int i = 0; i < 3; ++i) {
+                training_log_.add_col("LDA Dist" + std::to_string(i + 2));
+            }
     }   
+
+    // Add columns to robot logger
+    robot_log_.add_col("Time [s]").add_col("State")
+              .add_col("MEII EFE Position [deg]").add_col("MEII EFE Velocity [deg/s]").add_col("MEII EFE Commanded Torque [Nm]")
+              .add_col("MEII FPS Position [deg]").add_col("MEII FPS Velocity [deg/s]").add_col("MEII FPS Commanded Torque [Nm]")
+              .add_col("MEII RPS1 Position [m]").add_col("MEII RPS1 Velocity [m/s]").add_col("MEII RPS1 Commanded Force [N]")
+              .add_col("MEII RPS2 Position [m]").add_col("MEII RPS2 Velocity [m/s]").add_col("MEII RPS2 Commanded Force [N]")
+              .add_col("MEII RPS3 Position [m]").add_col("MEII RPS3 Velocity [m/s]").add_col("MEII RPS3 Commanded Force [N]");
+
 
     // enable MEII EMG DAQ
     daq_->enable();
@@ -219,8 +241,7 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     // start the watchdog
     daq_->start_watchdog(0.1);
 
-    // start the clock
-    clock_.start();
+    
 
     // transition to next state from "INITIALIZATION"
     if (stop_) {
@@ -236,17 +257,15 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
 // "BACKDRIVE" STATE FUNCTION
 //-----------------------------------------------------------------------------
 void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
-    util::print("Robot Backdrivable");
-
-    // initialize global event variables
-    init_backdrive_time_reached_ = false;
+    util::print("Robot Backdrivable"); 
 
     // initialize local state variables
+    bool init_backdrive_time_reached = false;
     double st_enter_time = clock_.time();
     const double_vec command_torques(meii_.N_aj_, 0.0);
 
     // enter the control loop
-    while (!init_backdrive_time_reached_ && !stop_) {
+    while (!init_backdrive_time_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -272,10 +291,13 @@ void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for init transparent time reached
-        init_backdrive_time_reached_ = check_wait_time_reached(init_backdrive_time_, st_enter_time, clock_.time());
+        init_backdrive_time_reached = check_wait_time_reached(init_backdrive_time_, st_enter_time, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
@@ -286,7 +308,7 @@ void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (init_backdrive_time_reached_) {
+    else if (init_backdrive_time_reached) {
         event(ST_INIT_RPS);
     }
     else {
@@ -302,8 +324,8 @@ void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
 void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
     util::print("Initialize RPS Mechanism");
 
-    // initialize global event variables
-    rps_init_ = false;
+    // initialize local state variables
+    bool rps_init = false;
 
     // initialize rps initialization position controller
     meii_.set_rps_control_mode(0);
@@ -311,7 +333,7 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
     meii_.rps_init_par_ref_.start(meii_.get_wrist_parallel_positions(), clock_.time());
 
     // enter the control loop
-    while (!rps_init_ && !stop_) {
+    while (!rps_init && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -341,10 +363,13 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for rps mechanism in intialization position
-        rps_init_ = meii_.check_rps_init();
+        rps_init = meii_.check_rps_init();
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
@@ -358,9 +383,8 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (rps_init_) {
+    else if (rps_init) {
         event(ST_TO_CENTER);
-        
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -376,10 +400,11 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
 void EmgRTControl::sf_to_center(const util::NoEventData* data) {
     util::print("Go to Center");
 
-    // initialize global event variables
-    target_reached_ = false;
+    // update global variables
+    ++current_class_label_idx_;
 
     // initialize local state variables
+    bool target_reached = false;
     double_vec command_torques(meii_.N_aj_, 0.0);
 
     // initialize rps position controller mode and reference
@@ -396,7 +421,7 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
     viz_target_num_share_.write(viz_target_num_);
 
     // enter the control loop
-    while (!target_reached_ && !stop_) {
+    while (!target_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -416,7 +441,7 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         }
 
         // run position control
-        command_torques = meii_.set_anat_pos_ctrl_torques(meii_.anat_ref_, clock_.time());
+        command_torques = meii_.set_anat_pos_ctrl_torques(meii_.anat_ref_, clock_.time()); 
 
         // write motor commands to MelScope
         torque_share_.write(command_torques);
@@ -425,10 +450,13 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for target reached
-        target_reached_ = meii_.check_goal_anat_pos(center_pos_, { 1, 1, 1, 1, 0 });
+        target_reached = meii_.check_goal_anat_pos(center_pos_, { 1, 1, 1, 1, 0 });
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
@@ -439,8 +467,16 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (target_reached_) {
-        event(ST_HOLD_CENTER);
+    else if (target_reached) {
+        if (class_label_sequence_.empty() || (current_class_label_idx_ >= class_label_sequence_.size())) {
+            end_of_label_sequence_ = true;
+        }
+        if (end_of_label_sequence_) {
+            event(ST_HOLD_FOR_INPUT);
+        }
+        else {
+            event(ST_HOLD_CENTER);
+        } 
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -455,10 +491,8 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
 void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     util::print("Hold at Center");
 
-    // initialize global event variables
-    hold_target_time_reached_ = false;
-
     // initialize local state variables
+    bool hold_center_time_reached = false;
     double st_enter_time = clock_.time();
     double_vec command_torques(meii_.N_aj_, 0.0);
 
@@ -467,7 +501,7 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     viz_target_num_share_.write(viz_target_num_);
 
     // enter the control loop
-    while (!hold_target_time_reached_ && !stop_) {
+    while (!hold_center_time_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -496,10 +530,13 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for hold time reached
-        hold_target_time_reached_ = check_wait_time_reached(hold_center_time_, st_enter_time, clock_.time());
+        hold_center_time_reached = check_wait_time_reached(hold_center_time_, st_enter_time, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
@@ -510,8 +547,330 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (hold_target_time_reached_) {
+    else if (hold_center_time_reached) {
         event(ST_PRESENT_TARGET);    
+    }
+    else {
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
+        event(ST_STOP);
+    }
+}
+
+
+//-----------------------------------------------------------------------------
+// "HOLD FOR INPUT" STATE FUNCTION
+//-----------------------------------------------------------------------------
+void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
+    util::print("Hold for Input");
+
+    // reset global variables
+    if (class_label_sequence_.empty()) {
+        end_of_label_sequence_ = false;
+    }
+
+    // initialize local state variables
+    bool finished = false;
+    bool present_more_targets = false;
+    bool python_return = false;
+    bool more_training_data = false;
+    int num_observations_per_class;
+
+    util::Input::Key key;
+    double_vec command_torques(meii_.N_aj_, 0.0);
+    int lda_training_complete = 0;
+
+    /*// initialize class label sequence to be presented
+    if (class_labels_from_file_) {
+        if (is_single_dof()) { // single-DoF
+            std::ifstream input(program_directory_ + "target_sequences.txt");
+            if (input.is_open()) {
+                while (!input.eof()) {
+                    std::string number;
+                    int data;
+                    std::getline(input, number);
+                    data = std::atoi(number.c_str());
+                    class_label_sequence_.push_back(data);
+                }
+            }
+        }
+        else { // multi-DoF
+            std::ifstream input(program_directory_ + "target_sequences_multi.txt");
+            if (input.is_open()) {
+                while (!input.eof()) {
+                    std::string number;
+                    int data;
+                    std::getline(input, number);
+                    data = std::atoi(number.c_str());
+                    class_label_sequence_.push_back(data);
+                }
+            }
+        }
+    }
+    else {
+        class_label_sequence_ = rand_shuffle_class_labels(4);
+    }*/
+
+
+    /*// read in LDA classifier
+    if (is_testing()) {
+        read_csv(program_directory_ + "LDA_coeffs", lda_classifier_);
+        read_csv(program_directory_ + "intercept", lda_intercept_);
+        read_csv(program_directory_ + "feat_sel", sel_feats_);
+
+        size_t lda_rows = lda_classifier_.size();
+        size_t lda_cols = lda_classifier_[0].size();
+
+        // eigenization
+        lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
+        lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
+        for (int i = 0; i < lda_rows; ++i) {
+            lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
+        }
+        lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
+    }*/
+
+
+    if (end_of_label_sequence_) {
+
+        if (is_training()) {
+
+            // write training data to file
+            util::DataLog training_data("training_data", false);
+            for (int i = 0; i < emg_training_data_.size(); ++i) {
+                training_data.add_row(emg_training_data_[i]);
+                util::print(emg_training_data_[i]);
+            }
+            training_data.save_and_clear_data(training_data_filename_, subject_dof_directory_, false);
+
+            // send file location to python over melshare
+            directory_share_.write_message(subject_dof_directory_);
+            file_name_share_.write_message(training_data_filename_);
+
+            // open LDA script in Python
+            std::string system_command;
+            if (is_single_dof()) {
+                system_command = "start " + program_directory_ + "\\" + "EMG_FS_LDA.py &";
+            }
+            else {
+                system_command = "start " + program_directory_ + "\\" + "EMG_FS_LDA.py &";
+            }
+            system(system_command.c_str());
+
+            // wait for python to return results
+            util::print("Waiting for Python to return training results...");
+            
+
+            //size_t lda_rows = lda_classifier_.size();
+            //size_t lda_cols = lda_classifier_[0].size();
+
+            /*// data logging
+            lda_log_.add_col("intercept");
+            for (int i = 0; i < lda_cols; ++i) {
+                lda_log_.add_col("LDA Coeff" + std::to_string(i));
+            }
+            double_vec lda_row(lda_cols + 1);
+            for (int i = 0; i < lda_rows; ++i) {
+                lda_row[0] = lda_intercept_[0][i];
+                for (int j = 0; j < lda_cols; ++j) {
+                    lda_row[j + 1] = lda_classifier_[i][j];
+                }
+                lda_log_.add_row(lda_row);
+            }
+
+            std::string col;
+            for (int i = 0; i < lda_cols; i++) {
+                col = "feature" + std::to_string(i);
+                feature_log_.add_col(col);
+            }
+
+            std::vector<double> feature_row;
+            for (int i = 0; i < lda_cols; i++) {
+                feature_row.push_back(sel_feats_[0][i]);
+            }
+            feature_log_.add_row(feature_row);
+
+            // eigenization
+            lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
+            lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
+            for (int i = 0; i < lda_rows; ++i) {
+                lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
+            }
+            lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);*/
+
+            
+
+        }
+        else {
+            finished = true;
+        }
+    }
+    else {
+
+        if (is_training()) {
+
+            // ask user if they want to use the existing training data
+            util::print("Press Enter to collect new training data, or press L to Load previous training data...");
+        }
+        else {
+
+            util::print("Loading classifier from " + subject_dof_directory_ + "\\" + lda_classifier_filename_);
+            if (!read_csv(lda_classifier_filename_, subject_dof_directory_, lda_classifier_)) {
+                stop_ = true;
+            }
+            present_more_targets = true;
+        }
+    }
+    
+    // write to Unity
+    viz_target_num_ = 0;
+    viz_target_num_share_.write(viz_target_num_);
+
+    // enter the control loop
+    while ( !present_more_targets && !finished && !stop_) {
+
+        // read and reload DAQs
+        daq_->reload_watchdog();
+        daq_->read_all();
+
+        // update robot kinematics
+        meii_.update_kinematics();
+
+        // write kinematics to MelScope
+        pos_share_.write(meii_.get_anatomical_joint_positions());
+        vel_share_.write(meii_.get_anatomical_joint_velocities());
+
+        // check joint limits
+        if (meii_.check_all_joint_limits()) {
+            stop_ = true;
+            break;
+        }
+
+        // run position control
+        command_torques = meii_.set_anat_pos_ctrl_torques(meii_.anat_ref_, clock_.time());
+
+        // write motor commands to MelScope
+        torque_share_.write(command_torques);
+
+        // write to daq
+        daq_->write_all();
+
+        // check for external input
+        if (end_of_label_sequence_) {
+
+            if (is_training()) {
+
+                if (lda_training_complete == 0) {
+                    lda_training_flag_.read(lda_training_complete);
+                }
+                else {
+
+                    if (!python_return) {
+                        python_return = true;
+
+                        // read in the results from the Cross-validation test in Python
+                        std::vector<double> cross_eval_test;
+                        cv_results_.read(cross_eval_test);
+                        util::print(cross_eval_test);
+
+                        // read in csv's generated by python
+                        read_csv("LDA_coeffs", subject_dof_directory_, lda_classifier_);
+                        read_csv("intercept", subject_dof_directory_, lda_intercept_);
+                        read_csv("feat_sel", subject_dof_directory_, sel_feats_);
+
+                        // ask user if they want to collect more training data
+                        util::print("Press Enter to complete training mode. Press C to continue collecting training data.");
+
+                    }
+                    else {
+
+                        if (!more_training_data) {
+                            key = util::Input::are_any_keys_pressed({ util::Input::Enter,util::Input::C });
+                            switch (key) {
+                            case util::Input::Key::Enter:
+                                finished = true;
+                                break;
+                            case util::Input::Key::C:
+                                more_training_data = true;
+                                util::print("How many more observations per class would you like to collect? (0-9)");
+                                break;
+                            }
+                        }
+                        else {
+                            num_observations_per_class = is_any_num_key_pressed();
+                            if (num_observations_per_class > 0) {
+                                present_more_targets = true;
+                            }
+                            else if (num_observations_per_class == 0) {
+                                more_training_data = false;
+                                finished = true;
+                            }
+                        }
+                    } 
+                } 
+            }
+            else {
+
+            }
+        }
+        else { // not end of target sequence
+
+            if (is_training()) {
+
+                if (!more_training_data) {
+                    key = util::Input::are_any_keys_pressed({ util::Input::Enter,util::Input::L });
+                    switch (key) {
+                    case util::Input::Key::Enter:
+                        more_training_data = true;
+                        util::print("How many observations per class would you like to collect? (0-9)");
+                        break;
+                    case util::Input::Key::L:
+                        util::print("Loading previous training data from " + subject_dof_directory_ + "\\" + training_data_filename_);
+                        if (!read_csv(training_data_filename_, subject_dof_directory_, prev_emg_training_data_)) {
+                            stop_ = true;
+                        }
+                        present_more_targets = true;
+                        break;
+                    }
+                }
+                else {
+                    num_observations_per_class = is_any_num_key_pressed();
+                    if (num_observations_per_class > 0) {
+                        present_more_targets = true;
+                    }
+                    else if (num_observations_per_class == 0) {
+                        more_training_data = false;
+                        finished = true;
+                    }
+                }
+                
+            }
+        }
+
+        // check for stop input
+        stop_ = check_stop();
+
+        // log data
+        log_robot_row();
+
+        // wait for the next clock cycle
+        clock_.hybrid_wait();
+    }
+
+    // transition to next state from "HOLD AT CENTER"
+    if (stop_) {
+        // stop if user provided input
+        event(ST_STOP);
+    }
+    else if (finished) {
+        event(ST_FINISH);
+    }
+    else if (present_more_targets) {
+        end_of_label_sequence_ = false;
+        std::vector<int> new_class_labels = rand_shuffle_class_labels(num_observations_per_class);
+        for (int i = 0; i < new_class_labels.size(); ++i) {
+            class_label_sequence_.push_back(new_class_labels[i]);
+        }
+        event(ST_PRESENT_TARGET);
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -528,9 +887,11 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     util::print("Present Target");
 
     // initialize global event variables
-    force_mag_reached_ = false;
+    
 
     // initialize local state variables
+    bool force_mag_reached = false;
+    double_vec filtered_emg_voltages = double_vec(meii_.N_emg_, 0.0);
     double_vec command_torques(meii_.N_aj_, 0.0);
     double force_mag = 0.0;
     
@@ -539,7 +900,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     force_mag_time_now_ = clock_.global_time();
     force_mag_time_last_ = clock_.global_time();
 
-    // read from target sequence and write to Unity
+    /*// read from target sequence and write to Unity
     ++current_class_label_idx_;
     if (current_class_label_idx_ >= class_label_sequence_.size()) {
         end_of_target_sequence_ = true;
@@ -547,10 +908,16 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     else {
         set_viz_target_num(class_label_sequence_[current_class_label_idx_]);
         viz_target_num_share_.write(viz_target_num_);
-    }
+    }*/
+
+    // read from target sequence and write to Unity
+    util::print(class_label_sequence_);
+    util::print(current_class_label_idx_);
+    set_viz_target_num(class_label_sequence_[current_class_label_idx_]);
+    viz_target_num_share_.write(viz_target_num_);
 
     // enter the control loop
-    while (!end_of_target_sequence_ && !force_mag_reached_ && !stop_) {
+    while (!end_of_label_sequence_ && !force_mag_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -579,12 +946,12 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         force_mag = measure_task_force(command_torques, class_label_sequence_[current_class_label_idx_], dof_, condition_);
 
         // get measured emg voltages
-        filtered_emg_voltages_ = meii_.butter_hp_.filter(meii_.get_emg_voltages()); 
-        emg_data_buffer_.push_back(filtered_emg_voltages_);
+        filtered_emg_voltages = meii_.butter_hp_.filter(meii_.get_emg_voltages()); 
+        emg_data_buffer_.push_back(filtered_emg_voltages);
         emg_share_.write(emg_data_buffer_.at(0));
 
         // check force magnitude
-        force_mag_reached_ = check_force_mag_reached(force_mag_goal_, force_mag);
+        force_mag_reached = check_force_mag_reached(force_mag_goal_, force_mag);
 
         // write to unity
         force_mag_share_.write(force_mag);
@@ -595,6 +962,9 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         // check for stop input
         stop_ = check_stop();
 
+        // log data
+        log_robot_row();
+
         // wait for the next clock cycle
         clock_.hybrid_wait();
     }
@@ -604,7 +974,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (end_of_target_sequence_) {
+    /*else if (end_of_target_sequence_) {
         if (condition_ == 0) {
             event(ST_TRAIN_CLASSIFIER);
         }
@@ -614,8 +984,8 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         else {
             util::print("ERROR: Invalid condition number while exiting state ST_PRESENT_TARGET.");
         }
-    }
-    else if (force_mag_reached_) {   
+    }*/
+    else if (force_mag_reached) {   
         
         event(ST_PROCESS_EMG);
     }
@@ -632,34 +1002,33 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
 void EmgRTControl::sf_process_emg(const util::NoEventData* data) {
     util::print("Process EMG Data");
 
-    // initialize global event variables
-    emg_data_processed_ = true; // default to true; only write false if error encountered
+    // initialize local state variables
+    bool emg_data_processed = true; // default to true; only write false if error encountered
 
     // extract features from EMG data
-    feature_vec_ = feature_extract(emg_data_buffer_);
+    emg_feature_vec_ = feature_extract(emg_data_buffer_);
 
     // check for successful data processing
-    bool are_nans_ = false;
-    for (int i = 0; i < feature_vec_.size(); ++i) {
-        if (std::isnan(feature_vec_[i])) {
-            are_nans_ = true;
-            feature_vec_[i] = 1.0;
-            //emg_data_processed_ = false;
+    bool are_nan_features_ = false;
+    for (int i = 0; i < emg_feature_vec_.size(); ++i) {
+        if (std::isnan(emg_feature_vec_[i])) {
+            are_nan_features_ = true;
+            emg_feature_vec_[i] = 1.0;
         }
     }
-    if (are_nans_) {
+    if (are_nan_features_) {
         util::print("WARNING: NaN feature(s) detected. Replacing with 1.0 .");
     }
 
     // copy features into an array
-    std::copy_n(feature_vec_.begin(), feature_array_.size(), feature_array_.begin());
+    //std::copy_n(feature_vec_.begin(), feature_array_.size(), feature_array_.begin());
 
-    // store feature array in training data set
-    emg_training_data_.push_back(feature_array_);
-
-    // log data when in training mode
+    // store feature array in training data set and log in training_log
     if (is_training()) {
-        log_row();
+        emg_feature_vec_.push_back(class_label_sequence_[current_class_label_idx_]);
+        emg_training_data_.push_back(emg_feature_vec_);
+        util::print(*emg_training_data_.end());
+        log_training_row();
     }
 
     // transition to next state from "PROCESS EMG DATA"
@@ -667,16 +1036,16 @@ void EmgRTControl::sf_process_emg(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (emg_data_processed_) {    
+    else if (emg_data_processed) {   
         if (is_training()) {
-            event(ST_HOLD_CENTER);
+            event(ST_TO_CENTER);
         }
         else {
             event(ST_CLASSIFY);
-        }
+        }  
     }
-    else if (!emg_data_processed_) {
-        util::print("WARNING: EMG Data unsuccessfully processed. Goint to ST_STOP.");
+    else if (!emg_data_processed) {
+        util::print("WARNING: EMG data unsuccessfully processed. Going to ST_STOP.");
         event(ST_STOP);
     }
     else {
@@ -695,32 +1064,52 @@ void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
 
     // disable robot
     meii_.disable();
+    
+    // log training data
+    
+    training_log_.save_data(training_data_filename_, subject_dof_directory_, false);
+
+    // send file location to python over melshare
+    directory_share_.write_message(subject_dof_directory_);
+    file_name_share_.write_message(training_data_filename_);
+
 
     // open LDA script in Python
-    system("start EMG_FS_LDA.py &");
+    std::string system_command;
+    if (is_single_dof()) {
+        system_command = "start " + program_directory_ + "EMG_FS_LDA.py &";
+    }
+    else {
+        system_command = "start " + program_directory_ + "EMG_FS_LDA.py &";
+    }
+    system(system_command.c_str());
+
 
     // create vector of EMG features to send to Python
-    double_vec emg_training_data_vec;
+    /*double_vec emg_training_data_vec;
     emg_training_data_vec.reserve(N_train_ * meii_.N_emg_ * num_features_);
     for (int i = 0; i < N_train_; ++i) {
         for (int j = 0; j < meii_.N_emg_ * num_features_; ++j) {
             emg_training_data_vec.push_back(emg_training_data_[i][j]);
         }
-    }
+    }*/
 
     // calculate size of training data to be sent to python
-    std::array<int, 2> training_data_size = { N_train_, meii_.N_emg_ * num_features_ };
+    //std::array<int, 2> training_data_size = { N_train_, meii_.N_emg_ * num_features_ };
 
     // copy training labels into an array
-    std::vector<int> training_labels(N_train_);
-    std::copy_n(class_label_sequence_.begin(), N_train_, training_labels.begin());
+    //std::vector<int> training_labels(N_train_);
+    //std::copy_n(class_label_sequence_.begin(), N_train_, training_labels.begin());
 
     // write training data to python
-    trng_size_.write(training_data_size);
-    trng_share_.write(emg_training_data_vec);
-    label_share_.write(training_labels);
+    //trng_size_.write(training_data_size);
+    //trng_share_.write(emg_training_data_vec);
+    //label_share_.write(training_labels);
 
-    // wait to receive trained classifier from python
+
+
+    /*// wait to receive trained classifier from python
+    util::print("Waiting for Python to return training results...");
     while ((lda_training_complete_ == 0) && !stop_) {
 
         // check for flag
@@ -732,12 +1121,18 @@ void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {
         // wait for the next clock cycle
         clock_.hybrid_wait();
     }
+    util::print("Python results received.");*/
 
+    /*std::vector<double> cross_eval_test;
+    //read in the results from the Cross-validation test in Python
+    cv_results_.read(cross_eval_test);
 
-    // read in csv's generated by python
-    read_csv("LDA_coeffs.csv", lda_classifier_);
-    read_csv("intercept.csv", lda_intercept_);
-    read_csv("feat_sel.csv", sel_feats_);
+    util::print(cross_eval_test);*/
+
+    /*// read in csv's generated by python
+    read_csv(program_directory_+"LDA_coeffs", lda_classifier_);
+    read_csv(program_directory_ + "intercept", lda_intercept_);
+    read_csv(program_directory_ + "feat_sel", sel_feats_);*/
     
     size_t lda_rows = lda_classifier_.size();
     size_t lda_cols = lda_classifier_[0].size();
@@ -823,18 +1218,19 @@ void EmgRTControl::sf_classify(const util::NoEventData* data) {
     std::vector<double> classify_features(lda_cols);
 
     //Extract the selected features from the full set and store them in vector
-    for (int i = 0; i < lda_cols -1; ++i) {
-        classify_features[i] = emg_training_data_[0][sel_feats_[0][i]];
+    for (int i = 0; i < lda_cols; ++i) {
+        classify_features[i] = emg_feature_vec_[sel_feats_[0][i]];
+        //classify_features[i] = emg_training_data_[0][sel_feats_[0][i]];
     }
 
     util::print(classify_features);
 
-   // util::print(lda_class_eig_);
+    // util::print(lda_class_eig_);
 
-   
 
-    //Convert vector of selected features to Eigen
-    //Eigen::VectorXd classify_features_eig = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(classify_features.data(), classify_features.size());
+
+     //Convert vector of selected features to Eigen
+     //Eigen::VectorXd classify_features_eig = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(classify_features.data(), classify_features.size());
     Eigen::VectorXd classify_features_eig = math::stdv2eigenv(classify_features);
 
     //util::print(classify_features_eig);
@@ -861,10 +1257,10 @@ void EmgRTControl::sf_classify(const util::NoEventData* data) {
     }
 
     util::print(classifier_result_);
-    log_row();
+    log_training_row();
 
     emg_training_data_.clear();
-    
+
 
     // set predicted class label
     pred_class_label_ = classifier_result_;
@@ -878,13 +1274,12 @@ void EmgRTControl::sf_classify(const util::NoEventData* data) {
     }
     else {
         if (is_blind()) {
-            event(ST_HOLD_CENTER);
+            event(ST_TO_CENTER);
         }
         else {
             event(ST_TO_TARGET);
         }
     }
-    
 }
 
 
@@ -895,9 +1290,10 @@ void EmgRTControl::sf_to_target(const util::NoEventData* data) {
     util::print("Go to Target");
 
     // initialize global event variables
-    target_reached_ = false;
+    
 
     // initialize local state variables
+    bool target_reached = false;
     double_vec command_torques(meii_.N_aj_, 0.0);
 
     // set new reference position
@@ -909,7 +1305,7 @@ void EmgRTControl::sf_to_target(const util::NoEventData* data) {
     viz_target_num_share_.write(viz_target_num_); // do we want to show the correct target or the target they're moving to???
 
     // enter the control loop
-    while (!target_reached_ && !stop_) {
+    while (!target_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -938,21 +1334,24 @@ void EmgRTControl::sf_to_target(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for target reached
-        target_reached_ = meii_.check_goal_anat_pos(target_pos, { 1, 1, 1, 1, 0 });
+        target_reached = meii_.check_goal_anat_pos(target_pos, { 1, 1, 1, 1, 0 });
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
     }
 
-    // transition to next state
+    // transition to next state from "GO TO TARGET"
     if (stop_) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (target_reached_) {
+    else if (target_reached) {
         event(ST_HOLD_TARGET);
     }
     else {
@@ -969,15 +1368,16 @@ void EmgRTControl::sf_hold_target(const util::NoEventData* data) {
     util::print("Hold at Target");
 
     // initialize global event variables
-    hold_target_time_reached_ = false;
+    
 
     // initialize local state variables
+    bool hold_target_time_reached = false;
     double st_enter_time = clock_.time();
     double_vec command_torques(meii_.N_aj_, 0.0);
 
 
     // enter the control loop
-    while (!hold_target_time_reached_ && !stop_) {
+    while (!hold_target_time_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -1006,21 +1406,24 @@ void EmgRTControl::sf_hold_target(const util::NoEventData* data) {
         daq_->write_all();
 
         // check for hold time reached
-        hold_target_time_reached_ = check_wait_time_reached(hold_target_time_, st_enter_time, clock_.time());
+        hold_target_time_reached = check_wait_time_reached(hold_target_time_, st_enter_time, clock_.time());
 
         // check for stop input
         stop_ = check_stop();
+
+        // log data
+        log_robot_row();
 
         // wait for the next clock cycle
         clock_.hybrid_wait();
     }
 
-    // transition to next state
+    // transition to next state from "HOLD TARGET"
     if (stop_) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (target_reached_) {
+    else if (hold_target_time_reached) {
         event(ST_TO_CENTER);
     }
     else {
@@ -1034,50 +1437,40 @@ void EmgRTControl::sf_hold_target(const util::NoEventData* data) {
 // "FINISH EXPERIMENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
 void EmgRTControl::sf_finish(const util::NoEventData* data) {
-    util::print("Finish Experiment");
+    util::print("Finishing Experiment");
 
-    // intialize global event variables
-    menu_selected_ = false;
+    // intialize local state variables
+    bool menu_selected = false;
+    bool exit_program = false;
 
     // disable robot
     if (meii_.is_enabled()) {
         meii_.disable();
     }
 
-    // log data
-    std::vector<std::string> dofs = {"EFE", "FPS", "WFE", "WRU", "ELFM", "WMLT"};
-    std::vector<std::string> conditions = { "trng", "blind", "full" };
+    // save data
+    save_data();
 
-    std::string filename;
-    if (subject_number_ < 10) {
-        filename = "S0" + std::to_string(subject_number_) + "_" + dofs[dof_] + "_" + conditions[condition_];
+    if (is_training()) {
+        
+        // save classifier
     }
-    else {
-        filename = "S" + std::to_string(subject_number_) + "_" + dofs[dof_] + "_" + conditions[condition_];
-    }
-
-    log_.save_and_clear_data("emg_exp_data_"+filename, directory_, true);
-        if (condition_ == 0) {
-            lda_log_.save_and_clear_data("LDA_Coeffs_" + filename, directory_, true);
-            feature_log_.save_and_clear_data("selected_features_" + filename, directory_, true);
-        }
-
-     log_ = util::DataLog("emg_exp_log", false);
-     lda_log_ = util::DataLog("lda_coeff_log", false);
-     feature_log_ = util::DataLog("feat_sel_log", false);
-
-
 
     // wait for user input
-    util::print("Press 'm' in Unity to return to the GUI main menu or press 'CTRL + C' to stop the experiment");
-    while (!menu_selected_ && !stop_) {
+    util::print("Press 'm' in Unity to return to the GUI main menu or press 'ENTER' to stop the experiment");
+    while (!menu_selected && !exit_program && !stop_) {
 
         // read from Unity
         scene_num_share_.read(SCENE_NUM_);
 
         // check if menu selected in Unity
         if (SCENE_NUM_ == 0) {
-            menu_selected_ = true;
+            menu_selected = true;
+        }
+
+        // check for end of experiment
+        if (util::Input::is_key_pressed(util::Input::Enter)) {
+            exit_program = true;
         }
 
         // check for stop input
@@ -1092,10 +1485,16 @@ void EmgRTControl::sf_finish(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    else if (menu_selected_) {
+    else if (menu_selected) {
         event(ST_WAIT_FOR_GUI);
     }
-
+    else if (exit_program) {
+        // do nothing
+    }
+    else {
+        util::print("ERROR: State transition undefined. Going to ST_STOP.");
+        event(ST_STOP);
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -1103,27 +1502,99 @@ void EmgRTControl::sf_finish(const util::NoEventData* data) {
 //-----------------------------------------------------------------------------
 
 void EmgRTControl::sf_stop(const util::NoEventData* data) {
-    std::cout << "State Stop " << std::endl;
+    std::cout << "Program Stopped" << std::endl;
 
+    // disable robot and daq
     if (meii_.is_enabled()) {
         meii_.disable();
     }
     if (daq_->is_enabled()) {
         daq_->disable();
     }
+
+    // ask user if want to save data
+    util::print("The was stopped manually or with a fault. Would you still like to save the data to the 'Error Report' directory (Y/N)?");
+    util::Input::Key key = util::Input::wait_for_any_keys({ util::Input::Y, util::Input::N });
+    switch (key) {
+    case util::Input::Y:
+        save_data();
+        break;
+    case util::Input::N:
+        util::print("Data not saved.");
+        break;
+    }
 }
+
+
+
 
 //-----------------------------------------------------------------------------
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-void EmgRTControl::log_row() {
+void EmgRTControl::save_data() {
+    
+    std::string filename;
+    std::string directory;
+    if (stop_) {
+        directory = program_directory_ + "\\" + "Error Report";
+    }
+    else {
+        directory = subject_dof_directory_;
+    }
+
+    if (subject_number_ < 10) {
+        filename = "S0";
+    }
+    else {
+        filename = "S";
+    }
+    filename += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_" + str_conditions_[condition_];
+
+    robot_log_.save_and_clear_data("robot_data_log_" + filename, directory, true);
+    training_log_.save_and_clear_data("class_data_" + filename, directory, true);
+    if (is_training()) {
+        lda_log_.save_and_clear_data("LDA_Coeffs_" + filename, directory, true);
+        feature_log_.save_and_clear_data("selected_features_" + filename, directory, true);
+    }
+
+    // resetting column names in data logs
+    robot_log_ = util::DataLog("robot_data_log", false);
+    training_log_ = util::DataLog("training_log", false);
+    lda_log_ = util::DataLog("lda_coeff_log", false);
+    feature_log_ = util::DataLog("feat_sel_log", false);
+    
+}
+
+void EmgRTControl::log_robot_row() {
+    std::vector<double> row;
+    row.push_back(clock_.time());
+    row.push_back(get_current_state());
+    row.push_back(meii_.joints_[0]->get_position() * math::RAD2DEG);
+    row.push_back(meii_.joints_[0]->get_velocity() * math::RAD2DEG);
+    row.push_back(static_cast<core::Motor*>(meii_.actuators_[0])->get_torque_command());
+    row.push_back(meii_.joints_[1]->get_position() * math::RAD2DEG);
+    row.push_back(meii_.joints_[1]->get_velocity() * math::RAD2DEG);
+    row.push_back(static_cast<core::Motor*>(meii_.actuators_[1])->get_torque_command());
+    row.push_back(meii_.joints_[2]->get_position() * math::RAD2DEG);
+    row.push_back(meii_.joints_[2]->get_velocity() * math::RAD2DEG);
+    row.push_back(static_cast<core::Motor*>(meii_.actuators_[2])->get_torque_command());
+    row.push_back(meii_.joints_[3]->get_position() * math::RAD2DEG);
+    row.push_back(meii_.joints_[3]->get_velocity() * math::RAD2DEG);
+    row.push_back(static_cast<core::Motor*>(meii_.actuators_[3])->get_torque_command());
+    row.push_back(meii_.joints_[4]->get_position() * math::RAD2DEG);
+    row.push_back(meii_.joints_[4]->get_velocity() * math::RAD2DEG);
+    row.push_back(static_cast<core::Motor*>(meii_.actuators_[4])->get_torque_command());
+    robot_log_.add_row(row);
+}
+
+void EmgRTControl::log_training_row() {
     std::vector<double> row;
     row.push_back(clock_.time());
     row.push_back(dof_);
     row.push_back(condition_);
     for (auto i = 0; i < meii_.N_emg_ * num_features_; ++i) {
-        row.push_back(feature_vec_[i]);
+        row.push_back(emg_feature_vec_[i]);
     }
     row.push_back(class_label_sequence_[current_class_label_idx_]);
     if (condition_ > 0) {
@@ -1135,29 +1606,59 @@ void EmgRTControl::log_row() {
             row.push_back(lda_dist_eig_[3]);
         }
     }
-    log_.add_row(row);
+    training_log_.add_row(row);
 }
 
-void EmgRTControl::wait_for_input() {
-    util::Input::wait_for_key(util::Input::Key::Space);
-}
 
 bool EmgRTControl::check_stop() {
-    return util::Input::is_key_pressed(util::Input::Escape) || (util::Input::is_key_pressed(util::Input::LControl) && util::Input::is_key_pressed(util::Input::C));
+    std::vector<util::Input::Key> keys{ util::Input::LControl, util::Input::C };
+    return (util::Input::are_all_keys_pressed(keys, false) | stop_);
 }
-
 
 void EmgRTControl::set_experiment_conditions(int scene_num) {
     dof_ = (scene_num - 2) / 3;
     condition_ = (scene_num - 2) % 3;
-    
+}
+
+std::vector<int> EmgRTControl::gen_rand_class_labels(int num_labels) const {
+    std::random_device rd_seed; // random seed
+    std::mt19937 rd_gen(rd_seed()); // random unsigned integer generator
+    int num_class;
+    if (is_single_dof()) {
+        num_class = 2;
+    }
+    else {
+        num_class = 4;
+    }
+    std::uniform_int_distribution<> class_labels_dist(1, num_class);
+    std::vector<int> class_label_list(num_labels, 0);
+    for (int i = 0; i < num_labels; ++i) {
+        class_label_list[i] = class_labels_dist(rd_gen);
+    }
+}
+
+std::vector<int> EmgRTControl::rand_shuffle_class_labels(int num_labels_per_class) const {
+    int num_class;
+    if (is_single_dof()) {
+        num_class = 2;
+    }
+    else {
+        num_class = 4;
+    }
+    std::vector<int> class_label_list(num_labels_per_class * num_class, 0);
+    for (int i = 0; i < num_labels_per_class * num_class; ++i) {
+        class_label_list[i] = 1 + (i / num_labels_per_class);
+    }
+    std::srand(std::time(0));
+    std::random_shuffle(class_label_list.begin(), class_label_list.end());
+    return class_label_list;
 }
 
 void EmgRTControl::set_viz_target_num(int class_label) {
     viz_target_num_ = class_label;
 }
 
-double_vec EmgRTControl::get_target_position(int class_label) {
+double_vec EmgRTControl::get_target_position(int class_label) const {
     if (is_single_dof()) {
         return single_dof_targets_[hand_num_][dof_][class_label - 1];
     }
@@ -1166,19 +1667,19 @@ double_vec EmgRTControl::get_target_position(int class_label) {
     }
 }
 
-bool EmgRTControl::is_single_dof() {
+bool EmgRTControl::is_single_dof() const {
     return SCENE_NUM_ < 14;
 }
 
-bool EmgRTControl::is_training() {
+bool EmgRTControl::is_training() const {
     return condition_ == 0;
 }
 
-bool EmgRTControl::is_testing() {
+bool EmgRTControl::is_testing() const {
     return condition_ == 1 || condition_ == 2;
 }
 
-bool EmgRTControl::is_blind() {
+bool EmgRTControl::is_blind() const {
     return condition_ == 1;
 }
 
@@ -1201,30 +1702,30 @@ double EmgRTControl::measure_task_force(double_vec commanded_torques, int target
         }
 
         if (dof < 4) {
-            task_force = (-1.0) * force_mag_goal_ * (commanded_torques[dof] + gravity_offsets_[dof])  / force_dof_scale_[dof] * target_dir[dof][target_num - 1];
+            task_force = (-1.0) * force_mag_goal_ * (commanded_torques[dof] + gravity_offsets_[dof])  / force_dof_scale_[dof][target_num - 1][dof] * target_dir[dof][target_num - 1];
         }
         else if (dof == 4) {
-            task_force = (-1.0) * force_mag_goal_ * ((commanded_torques[0] + gravity_offsets_[0]) / force_dof_scale_[0] * target_dir[dof][target_num - 1] + (commanded_torques[1] + gravity_offsets_[1]) / force_dof_scale_[1] * target_dir[dof + 1][target_num - 1]) / 2.0;
+            task_force = (-1.0) * force_mag_goal_ * ((commanded_torques[0] + gravity_offsets_[0]) / force_dof_scale_[dof][target_num - 1][0] * target_dir[dof][target_num - 1] + (commanded_torques[1] + gravity_offsets_[1]) / force_dof_scale_[dof][target_num - 1][1] * target_dir[dof + 1][target_num - 1]) / 2.0;
         }
         else if (dof == 5) {
-            task_force = (-1.0) * force_mag_goal_ * ((commanded_torques[2] + gravity_offsets_[2]) / force_dof_scale_[2] * target_dir[dof][target_num - 1] + (commanded_torques[3] + gravity_offsets_[3]) / force_dof_scale_[3] * target_dir[dof + 1][target_num - 1]) / 2.0;
+            task_force = (-1.0) * force_mag_goal_ * ((commanded_torques[2] + gravity_offsets_[2]) / force_dof_scale_[dof][target_num - 1][2] * target_dir[dof][target_num - 1] + (commanded_torques[3] + gravity_offsets_[3]) / force_dof_scale_[dof][target_num - 1][3] * target_dir[dof + 1][target_num - 1]) / 2.0;
         }
         return std::max(0.0, task_force);
         break;
     case 1:
         if (dof < 4) {
-            task_force = force_mag_goal_ * (commanded_torques[dof] + gravity_offsets_[dof]) / force_dof_scale_[dof];
+            task_force = force_mag_goal_ * (commanded_torques[dof] + gravity_offsets_[dof]) / force_dof_scale_[dof][target_num - 1][dof];
         }
         else if (dof == 4) {
-            task_force = force_mag_goal_ * (std::abs((commanded_torques[0] + gravity_offsets_[0])) / force_dof_scale_[0] + std::abs((commanded_torques[1] + gravity_offsets_[1])) / force_dof_scale_[1]) / 2.0;
+            task_force = force_mag_goal_ * (std::abs((commanded_torques[0] + gravity_offsets_[0])) / force_dof_scale_[dof][target_num - 1][0] + std::abs((commanded_torques[1] + gravity_offsets_[1])) / force_dof_scale_[dof][target_num - 1][1]) / 2.0;
         }
         else if (dof == 5) {
-            task_force = force_mag_goal_ * (std::abs((commanded_torques[2] + gravity_offsets_[2])) / force_dof_scale_[2] + std::abs((commanded_torques[3] + gravity_offsets_[3])) / force_dof_scale_[3]) / 2.0;
+            task_force = force_mag_goal_ * (std::abs((commanded_torques[2] + gravity_offsets_[2])) / force_dof_scale_[dof][target_num - 1][2] + std::abs((commanded_torques[3] + gravity_offsets_[3])) / force_dof_scale_[dof][target_num - 1][3]) / 2.0;
         }
         return std::abs(task_force);
         break;
     case 2:
-        task_force = force_mag_goal_ * (std::abs((commanded_torques[0] + gravity_offsets_[0])) / force_dof_scale_[0] + std::abs((commanded_torques[1] + gravity_offsets_[1])) / force_dof_scale_[1] + std::abs((commanded_torques[2] + gravity_offsets_[2])) / force_dof_scale_[2] + std::abs((commanded_torques[3] + gravity_offsets_[3])) / force_dof_scale_[3]) / 4.0;
+        task_force = force_mag_goal_ * (std::abs((commanded_torques[0] + gravity_offsets_[0])) / force_dof_scale_[dof][target_num - 1][0] + std::abs((commanded_torques[1] + gravity_offsets_[1])) / force_dof_scale_[dof][target_num - 1][1] + std::abs((commanded_torques[2] + gravity_offsets_[2])) / force_dof_scale_[dof][target_num - 1][2] + std::abs((commanded_torques[3] + gravity_offsets_[3])) / force_dof_scale_[dof][target_num - 1][3]) / 4.0;
         return task_force;
         break;
     default:
@@ -1241,8 +1742,9 @@ bool EmgRTControl::check_force_mag_reached(double force_mag_goal, double force_m
     return force_mag_maintained_ > force_mag_dwell_time_;
 }
 
-void EmgRTControl::read_csv(std::string filename, std::vector<std::vector<double>>& output) {
-    std::ifstream input(filename);
+bool EmgRTControl::read_csv(std::string filename, std::string directory, std::vector<std::vector<double>>& output) {
+    std::string full_filename = directory + "\\" + filename + ".csv";
+    std::ifstream input(full_filename);
     if (input.is_open()) {
         std::string csv_line;
         while (std::getline(input, csv_line)) {
@@ -1256,14 +1758,17 @@ void EmgRTControl::read_csv(std::string filename, std::vector<std::vector<double
             }
             output.push_back(row);
         }
+        return true;
     }
     else {
         util::print("ERROR: File not found.");
+        return false;
     }
 }
 
-void EmgRTControl::read_csv(std::string filename, std::vector<std::vector<int>>& output) {
-    std::ifstream input(filename);
+bool EmgRTControl::read_csv(std::string filename, std::string directory, std::vector<std::vector<int>>& output) {
+    std::string full_filename = directory + "\\" + filename + ".csv";
+    std::ifstream input(full_filename);
     if (input.is_open()) {
         std::string csv_line;
         while (std::getline(input, csv_line)) {
@@ -1277,11 +1782,42 @@ void EmgRTControl::read_csv(std::string filename, std::vector<std::vector<int>>&
             }
             output.push_back(row);
         }
+        return true;
     }
     else {
         util::print("ERROR: File not found.");
+        return false;
     }
 }
+
+int EmgRTControl::is_any_num_key_pressed() const {
+    std::vector<util::Input::Key> keys = { util::Input::Num0, util::Input::Num1, util::Input::Num2, util::Input::Num3, util::Input::Num4, util::Input::Num5, util::Input::Num6, util::Input::Num7, util::Input::Num8, util::Input::Num9 };
+    util::Input::Key key = util::Input::are_any_keys_pressed(keys);
+    switch (key) {
+    case util::Input::Num0:
+        return 0;
+    case util::Input::Num1:
+        return 1;
+    case util::Input::Num2:
+        return 2;
+    case util::Input::Num3:
+        return 3;
+    case util::Input::Num4:
+        return 4;
+    case util::Input::Num5:
+        return 5;
+    case util::Input::Num6:
+        return 6;
+    case util::Input::Num7:
+        return 7;
+    case util::Input::Num8:
+        return 8;
+    case util::Input::Num9:
+        return 9;
+    default: return -1;
+    }
+}
+
 
 double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) {
 
@@ -1312,7 +1848,7 @@ double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_d
         ar3_vec[i] = ar_vec[2];
         ar4_vec[i] = ar_vec[3];
     }    
-    util::print(nwl_vec);
+    util::print(nzc_vec);
     util::print("");
 
     // normalize features
@@ -1345,7 +1881,7 @@ double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_d
             nssc_vec[i] = nssc_vec[i] / ssc_mean;
         }
     }
-    util::print(nwl_vec);
+    util::print(nzc_vec);
     // copy features into one vector (inserted in reverse order)
     auto it = feature_vec.begin();
     it = feature_vec.insert(it, ar4_vec.begin(), ar4_vec.end());

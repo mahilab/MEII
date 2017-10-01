@@ -8,13 +8,15 @@
 #include <boost/program_options.hpp>
 #include "EmgRTControl.h"
 #include "MelShare.h"
+#include "Input.h"
 
 using namespace mel;
 
 int main(int argc, char * argv[]) {
 
     // ignore CTRL-C signal (we can do this with Input)
-    signal(SIGINT, SIG_IGN);
+    //signal(SIGINT, SIG_IGN);
+    util::Input::ignore_ctrl_c();
 
     // set up program options 
     boost::program_options::options_description desc("Available Options");
@@ -63,8 +65,10 @@ int main(int argc, char * argv[]) {
     // manual zero joint positions
     if (var_map.count("zero")) {
         q8_emg->enable();
+        if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
+            return -1;
+        }
         q8_emg->offset_encoders({ 0, -33259, 29125, 29125, 29125 });
-        q8_emg->disable();
         return 0;
     }
 

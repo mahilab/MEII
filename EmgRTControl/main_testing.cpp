@@ -8,13 +8,15 @@
 #include <boost/program_options.hpp>
 #include "TransparentMode.h"
 #include "SmoothPositionControl.h"
+#include "IsometricContractions.h"
+#include "EmgRTControl.h"
 #include "MelShare.h"
 #include "GuiFlag.h"
 #include "Input.h"
-#include "EmgRTControl.h"
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <random>
 
 using namespace mel;
 
@@ -84,16 +86,14 @@ int main(int argc, char * argv[]) {
         q8_mot->disable();
         delete q8_mot;
         return 0;
-    }
+    }   
 
+   
 
     // run state machine
     util::Clock clock(1000);
     util::enable_realtime();
-    //TransparentMode tp(clock, q8_mot, meii);
-    //tp.execute();
-    //SmoothPositionControl pos_ctrl(clock,q8_mot,meii);
-    //pos_ctrl.execute();
+    
     delete q8_mot;
     util::disable_realtime();
     return 0;
