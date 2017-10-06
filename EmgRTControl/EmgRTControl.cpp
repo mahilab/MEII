@@ -5,12 +5,14 @@
 #include <fstream>
 #include <string>
 #include <random>
+#include <numeric>
+#include <boost/filesystem.hpp>
 
 
 using namespace mel;
 
 EmgRTControl::EmgRTControl(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
-    StateMachine(15),
+    StateMachine(12),
     clock_(clock),
     daq_(daq),
     meii_(meii)
@@ -89,99 +91,29 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     viz_target_num_ = 0;
     pred_class_label_ = 0;
     lda_classifier_.clear();
-    lda_intercept_.clear();
     emg_training_data_.clear();
+    prev_emg_training_data_.clear();
+    calibration_data_.clear();
+    tkeo_rest_data_.clear();
+    tkeo_active_data_.clear();
 
     // create subject and DoF specific folder for data logging
     subject_dof_directory_ = subject_directory_ + "\\" + str_dofs_[dof_];
 
     // generate file names
+    std::string str_subject_number = "S";
     if (subject_number_ < 10) {
-        training_data_filename_ = "S0";
-        lda_classifier_filename_ = "S0";
+        str_subject_number += "0";
     }
-    else {
-        training_data_filename_ = "S";
-        lda_classifier_filename_ = "S";
-    }
-    training_data_filename_ += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_training_data";
-    lda_classifier_filename_ += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_lda_classifier";
+    str_subject_number += std::to_string(subject_number_);
+    calibration_data_filename_ = str_subject_number + "_" + str_dofs_[dof_] + "_calibration_data";
+    training_data_filename_ = str_subject_number + "_" + str_dofs_[dof_] + "_training_data";
+    lda_classifier_filename_ = str_subject_number + "_" + str_dofs_[dof_] + "_lda_classifier";
+    directory_share_.write_message(subject_dof_directory_);
+    file_name_share_.write_message(training_data_filename_);
 
     // reset robot
     meii_.disable();
-
-    /*// ask user if they want to use the existing training data
-    util::print("Press Enter to collect new training data, or press L to Load previous training data...");
-    bool load_training_data = false;
-    bool key_pressed = false;
-    util::Input::Key key;
-    double init_time = clock_.time();
-    double user_input_timeout = 5.0;
-    while (!key_pressed && !stop_) {
-
-        // check timeout
-        if (check_wait_time_reached(user_input_timeout, init_time, clock_.time())) {
-            key_pressed = false;
-            break;
-        }
-
-        // check for user input
-        key = util::Input::are_any_keys_pressed({ util::Input::Enter,util::Input::L },false);
-        switch (key) {
-        case util::Input::Key::Enter:
-            key_pressed = true;
-            break;
-        case util::Input::Key::L:
-            key_pressed = true;
-            load_training_data = true;
-            break;
-        default: key_pressed = false;
-        }
-
-        // check for stop input
-        stop_ = check_stop();
-
-        // wait for the next clock cycle
-        clock_.hybrid_wait();
-    }
-    if (load_training_data) {
-        util::print("Loading previous training data.");
-    }
-    else {
-        util::print("Collecting new training data.");
-    }
-
-    // load existing training data
-    std::vector<std::vector<double>> old_training_data_;
-    if (load_training_data) {
-        util::print(subject_dof_directory_ + training_data_filename_);
-        read_csv(subject_dof_directory_ + training_data_filename_, old_training_data_);
-        util::print(old_training_data_[0]);
-    }*/
-    
-    
-
-    
-    
-    /*// read in LDA classifier
-    if (is_testing()) {
-        read_csv(program_directory_+"LDA_coeffs.csv", lda_classifier_);
-        read_csv(program_directory_+"intercept.csv", lda_intercept_);
-        read_csv(program_directory_+"feat_sel.csv", sel_feats_);
-
-        size_t lda_rows = lda_classifier_.size();
-        size_t lda_cols = lda_classifier_[0].size();
-
-        // eigenization
-        lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
-        lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
-        for (int i = 0; i < lda_rows; ++i) {
-            lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
-        }
-        lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
-    }*/
-
-    
 
     // Add columns to training logger
     training_log_.add_col("Time [s]").add_col("DoF").add_col("Condition");
@@ -190,7 +122,7 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     }
     training_log_.add_col("Target");
     if (is_testing()) {
-        training_log_.add_col("LDA Prob");
+        training_log_.add_col("LDA Pred");
         training_log_.add_col("LDA Dist1");
             for (int i = 0; i < 3; ++i) {
                 training_log_.add_col("LDA Dist" + std::to_string(i + 2));
@@ -240,8 +172,6 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
 
     // start the watchdog
     daq_->start_watchdog(0.1);
-
-    
 
     // transition to next state from "INITIALIZATION"
     if (stop_) {
@@ -399,10 +329,7 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
 //-----------------------------------------------------------------------------
 void EmgRTControl::sf_to_center(const util::NoEventData* data) {
     util::print("Go to Center");
-
-    // update global variables
-    ++current_class_label_idx_;
-
+    
     // initialize local state variables
     bool target_reached = false;
     double_vec command_torques(meii_.N_aj_, 0.0);
@@ -468,6 +395,7 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (target_reached) {
+        ++current_class_label_idx_;
         if (class_label_sequence_.empty() || (current_class_label_idx_ >= class_label_sequence_.size())) {
             end_of_label_sequence_ = true;
         }
@@ -476,7 +404,7 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         }
         else {
             event(ST_HOLD_CENTER);
-        } 
+        }
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -491,10 +419,24 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
 void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     util::print("Hold at Center");
 
+    // initialize global variables
+    
+    if (is_cal()) {
+        hold_center_time_ = 3.0;
+        emg_calibration_data_buffer_.flush();
+        meii_.butter_hp_.reset();   
+    }
+    else {
+        hold_center_time_ = 1.0;
+    }
+
     // initialize local state variables
     bool hold_center_time_reached = false;
     double st_enter_time = clock_.time();
     double_vec command_torques(meii_.N_aj_, 0.0);
+    double_vec filtered_emg_voltages = double_vec(meii_.N_emg_, 0.0);
+    double_vec tkeo_vec(meii_.N_emg_, 0.0);
+    double_vec filtered_tkeo_vec(meii_.N_emg_, 0.0);
 
     // write to Unity
     viz_target_num_ = 0;
@@ -525,12 +467,25 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
 
         // write motor commands to MelScope
         torque_share_.write(command_torques);
+      
+        if (is_cal()) {
+            // get measured emg voltages
+            meii_.butter_hp_.filter(meii_.get_emg_voltages(), filtered_emg_voltages);
+            emg_share_.write(filtered_emg_voltages);
 
-        // write to daq
-        daq_->write_all();
+            // compute the teager-kaiser metric online with rectification and filtering
+            meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
+            std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
+            meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+            emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
+        }
+
 
         // check for hold time reached
         hold_center_time_reached = check_wait_time_reached(hold_center_time_, st_enter_time, clock_.time());
+
+        // write to daq
+        daq_->write_all();
 
         // check for stop input
         stop_ = check_stop();
@@ -548,6 +503,10 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else if (hold_center_time_reached) {
+        if (is_cal()) {
+            store_buffer(emg_calibration_data_buffer_, tkeo_rest_data_);
+            event(ST_PRESENT_TARGET);   
+        }
         event(ST_PRESENT_TARGET);    
     }
     else {
@@ -579,68 +538,60 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
     double_vec command_torques(meii_.N_aj_, 0.0);
     int lda_training_complete = 0;
 
-    /*// initialize class label sequence to be presented
-    if (class_labels_from_file_) {
-        if (is_single_dof()) { // single-DoF
-            std::ifstream input(program_directory_ + "target_sequences.txt");
-            if (input.is_open()) {
-                while (!input.eof()) {
-                    std::string number;
-                    int data;
-                    std::getline(input, number);
-                    data = std::atoi(number.c_str());
-                    class_label_sequence_.push_back(data);
-                }
+    // initialization actions upon first entry to ST_HOLD_FOR_INPUT
+    if (!end_of_label_sequence_) {
+        if (is_cal()) {
+
+            if (is_single_dof()) {
+                class_label_sequence_ = { 1, 2 };
             }
+            else {
+                class_label_sequence_ = { 1,2,3,4 };
+            }
+            present_more_targets = true;
         }
-        else { // multi-DoF
-            std::ifstream input(program_directory_ + "target_sequences_multi.txt");
-            if (input.is_open()) {
-                while (!input.eof()) {
-                    std::string number;
-                    int data;
-                    std::getline(input, number);
-                    data = std::atoi(number.c_str());
-                    class_label_sequence_.push_back(data);
-                }
-            }
+        else if (is_training()) {
+
+            // read in emg calibration data from file
+            load_calibration_data();
+
+            // ask user if they want to use the existing training data
+            util::print("Press Enter to collect new training data, or press L to Load previous training data...");
+        }
+        else if (is_testing()) {
+
+            // read in emg calibration data from file
+            load_calibration_data();
+
+            // read in classifier from file
+            load_classifier();
+
+            // ask user how much testing data they want to collect
+            util::print("How many observations per class would you like to test? (0-9)");
+        }
+        else {
+            util::print("ERROR: Condition number was set improperly. Going to ST_STOP.");
+            stop_ = true;
         }
     }
-    else {
-        class_label_sequence_ = rand_shuffle_class_labels(4);
-    }*/
 
+    // initialization actions upon end of label sequence
+    else { 
+        if (is_cal()) {
 
-    /*// read in LDA classifier
-    if (is_testing()) {
-        read_csv(program_directory_ + "LDA_coeffs", lda_classifier_);
-        read_csv(program_directory_ + "intercept", lda_intercept_);
-        read_csv(program_directory_ + "feat_sel", sel_feats_);
+            // compute statistics from calibration data and store in writable data type
+            tkeo_model_estimation();
 
-        size_t lda_rows = lda_classifier_.size();
-        size_t lda_cols = lda_classifier_[0].size();
-
-        // eigenization
-        lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
-        lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
-        for (int i = 0; i < lda_rows; ++i) {
-            lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
+            // write calibration data to file
+            write_calibration_data();
+            finished = true;
         }
-        lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
-    }*/
-
-
-    if (end_of_label_sequence_) {
-
-        if (is_training()) {
+        else if (is_training()) {
 
             // write training data to file
-            util::DataLog training_data("training_data", false);
-            for (int i = 0; i < emg_training_data_.size(); ++i) {
-                training_data.add_row(emg_training_data_[i]);
-                util::print(emg_training_data_[i]);
+            if (!write_csv(training_data_filename_, subject_dof_directory_, emg_training_data_)) {
+                stop_ = true;
             }
-            training_data.save_and_clear_data(training_data_filename_, subject_dof_directory_, false);
 
             // send file location to python over melshare
             directory_share_.write_message(subject_dof_directory_);
@@ -658,67 +609,16 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
 
             // wait for python to return results
             util::print("Waiting for Python to return training results...");
-            
-
-            //size_t lda_rows = lda_classifier_.size();
-            //size_t lda_cols = lda_classifier_[0].size();
-
-            /*// data logging
-            lda_log_.add_col("intercept");
-            for (int i = 0; i < lda_cols; ++i) {
-                lda_log_.add_col("LDA Coeff" + std::to_string(i));
-            }
-            double_vec lda_row(lda_cols + 1);
-            for (int i = 0; i < lda_rows; ++i) {
-                lda_row[0] = lda_intercept_[0][i];
-                for (int j = 0; j < lda_cols; ++j) {
-                    lda_row[j + 1] = lda_classifier_[i][j];
-                }
-                lda_log_.add_row(lda_row);
-            }
-
-            std::string col;
-            for (int i = 0; i < lda_cols; i++) {
-                col = "feature" + std::to_string(i);
-                feature_log_.add_col(col);
-            }
-
-            std::vector<double> feature_row;
-            for (int i = 0; i < lda_cols; i++) {
-                feature_row.push_back(sel_feats_[0][i]);
-            }
-            feature_log_.add_row(feature_row);
-
-            // eigenization
-            lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
-            lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
-            for (int i = 0; i < lda_rows; ++i) {
-                lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
-            }
-            lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);*/
-
-            
-
         }
-        else {
+        else if (is_testing()) {
+
+            // going directly to ST_FINISH
             finished = true;
         }
-    }
-    else {
-
-        if (is_training()) {
-
-            // ask user if they want to use the existing training data
-            util::print("Press Enter to collect new training data, or press L to Load previous training data...");
-        }
         else {
-
-            util::print("Loading classifier from " + subject_dof_directory_ + "\\" + lda_classifier_filename_);
-            if (!read_csv(lda_classifier_filename_, subject_dof_directory_, lda_classifier_)) {
-                stop_ = true;
-            }
-            present_more_targets = true;
-        }
+            util::print("ERROR: Condition number was set improperly. Going to ST_STOP.");
+            stop_ = true;
+        } 
     }
     
     // write to Unity
@@ -754,10 +654,66 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
         // write to daq
         daq_->write_all();
 
-        // check for external input
-        if (end_of_label_sequence_) {
+        // check for external input upon first entry to ST_HOLD_FOR_INPUT
+        if (!end_of_label_sequence_) {
+            if (is_cal()) {
+                util::print("ERROR: Should not be reached. Going to ST_STOP.");
+                stop_ = true;
+            }
+            else if (is_training()) {
+                
+                if (!more_training_data) {
+                    key = util::Input::are_any_keys_pressed({ util::Input::Enter, util::Input::L });
+                    switch (key) {
+                    case util::Input::Key::Enter:
+                        more_training_data = true;
+                        util::print("How many observations per class would you like to collect? (0-9)");
+                        break;
+                    case util::Input::Key::L:
+                        util::print("Loading previous training data from " + subject_dof_directory_ + "\\" + training_data_filename_);
+                        if (!read_csv(training_data_filename_, subject_dof_directory_, prev_emg_training_data_)) {
+                            stop_ = true;
+                        }
+                        emg_training_data_ = prev_emg_training_data_;
+                        more_training_data = true;
+                        util::print("How many observations per class would you like to collect? (0-9)");
+                        break;
+                    }
+                }
+                else {
+                    num_observations_per_class = is_any_num_key_pressed();
+                    if (num_observations_per_class > 0) {
+                        present_more_targets = true;
+                    }
+                    else if (num_observations_per_class == 0) {
+                        more_training_data = false;
+                        finished = true;
+                    }
+                }
+            }
+            else if (is_testing()) {
 
-            if (is_training()) {
+                num_observations_per_class = is_any_num_key_pressed();
+                if (num_observations_per_class > 0) {
+                    present_more_targets = true;
+                }
+                else if (num_observations_per_class == 0) {
+                    finished = true;
+                }
+            }
+            else {
+                util::print("ERROR: Condition number was set improperly. Going to ST_STOP.");
+                stop_ = true;
+            }
+        }
+
+        // check for external input upon end of label sequence
+        else {
+            if (is_cal()) {
+                util::print("ERROR: Should not be reached. Going to ST_STOP.");
+                stop_ = true;
+            }
+            else if (is_training()) {
 
                 if (lda_training_complete == 0) {
                     lda_training_flag_.read(lda_training_complete);
@@ -768,14 +724,10 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
                         python_return = true;
 
                         // read in the results from the Cross-validation test in Python
-                        std::vector<double> cross_eval_test;
+                        util::print("The cross validation results are:");
+                        std::vector<double> cross_eval_test(5);
                         cv_results_.read(cross_eval_test);
                         util::print(cross_eval_test);
-
-                        // read in csv's generated by python
-                        read_csv("LDA_coeffs", subject_dof_directory_, lda_classifier_);
-                        read_csv("intercept", subject_dof_directory_, lda_intercept_);
-                        read_csv("feat_sel", subject_dof_directory_, sel_feats_);
 
                         // ask user if they want to collect more training data
                         util::print("Press Enter to complete training mode. Press C to continue collecting training data.");
@@ -805,45 +757,17 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
                                 finished = true;
                             }
                         }
-                    } 
-                } 
+                    }
+                }
+            }
+            else if (is_testing()) {
+                util::print("ERROR: Should not be reached. Going to ST_STOP.");
+                stop_ = true;
             }
             else {
-
-            }
-        }
-        else { // not end of target sequence
-
-            if (is_training()) {
-
-                if (!more_training_data) {
-                    key = util::Input::are_any_keys_pressed({ util::Input::Enter,util::Input::L });
-                    switch (key) {
-                    case util::Input::Key::Enter:
-                        more_training_data = true;
-                        util::print("How many observations per class would you like to collect? (0-9)");
-                        break;
-                    case util::Input::Key::L:
-                        util::print("Loading previous training data from " + subject_dof_directory_ + "\\" + training_data_filename_);
-                        if (!read_csv(training_data_filename_, subject_dof_directory_, prev_emg_training_data_)) {
-                            stop_ = true;
-                        }
-                        present_more_targets = true;
-                        break;
-                    }
-                }
-                else {
-                    num_observations_per_class = is_any_num_key_pressed();
-                    if (num_observations_per_class > 0) {
-                        present_more_targets = true;
-                    }
-                    else if (num_observations_per_class == 0) {
-                        more_training_data = false;
-                        finished = true;
-                    }
-                }
-                
-            }
+                util::print("ERROR: Condition number was set improperly. Going to ST_STOP.");
+                stop_ = true;
+            }       
         }
 
         // check for stop input
@@ -866,9 +790,13 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
     }
     else if (present_more_targets) {
         end_of_label_sequence_ = false;
-        std::vector<int> new_class_labels = rand_shuffle_class_labels(num_observations_per_class);
-        for (int i = 0; i < new_class_labels.size(); ++i) {
-            class_label_sequence_.push_back(new_class_labels[i]);
+        lda_training_complete = 0;
+        lda_training_flag_.write(lda_training_complete);
+        if (!is_cal()) {
+            std::vector<int> new_class_labels = rand_shuffle_class_labels(num_observations_per_class);
+            for (int i = 0; i < new_class_labels.size(); ++i) {
+                class_label_sequence_.push_back(new_class_labels[i]);
+            }
         }
         event(ST_PRESENT_TARGET);
     }
@@ -886,38 +814,45 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
 void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     util::print("Present Target");
 
-    // initialize global event variables
-    
+    // initialize global variables
+    emg_calibration_data_buffer_.flush();
+    emg_trigger_data_buffer_.flush();
+    emg_classification_data_buffer_.flush();
+    meii_.butter_hp_.reset();
+    meii_.tko_.reset();
+    meii_.tkeo_butter_lp_.reset();
 
     // initialize local state variables
     bool force_mag_reached = false;
-    double_vec filtered_emg_voltages = double_vec(meii_.N_emg_, 0.0);
+    bool active_state_reached = false;
+    bool mvc_started = false;
+    double mvc_start_time = 0;
+    bool mvc_completed = false;
+    bool keep_mvc = false;
+    bool redo_mvc = false;
+    double_vec filtered_emg_voltages(meii_.N_emg_, 0.0);
+    double_vec tkeo_vec(meii_.N_emg_, 0.0);
+    double_vec filtered_tkeo_vec(meii_.N_emg_, 0.0);
     double_vec command_torques(meii_.N_aj_, 0.0);
     double force_mag = 0.0;
+    
     
     // initialize magnitude force checking algorithm
     force_mag_maintained_ = 0.0;
     force_mag_time_now_ = clock_.global_time();
     force_mag_time_last_ = clock_.global_time();
 
-    /*// read from target sequence and write to Unity
-    ++current_class_label_idx_;
-    if (current_class_label_idx_ >= class_label_sequence_.size()) {
-        end_of_target_sequence_ = true;
-    }
-    else {
-        set_viz_target_num(class_label_sequence_[current_class_label_idx_]);
-        viz_target_num_share_.write(viz_target_num_);
-    }*/
-
     // read from target sequence and write to Unity
-    util::print(class_label_sequence_);
-    util::print(current_class_label_idx_);
     set_viz_target_num(class_label_sequence_[current_class_label_idx_]);
     viz_target_num_share_.write(viz_target_num_);
 
+    if (is_cal()) {
+        // ask user to indicate when MVC has started
+        util::print("Press ENTER when MVC has started.");
+    }
+
     // enter the control loop
-    while (!end_of_label_sequence_ && !force_mag_reached && !stop_) {
+    while (!end_of_label_sequence_ && !keep_mvc && !redo_mvc && !active_state_reached && !stop_) {
 
         // read and reload DAQs
         daq_->reload_watchdog();
@@ -942,16 +877,81 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         // write motor commands to MelScope
         torque_share_.write(command_torques);
 
+        // get measured emg voltages
+        meii_.butter_hp_.filter(meii_.get_emg_voltages(), filtered_emg_voltages);
+        emg_share_.write(filtered_emg_voltages);
+        if (is_cal()) {
+            if (mvc_started && !mvc_completed) {
+
+                // compute the teager-kaiser metric online with rectification and filtering
+                meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
+                std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
+                meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+                emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
+            }
+        }
+        else {
+
+            // compute the teager-kaiser metric online with rectification and filtering
+            meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
+            std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
+            meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+            tkeo_sufficient_statistic(filtered_tkeo_vec);
+
+            emg_classification_data_buffer_.push_back(filtered_emg_voltages);
+        }
+        
         // measure interaction force for specified dof(s)
         force_mag = measure_task_force(command_torques, class_label_sequence_[current_class_label_idx_], dof_, condition_);
 
-        // get measured emg voltages
-        filtered_emg_voltages = meii_.butter_hp_.filter(meii_.get_emg_voltages()); 
-        emg_data_buffer_.push_back(filtered_emg_voltages);
-        emg_share_.write(emg_data_buffer_.at(0));
+        // check for exit conditions
+        if (is_cal()) {
 
-        // check force magnitude
-        force_mag_reached = check_force_mag_reached(force_mag_goal_, force_mag);
+            // check for user input
+            if (!mvc_started) {
+                if (util::Input::is_key_pressed(util::Input::Enter)) {
+                    mvc_started = true;
+                    mvc_start_time = clock_.time();
+                    util::print("Holding for contraction.");
+                }
+            }
+            else {  
+                if (!mvc_completed) {
+                    mvc_completed = check_wait_time_reached(wait_mvc_time_, mvc_start_time, clock_.time());
+                    if (mvc_completed) {
+                        util::print("Do you want to keep the calibration data for this contraction (Y/N)?");
+                    }
+                }
+                else {
+                    
+
+                    util::Input::Key key = util::Input::are_any_keys_pressed({ util::Input::Y, util::Input::N });
+                    switch (key) {
+                    case util::Input::Y:
+                        keep_mvc = true;
+                        break;
+                    case util::Input::N:
+                        redo_mvc = true;
+                        break;
+                    }
+                }  
+            }
+        }
+        else {
+
+            // compute the teager-kaiser metric online with rectification and filtering
+            meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
+            std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
+            meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+
+            if (tkeo_detector(filtered_tkeo_vec)) {
+                active_state_reached = true;
+            }
+
+            // check force magnitude
+            //force_mag_reached = check_force_mag_reached(force_mag_goal_, force_mag);
+        }
+
 
         // write to unity
         force_mag_share_.write(force_mag);
@@ -974,20 +974,32 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         // stop if user provided input
         event(ST_STOP);
     }
-    /*else if (end_of_target_sequence_) {
-        if (condition_ == 0) {
-            event(ST_TRAIN_CLASSIFIER);
-        }
-        else if (condition_ == 1 || condition_ == 2) {
-            event(ST_FINISH);
+    else if (keep_mvc) {
+        store_buffer(emg_calibration_data_buffer_, tkeo_active_data_);
+        event(ST_TO_CENTER);
+    }
+    else if (redo_mvc) {
+        event(ST_PRESENT_TARGET);
+    }
+    else if (active_state_reached) {      
+        if (process_emg()) {
+            if (is_training()) {
+                event(ST_TO_CENTER);
+            }
+            else {
+                classify();
+                if (is_blind()) {
+                    event(ST_TO_CENTER);
+                }
+                else {
+                    event(ST_TO_TARGET);
+                }
+            }
         }
         else {
-            util::print("ERROR: Invalid condition number while exiting state ST_PRESENT_TARGET.");
-        }
-    }*/
-    else if (force_mag_reached) {   
-        
-        event(ST_PROCESS_EMG);
+            util::print("WARNING: EMG data unsuccessfully processed. Going to ST_STOP.");
+            event(ST_STOP);
+        }       
     }
     else {
         util::print("ERROR: State transition undefined. Going to ST_STOP.");
@@ -995,292 +1007,6 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     }
 }
 
-
-//-----------------------------------------------------------------------------
-// "PROCESS EMG DATA" STATE FUNCTION
-//-----------------------------------------------------------------------------
-void EmgRTControl::sf_process_emg(const util::NoEventData* data) {
-    util::print("Process EMG Data");
-
-    // initialize local state variables
-    bool emg_data_processed = true; // default to true; only write false if error encountered
-
-    // extract features from EMG data
-    emg_feature_vec_ = feature_extract(emg_data_buffer_);
-
-    // check for successful data processing
-    bool are_nan_features_ = false;
-    for (int i = 0; i < emg_feature_vec_.size(); ++i) {
-        if (std::isnan(emg_feature_vec_[i])) {
-            are_nan_features_ = true;
-            emg_feature_vec_[i] = 1.0;
-        }
-    }
-    if (are_nan_features_) {
-        util::print("WARNING: NaN feature(s) detected. Replacing with 1.0 .");
-    }
-
-    // copy features into an array
-    //std::copy_n(feature_vec_.begin(), feature_array_.size(), feature_array_.begin());
-
-    // store feature array in training data set and log in training_log
-    if (is_training()) {
-        emg_feature_vec_.push_back(class_label_sequence_[current_class_label_idx_]);
-        emg_training_data_.push_back(emg_feature_vec_);
-        util::print(*emg_training_data_.end());
-        log_training_row();
-    }
-
-    // transition to next state from "PROCESS EMG DATA"
-    if (stop_) {
-        // stop if user provided input
-        event(ST_STOP);
-    }
-    else if (emg_data_processed) {   
-        if (is_training()) {
-            event(ST_TO_CENTER);
-        }
-        else {
-            event(ST_CLASSIFY);
-        }  
-    }
-    else if (!emg_data_processed) {
-        util::print("WARNING: EMG data unsuccessfully processed. Going to ST_STOP.");
-        event(ST_STOP);
-    }
-    else {
-        util::print("ERROR: State transition undefined. Going to ST_STOP.");
-        event(ST_STOP);
-    }
-}
-
-
-
-//-----------------------------------------------------------------------------
-// "TRAIN CLASSIFIER" STATE FUNCTION
-//-----------------------------------------------------------------------------
-void EmgRTControl::sf_train_classifier(const util::NoEventData* data) {    
-    util::print("Training Classifier");
-
-    // disable robot
-    meii_.disable();
-    
-    // log training data
-    
-    training_log_.save_data(training_data_filename_, subject_dof_directory_, false);
-
-    // send file location to python over melshare
-    directory_share_.write_message(subject_dof_directory_);
-    file_name_share_.write_message(training_data_filename_);
-
-
-    // open LDA script in Python
-    std::string system_command;
-    if (is_single_dof()) {
-        system_command = "start " + program_directory_ + "EMG_FS_LDA.py &";
-    }
-    else {
-        system_command = "start " + program_directory_ + "EMG_FS_LDA.py &";
-    }
-    system(system_command.c_str());
-
-
-    // create vector of EMG features to send to Python
-    /*double_vec emg_training_data_vec;
-    emg_training_data_vec.reserve(N_train_ * meii_.N_emg_ * num_features_);
-    for (int i = 0; i < N_train_; ++i) {
-        for (int j = 0; j < meii_.N_emg_ * num_features_; ++j) {
-            emg_training_data_vec.push_back(emg_training_data_[i][j]);
-        }
-    }*/
-
-    // calculate size of training data to be sent to python
-    //std::array<int, 2> training_data_size = { N_train_, meii_.N_emg_ * num_features_ };
-
-    // copy training labels into an array
-    //std::vector<int> training_labels(N_train_);
-    //std::copy_n(class_label_sequence_.begin(), N_train_, training_labels.begin());
-
-    // write training data to python
-    //trng_size_.write(training_data_size);
-    //trng_share_.write(emg_training_data_vec);
-    //label_share_.write(training_labels);
-
-
-
-    /*// wait to receive trained classifier from python
-    util::print("Waiting for Python to return training results...");
-    while ((lda_training_complete_ == 0) && !stop_) {
-
-        // check for flag
-        lda_training_flag_.read(lda_training_complete_);
-
-        // check for stop input
-        stop_ = check_stop();
-
-        // wait for the next clock cycle
-        clock_.hybrid_wait();
-    }
-    util::print("Python results received.");*/
-
-    /*std::vector<double> cross_eval_test;
-    //read in the results from the Cross-validation test in Python
-    cv_results_.read(cross_eval_test);
-
-    util::print(cross_eval_test);*/
-
-    /*// read in csv's generated by python
-    read_csv(program_directory_+"LDA_coeffs", lda_classifier_);
-    read_csv(program_directory_ + "intercept", lda_intercept_);
-    read_csv(program_directory_ + "feat_sel", sel_feats_);*/
-    
-    size_t lda_rows = lda_classifier_.size();
-    size_t lda_cols = lda_classifier_[0].size();
-
-    
-    // data logging
-    lda_log_.add_col("intercept");
-    for (int i = 0; i < lda_cols; ++i) {
-        lda_log_.add_col("LDA Coeff" + std::to_string(i));
-    }
-    double_vec lda_row(lda_cols + 1);
-    for (int i = 0; i < lda_rows; ++i) {
-        lda_row[0] = lda_intercept_[0][i];
-        for (int j = 0; j < lda_cols; ++j) {
-            lda_row[j+1] = lda_classifier_[i][j];
-        }
-        lda_log_.add_row(lda_row);
-    }
-
-
-    // std::vector<int> sel_feats(lda_cols);
-    //read for selected feature indicies from Python
-    //feat_id_.read(sel_feats);
-
-    util::print(sel_feats_[0]);
-
-    std::string col;
-    for (int i = 0; i < lda_cols; i++) {
-        col = "feature" + std::to_string(i);
-        feature_log_.add_col(col);
-    }
-
-    std::vector<double> feature_row;
-    for (int i = 0; i < lda_cols; i++) {
-        feature_row.push_back(sel_feats_[0][i]);
-    }
-    feature_log_.add_row(feature_row);
-
-    // eigenization
-    lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
-    lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
-    for (int i = 0; i < lda_rows; ++i) {
-        lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
-    }
-    lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
-
-    util::print(lda_class_eig_);
-    util::print("\n");
-    util::print(lda_inter_eig_);
-
-    // transition to next state from "TRAIN CLASSIFIER"
-    if (stop_) {
-        // stop if user provided input
-        event(ST_STOP);
-    }
-    else {
-        event(ST_FINISH);
-    }
-}
-
-
-
-//-----------------------------------------------------------------------------
-// "CLASSIFY" STATE FUNCTION
-//-----------------------------------------------------------------------------
-void EmgRTControl::sf_classify(const util::NoEventData* data) {
-
-    util::print("Classifying EMG Activation");
-
-    //Open MelShares to get feature vector dimensions and indicies
-    //std::array<int, 2> training_data_size2;
-    //read for number of selected features from Python
-    //trng_size2_.read(training_data_size2_);
-
-    size_t lda_rows = lda_classifier_.size();
-    size_t lda_cols = lda_classifier_[0].size();
-
-    //std::vector<int> sel_feats(lda_cols);
-    //read for selected feature indicies from Python
-    //feat_id_.read(sel_feats);
-
-    //Create a vector to hold the selected features from the last trial
-    std::vector<double> classify_features(lda_cols);
-
-    //Extract the selected features from the full set and store them in vector
-    for (int i = 0; i < lda_cols; ++i) {
-        classify_features[i] = emg_feature_vec_[sel_feats_[0][i]];
-        //classify_features[i] = emg_training_data_[0][sel_feats_[0][i]];
-    }
-
-    util::print(classify_features);
-
-    // util::print(lda_class_eig_);
-
-
-
-     //Convert vector of selected features to Eigen
-     //Eigen::VectorXd classify_features_eig = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(classify_features.data(), classify_features.size());
-    Eigen::VectorXd classify_features_eig = math::stdv2eigenv(classify_features);
-
-    //util::print(classify_features_eig);
-
-    //multiply the LDA coefficients and EMG features
-    lda_dist_eig_ = lda_class_eig_ * classify_features_eig + lda_inter_eig_;
-
-    util::print(lda_dist_eig_);
-
-    //Compare the result to the intercept to determine which class the features belong to
-    if (is_single_dof()) {
-        //if (lda_prob_eig_[0] > lda_intercept_[0][0]) {
-        if (lda_dist_eig_[0] < 0) {
-            classifier_result_ = 1;
-        }
-        else {
-            classifier_result_ = 2;
-        }
-    }
-    else {
-        double_vec lda_prob = math::eigenv2stdv(lda_dist_eig_);
-        classifier_result_ = std::distance(lda_prob.begin(), std::max_element(lda_prob.begin(), lda_prob.end()));
-        classifier_result_ += 1;
-    }
-
-    util::print(classifier_result_);
-    log_training_row();
-
-    emg_training_data_.clear();
-
-
-    // set predicted class label
-    pred_class_label_ = classifier_result_;
-
-    // check for stop input
-    stop_ = check_stop();
-
-    // transition to next state from "CLASSIFY"
-    if (stop_) {
-        event(ST_STOP);
-    }
-    else {
-        if (is_blind()) {
-            event(ST_TO_CENTER);
-        }
-        else {
-            event(ST_TO_TARGET);
-        }
-    }
-}
 
 
 //-----------------------------------------------------------------------------
@@ -1288,9 +1014,6 @@ void EmgRTControl::sf_classify(const util::NoEventData* data) {
 //-----------------------------------------------------------------------------
 void EmgRTControl::sf_to_target(const util::NoEventData* data) {
     util::print("Go to Target");
-
-    // initialize global event variables
-    
 
     // initialize local state variables
     bool target_reached = false;
@@ -1433,6 +1156,7 @@ void EmgRTControl::sf_hold_target(const util::NoEventData* data) {
 }
 
 
+
 //-----------------------------------------------------------------------------
 // "FINISH EXPERIMENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
@@ -1450,11 +1174,6 @@ void EmgRTControl::sf_finish(const util::NoEventData* data) {
 
     // save data
     save_data();
-
-    if (is_training()) {
-        
-        // save classifier
-    }
 
     // wait for user input
     util::print("Press 'm' in Unity to return to the GUI main menu or press 'ENTER' to stop the experiment");
@@ -1497,6 +1216,7 @@ void EmgRTControl::sf_finish(const util::NoEventData* data) {
     }
 }
 
+
 //-----------------------------------------------------------------------------
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
@@ -1527,17 +1247,172 @@ void EmgRTControl::sf_stop(const util::NoEventData* data) {
 
 
 
+//-----------------------------------------------------------------------------
+// EMG REAL-TIME CONTROL UTILITY FUNCTIONS
+//-----------------------------------------------------------------------------
+
+bool EmgRTControl::process_emg() {
+    util::print("Process EMG Data");
+
+    // default return value to true; only write false if error encountered
+    bool emg_data_processed = true; 
+
+    // extract features from EMG data
+    emg_feature_vec_ = feature_extract(emg_classification_data_buffer_);
+
+    // check for successful data processing
+    bool are_nan_features_ = false;
+    for (int i = 0; i < emg_feature_vec_.size(); ++i) {
+        if (std::isnan(emg_feature_vec_[i])) {
+            are_nan_features_ = true;
+            emg_feature_vec_[i] = 1.0;
+        }
+    }
+    if (are_nan_features_) {
+        util::print("WARNING: NaN feature(s) detected; replacing with 1.0 .");
+        emg_data_processed = false;
+    }
+
+    // store feature array in training data set and log in training_log
+    if (is_training()) {
+        emg_feature_vec_.push_back(class_label_sequence_[current_class_label_idx_]);
+        emg_training_data_.push_back(emg_feature_vec_);
+        log_training_row();
+    }
+
+    return emg_data_processed;
+}
+
+int EmgRTControl::classify() {
+    util::print("Classifying EMG Activation");
+
+    // add dummy feature and convert feature vector to Eigen type
+    emg_feature_vec_.push_back(1.0);
+    util::print(emg_feature_vec_.size());
+    Eigen::VectorXd emg_feature_vec_eig = math::stdvec_to_eigvec(emg_feature_vec_);
+
+    // compute the distance from the classification boundary in feature space
+    lda_dist_eig_ = lda_class_eig_ * emg_feature_vec_eig;
+
+    util::print(lda_dist_eig_);
+
+    // compare the result to the intercept to determine which class the features belong to
+    if (is_single_dof()) {
+        if (lda_dist_eig_[0] < 0) {
+            classifier_result_ = 1;
+        }
+        else {
+            classifier_result_ = 2;
+        }
+    }
+    else {
+        double_vec lda_prob = math::eigvec_to_stdvec(lda_dist_eig_);
+        classifier_result_ = std::distance(lda_prob.begin(), std::max_element(lda_prob.begin(), lda_prob.end()));
+        classifier_result_ += 1;
+    }
+
+    util::print(classifier_result_);
+    log_training_row();
+
+    emg_training_data_.clear();
+
+
+    // set predicted class label
+    pred_class_label_ = classifier_result_;
+
+}
+
+
+void EmgRTControl::tkeo_model_estimation() {
+
+    // compute rest sample mean
+    for (int i = 0; i < tkeo_rest_data_.size(); ++i) {
+        rest_sample_mean_[i] = math::mean(tkeo_rest_data_[i]);
+    }
+
+    // compute rest sample covariance and inverse
+    Eigen::VectorXd sample = Eigen::VectorXd::Zero(tkeo_rest_data_.size(), 1);
+    for (int l = 0; l < tkeo_rest_data_[0].size(); ++l) {
+        for (int i = 0; i < tkeo_rest_data_.size(); ++i) {
+            sample[i] = tkeo_rest_data_[i][l];
+        }
+        sample -= rest_sample_mean_;
+
+        rest_sample_cov_ += sample * sample.transpose();
+    }
+    rest_sample_cov_ = rest_sample_cov_ / (tkeo_rest_data_[0].size());
+
+    rest_sample_cov_inv_ = rest_sample_cov_.fullPivLu().inverse();
+
+    // compute active sample mean
+    for (int i = 0; i < tkeo_active_data_.size(); ++i) {
+        active_sample_mean_[i] = math::mean(tkeo_active_data_[i]);
+    }
+
+    // compute active sample covariance and inverse
+    for (int l = 0; l < tkeo_active_data_[0].size(); ++l) {
+        for (int i = 0; i < tkeo_active_data_.size(); ++i) {
+            sample[i] = tkeo_active_data_[i][l];
+        }
+        sample -= active_sample_mean_;
+        active_sample_cov_ += sample * sample.transpose();
+    }
+    active_sample_cov_ = active_sample_cov_ / (tkeo_active_data_[0].size());
+    active_sample_cov_inv_ = active_sample_cov_.fullPivLu().inverse();
+
+    // compute single sample threshold assuming uniform priors
+    tkeo_threshold_ = std::log(rest_sample_cov_.fullPivLu().determinant()) - std::log(active_sample_cov_.fullPivLu().determinant())
+        + rest_sample_mean_.transpose() * rest_sample_cov_inv_ * rest_sample_mean_
+        - active_sample_mean_.transpose() * active_sample_cov_inv_ * active_sample_mean_;
+}
+
+double EmgRTControl::tkeo_sufficient_statistic(double_vec& sample_vec) {
+
+    Eigen::VectorXd sample = math::stdvec_to_eigvec(sample_vec);
+    double upsilon;
+    upsilon = sample.transpose() * active_sample_cov_inv_ * sample; // -2 * sample.transpose() * active_sample_cov_inv_ * active_sample_mean_ -sample.transpose() * rest_sample_cov_inv_ * sample + 2 * sample.transpose() * rest_sample_cov_inv_ * rest_sample_mean_;
+    upsilon -= 2 * sample.transpose() * active_sample_cov_inv_ * active_sample_mean_;
+    upsilon -= sample.transpose() * rest_sample_cov_inv_ * sample;
+    upsilon += 2 * sample.transpose() * rest_sample_cov_inv_ * rest_sample_mean_;
+    return upsilon;
+}
+
+int EmgRTControl::tkeo_detector(double_vec& sample_vec) {
+    int num_samples = 25;
+    double alpha = 0.05;
+    double beta = 0.95;
+    double eta_0 = (1 - beta) / (1 - alpha);
+    double eta_1 = beta / alpha;
+    if (tkeo_sufficient_statistic(sample_vec) > tkeo_threshold_ + 2 * std::log(eta_1)) {
+       ++tkeo_detector_memory_;
+    }
+    else {
+        tkeo_detector_memory_ = 0;
+    }
+    /*else if (tkeo_sufficient_statistic(sample_vec) < tkeo_threshold_ + 2 * std::log(eta_0)) {
+        --tkeo_detector_memory_;
+    }*/
+
+    if (tkeo_detector_memory_ > num_samples) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
 
 //-----------------------------------------------------------------------------
-// UTILITY FUNCTIONS
+// EXPERIMENT SETUP/CONDITIONS UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
+
 
 void EmgRTControl::save_data() {
     
     std::string filename;
     std::string directory;
     if (stop_) {
-        directory = program_directory_ + "\\" + "Error Report";
+        directory = program_directory_ + "\\" + "ErrorReport";
     }
     else {
         directory = subject_dof_directory_;
@@ -1555,14 +1430,14 @@ void EmgRTControl::save_data() {
     training_log_.save_and_clear_data("class_data_" + filename, directory, true);
     if (is_training()) {
         lda_log_.save_and_clear_data("LDA_Coeffs_" + filename, directory, true);
-        feature_log_.save_and_clear_data("selected_features_" + filename, directory, true);
+        //feature_log_.save_and_clear_data("selected_features_" + filename, directory, true);
     }
 
     // resetting column names in data logs
     robot_log_ = util::DataLog("robot_data_log", false);
     training_log_ = util::DataLog("training_log", false);
     lda_log_ = util::DataLog("lda_coeff_log", false);
-    feature_log_ = util::DataLog("feat_sel_log", false);
+    //feature_log_ = util::DataLog("feat_sel_log", false);
     
 }
 
@@ -1616,8 +1491,8 @@ bool EmgRTControl::check_stop() {
 }
 
 void EmgRTControl::set_experiment_conditions(int scene_num) {
-    dof_ = (scene_num - 2) / 3;
-    condition_ = (scene_num - 2) % 3;
+    dof_ = (scene_num - 2) / 4;
+    condition_ = (scene_num - 2) % 4;
 }
 
 std::vector<int> EmgRTControl::gen_rand_class_labels(int num_labels) const {
@@ -1668,20 +1543,26 @@ double_vec EmgRTControl::get_target_position(int class_label) const {
 }
 
 bool EmgRTControl::is_single_dof() const {
-    return SCENE_NUM_ < 14;
+    return dof_ < 4;
 }
 
-bool EmgRTControl::is_training() const {
+bool EmgRTControl::is_cal() const {
     return condition_ == 0;
 }
 
+bool EmgRTControl::is_training() const {
+    return condition_ == 1;
+}
+
 bool EmgRTControl::is_testing() const {
-    return condition_ == 1 || condition_ == 2;
+    return condition_ == 2 || condition_ == 3;
 }
 
 bool EmgRTControl::is_blind() const {
-    return condition_ == 1;
+    return condition_ == 2;
 }
+
+
 
 bool EmgRTControl::check_wait_time_reached(double wait_time, double init_time, double current_time) const {
     return (current_time - init_time) > wait_time;
@@ -1742,16 +1623,17 @@ bool EmgRTControl::check_force_mag_reached(double force_mag_goal, double force_m
     return force_mag_maintained_ > force_mag_dwell_time_;
 }
 
-bool EmgRTControl::read_csv(std::string filename, std::string directory, std::vector<std::vector<double>>& output) {
+template <typename T>
+bool EmgRTControl::read_csv(std::string filename, std::string directory, std::vector<std::vector<T>>& output) {
     std::string full_filename = directory + "\\" + filename + ".csv";
     std::ifstream input(full_filename);
     if (input.is_open()) {
         std::string csv_line;
         while (std::getline(input, csv_line)) {
             std::istringstream csv_stream(csv_line);
-            std::vector<double> row;
+            std::vector<T> row;
             std::string number;
-            double data;
+            T data;
             while (std::getline(csv_stream, number, ',')) {
                 data = std::atof(number.c_str());
                 row.push_back(data);
@@ -1765,23 +1647,24 @@ bool EmgRTControl::read_csv(std::string filename, std::string directory, std::ve
         return false;
     }
 }
+template bool EmgRTControl::read_csv<int>(std::string filename, std::string directory, std::vector<std::vector<int>>& output);
+template bool EmgRTControl::read_csv<double>(std::string filename, std::string directory, std::vector<std::vector<double>>& output);
 
-bool EmgRTControl::read_csv(std::string filename, std::string directory, std::vector<std::vector<int>>& output) {
+template <typename T>
+bool EmgRTControl::write_csv(std::string filename, std::string directory, const std::vector<std::vector<T>>& input) const {
     std::string full_filename = directory + "\\" + filename + ".csv";
-    std::ifstream input(full_filename);
-    if (input.is_open()) {
-        std::string csv_line;
-        while (std::getline(input, csv_line)) {
-            std::istringstream csv_stream(csv_line);
-            std::vector<int> row;
-            std::string number;
-            int data;
-            while (std::getline(csv_stream, number, ',')) {
-                data = std::atoi(number.c_str());
-                row.push_back(data);
+    boost::filesystem::path dir(directory.c_str());
+    boost::filesystem::create_directories(dir);
+    std::ofstream output(full_filename);
+    std::cout << output.fail() << std::endl;
+    if (output.is_open()) {
+        for (int row = 0; row < input.size(); ++row) {
+            for (int col = 0; col + 1 < input[row].size(); ++col) {
+                output << input[row][col] << ",";
             }
-            output.push_back(row);
+            output << input[row][input[row].size()-1] << std::endl;
         }
+        output.close();
         return true;
     }
     else {
@@ -1789,6 +1672,8 @@ bool EmgRTControl::read_csv(std::string filename, std::string directory, std::ve
         return false;
     }
 }
+template bool EmgRTControl::write_csv<int>(std::string filename, std::string directory, const std::vector<std::vector<int>>& input) const;
+template bool EmgRTControl::write_csv<double>(std::string filename, std::string directory, const std::vector<std::vector<double>>& input) const;
 
 int EmgRTControl::is_any_num_key_pressed() const {
     std::vector<util::Input::Key> keys = { util::Input::Num0, util::Input::Num1, util::Input::Num2, util::Input::Num3, util::Input::Num4, util::Input::Num5, util::Input::Num6, util::Input::Num7, util::Input::Num8, util::Input::Num9 };
@@ -1819,10 +1704,102 @@ int EmgRTControl::is_any_num_key_pressed() const {
 }
 
 
-double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) {
+void EmgRTControl::store_buffer(const exo::MahiExoIIEmg::EmgDataBuffer& data_buffer, std::vector<double_vec>& data_matrix) {
+    if (data_matrix.empty()) {
+        for (int i = 0; i < data_buffer.num_channels_; ++i) {
+            data_matrix.push_back(double_vec());
+        }
+    }
+    
+    if (data_matrix.size() != data_buffer.num_channels_) {
+        util::print("ERROR: Number of channels in data buffer does not match number of rows in data matrix.");
+        return;
+    }
+    double_vec data_buffer_channel;
+    for (int i = 0; i < data_buffer.num_channels_; ++i) {
+        data_buffer_channel = data_buffer.get_channel(i);
+        data_matrix[i].insert(data_matrix[i].end(), data_buffer_channel.begin(), data_buffer_channel.end());
+    }
+}
+
+
+
+void EmgRTControl::write_calibration_data() {
+
+    // store in a csv-writable data type
+    Eigen::VectorXd tkeo_threshold_eig = Eigen::VectorXd::Ones(tkeo_rest_data_.size(), 1) * tkeo_threshold_;
+    Eigen::MatrixXd calibration_data_eig(rest_sample_mean_.rows(), rest_sample_mean_.cols() + rest_sample_cov_.cols() + rest_sample_cov_inv_.cols() + active_sample_mean_.cols() + active_sample_cov_.cols() + active_sample_cov_inv_.cols() + tkeo_threshold_eig.cols());
+    calibration_data_eig << rest_sample_mean_, rest_sample_cov_, rest_sample_cov_inv_, active_sample_mean_, active_sample_cov_, active_sample_cov_inv_, tkeo_threshold_eig;
+    calibration_data_ = math::eigmat_to_stdvecvec(calibration_data_eig);
+
+    // write to csv
+    util::print("Writing calibration data to " + subject_dof_directory_ + "\\" + calibration_data_filename_);
+    if (!write_csv(calibration_data_filename_, subject_dof_directory_, calibration_data_)) {
+        stop_ = true;
+    }
+}
+
+void EmgRTControl::load_calibration_data() {
+
+    // read from csv
+    util::print("Loading calibration data from " + subject_dof_directory_ + "\\" + calibration_data_filename_);
+    if (!read_csv<double>(calibration_data_filename_, subject_dof_directory_, calibration_data_)) {
+        stop_ = true;
+    }
+    
+    // parse csv data into separate variables
+    int rows = calibration_data_.size();
+    int cols = calibration_data_[0].size();
+    Eigen::MatrixXd calibration_data_eig = math::stdvecvec_to_eigmat(calibration_data_);
+    int it = 0;
+    
+    int width = 1;
+    rest_sample_mean_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = rows;
+    rest_sample_cov_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = rows;
+    rest_sample_cov_inv_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = 1;
+    active_sample_mean_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = rows;
+    active_sample_cov_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = rows;
+    active_sample_cov_inv_ = calibration_data_eig.block(0, it, rows, width);
+    it += width;
+
+    width = 1;
+    Eigen::VectorXd tkeo_threshold_eig = calibration_data_eig.block(0, it, rows, width);
+    tkeo_threshold_ = tkeo_threshold_eig[0];
+}
+
+void EmgRTControl::load_classifier() {
+
+    util::print("Loading classifier from " + subject_dof_directory_ + "\\" + lda_classifier_filename_);
+    if (!read_csv(lda_classifier_filename_, subject_dof_directory_, lda_classifier_)) {
+        stop_ = true;
+    }
+
+    // convert classifier to Eigen type matrix
+    lda_class_eig_ = Eigen::MatrixXd::Zero(lda_classifier_.size(), lda_classifier_[0].size());
+    for (int i = 0; i < lda_classifier_.size(); ++i) {
+        lda_class_eig_.row(i) = math::stdvec_to_eigvec(lda_classifier_[i]);
+    }
+}
+
+
+double_vec EmgRTControl::feature_extract(const exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) const {
 
     double_vec feature_vec;
-    feature_vec.reserve(meii_.N_emg_ * num_features_);
     double_vec nrms_vec(meii_.N_emg_, 0.0);
     double_vec nmav_vec(meii_.N_emg_, 0.0);
     double_vec nwl_vec(meii_.N_emg_, 0.0);
@@ -1836,34 +1813,24 @@ double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_d
 
     // extract unnormalized features
     for (int i = 0; i < meii_.N_emg_; ++i) {
-        nrms_vec[i] = rms_feature_extract(emg_data_buffer.data_buffer_[i]);  
-        //util::print(nrms_vec[i]);
-        nmav_vec[i] = mav_feature_extract(emg_data_buffer.data_buffer_[i]);
-        nwl_vec[i] = wl_feature_extract(emg_data_buffer.data_buffer_[i]);
-        nzc_vec[i] = zc_feature_extract(emg_data_buffer.data_buffer_[i]);
-        nssc_vec[i] = ssc_feature_extract(emg_data_buffer.data_buffer_[i]);
-        ar4_feature_extract(ar_vec, emg_data_buffer.get_channel(i));
+        nrms_vec[i] = rms_feature_extract(emg_data_buffer.get_channel(i));
+        nmav_vec[i] = mav_feature_extract(emg_data_buffer.get_channel(i));
+        nwl_vec[i] = wl_feature_extract(emg_data_buffer.get_channel(i));
+        nzc_vec[i] = zc_feature_extract(emg_data_buffer.get_channel(i));
+        nssc_vec[i] = ssc_feature_extract(emg_data_buffer.get_channel(i));
+        ar_4_feature_extract(ar_vec, emg_data_buffer.get_channel(i));
         ar1_vec[i] = ar_vec[0];
         ar2_vec[i] = ar_vec[1];
         ar3_vec[i] = ar_vec[2];
         ar4_vec[i] = ar_vec[3];
-    }    
-    util::print(nzc_vec);
-    util::print("");
+    }        
 
-    // normalize features
-    double rms_mean = 0.0;
-    double mav_mean = 0.0;
-    double wl_mean = 0.0;
-    double zc_mean = 0.0;
-    double ssc_mean = 0.0;
-    for (int i = 0; i < meii_.N_emg_; ++i) {
-        rms_mean += nrms_vec[i] / meii_.N_emg_;
-        mav_mean += nmav_vec[i] / meii_.N_emg_;
-        wl_mean += nwl_vec[i] / meii_.N_emg_;
-        zc_mean += nzc_vec[i] / meii_.N_emg_;
-        ssc_mean += nssc_vec[i] / meii_.N_emg_;
-    }
+    // normalize time-domain features
+    double rms_mean = math::mean(nrms_vec);
+    double mav_mean = math::mean(nmav_vec);
+    double wl_mean = math::mean(nwl_vec);
+    double zc_mean = math::mean(nzc_vec);
+    double ssc_mean = math::mean(nssc_vec);
     for (int i = 0; i < meii_.N_emg_; ++i) {
         if (rms_mean > 0) {
             nrms_vec[i] = nrms_vec[i] / rms_mean;
@@ -1881,22 +1848,23 @@ double_vec EmgRTControl::feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_d
             nssc_vec[i] = nssc_vec[i] / ssc_mean;
         }
     }
-    util::print(nzc_vec);
-    // copy features into one vector (inserted in reverse order)
-    auto it = feature_vec.begin();
-    it = feature_vec.insert(it, ar4_vec.begin(), ar4_vec.end());
-    it = feature_vec.insert(it, ar3_vec.begin(), ar3_vec.end());
-    it = feature_vec.insert(it, ar2_vec.begin(), ar2_vec.end());
-    it = feature_vec.insert(it, ar1_vec.begin(), ar1_vec.end());
-    it = feature_vec.insert(it, nssc_vec.begin(), nssc_vec.end());
-    it = feature_vec.insert(it, nzc_vec.begin(), nzc_vec.end());
-    it = feature_vec.insert(it, nwl_vec.begin(), nwl_vec.end());
-    it = feature_vec.insert(it, nmav_vec.begin(), nmav_vec.end());
-    it = feature_vec.insert(it, nrms_vec.begin(), nrms_vec.end());
+    
+    // copy features into one vector
+    feature_vec.insert(feature_vec.end(), nrms_vec.begin(), nrms_vec.end());
+    feature_vec.insert(feature_vec.end(), nmav_vec.begin(), nmav_vec.end());
+    feature_vec.insert(feature_vec.end(), nwl_vec.begin(), nwl_vec.end());
+    feature_vec.insert(feature_vec.end(), nzc_vec.begin(), nzc_vec.end());
+    feature_vec.insert(feature_vec.end(), nssc_vec.begin(), nssc_vec.end());
+    feature_vec.insert(feature_vec.end(), ar1_vec.begin(), ar1_vec.end());
+    feature_vec.insert(feature_vec.end(), ar2_vec.begin(), ar2_vec.end());
+    feature_vec.insert(feature_vec.end(), ar3_vec.begin(), ar3_vec.end());
+    feature_vec.insert(feature_vec.end(), ar4_vec.begin(), ar4_vec.end());
+
     return feature_vec;
+    
 }
 
-double EmgRTControl::rms_feature_extract(boost::circular_buffer<double> emg_channel_buffer) {
+double EmgRTControl::rms_feature_extract(const double_vec& emg_channel_buffer) const {
     double sum_squares = 0;
     for (int i = 0; i < emg_channel_buffer.size(); ++i) {
         sum_squares += std::pow(emg_channel_buffer[i], 2);
@@ -1904,7 +1872,7 @@ double EmgRTControl::rms_feature_extract(boost::circular_buffer<double> emg_chan
     return std::sqrt(sum_squares / emg_channel_buffer.size());
 }
 
-double EmgRTControl::mav_feature_extract(boost::circular_buffer<double> emg_channel_buffer) {
+double EmgRTControl::mav_feature_extract(const double_vec& emg_channel_buffer) const {
     double sum_abs = 0;
     for (int i = 0; i < emg_channel_buffer.size(); ++i) {
         sum_abs += std::abs(emg_channel_buffer[i]);
@@ -1912,7 +1880,7 @@ double EmgRTControl::mav_feature_extract(boost::circular_buffer<double> emg_chan
     return sum_abs / emg_channel_buffer.size();
 }
 
-double EmgRTControl::wl_feature_extract(boost::circular_buffer<double> emg_channel_buffer) {
+double EmgRTControl::wl_feature_extract(const double_vec& emg_channel_buffer) const {
     double sum_abs_diff = 0.0;
     for (int i = 0; i < emg_channel_buffer.size() - 1; ++i) {       
         sum_abs_diff += std::abs(emg_channel_buffer[i + 1] - emg_channel_buffer[i]);
@@ -1920,7 +1888,7 @@ double EmgRTControl::wl_feature_extract(boost::circular_buffer<double> emg_chann
     return sum_abs_diff;
 }
 
-double EmgRTControl::zc_feature_extract(boost::circular_buffer<double> emg_channel_buffer) {
+double EmgRTControl::zc_feature_extract(const double_vec& emg_channel_buffer) const {
     double sum_abs_diff_sign = 0;
     for (int i = 0; i < emg_channel_buffer.size() - 1; ++i) {
         sum_abs_diff_sign += std::abs(std::copysign(1.0, emg_channel_buffer[i + 1]) - std::copysign(1.0, emg_channel_buffer[i]));
@@ -1928,7 +1896,7 @@ double EmgRTControl::zc_feature_extract(boost::circular_buffer<double> emg_chann
     return sum_abs_diff_sign / 2;
 }
 
-double EmgRTControl::ssc_feature_extract(boost::circular_buffer<double> emg_channel_buffer) {
+double EmgRTControl::ssc_feature_extract(const double_vec& emg_channel_buffer) const {
     double sum_abs_diff_sign_diff = 0;
     for (int i = 0; i < emg_channel_buffer.size() - 2; ++i) {
         sum_abs_diff_sign_diff += std::abs(std::copysign(1.0, (emg_channel_buffer[i + 2] - emg_channel_buffer[i + 1])) - std::copysign(1.0, (emg_channel_buffer[i + 1] - emg_channel_buffer[i])));
@@ -1936,21 +1904,21 @@ double EmgRTControl::ssc_feature_extract(boost::circular_buffer<double> emg_chan
     return sum_abs_diff_sign_diff / 2;
 }
 
-void EmgRTControl::ar4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer) {
+void EmgRTControl::ar_4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer) const {
 
     // initialize
     size_t N = emg_channel_buffer.size();
     size_t m = coeffs.size();
     double_vec A_k(m + 1, 0.0);
     A_k[0] = 1.0;
-    double_vec f(emg_channel_buffer);
-    double_vec b(emg_channel_buffer);
+    double_vec f = emg_channel_buffer;
+    double_vec b = emg_channel_buffer;
     double D_k = 0;
     for (size_t j = 0; j <= N; ++j) {
         D_k += 2.0 * std::pow(f[j], 2);
     }
-    D_k -= std::pow(f[0], 2) + std::pow(b[N], 2);
-
+    D_k -= std::pow(f[0], 2) + std::pow(b[N-1], 2);
+    
     // Burg recursion
     for (size_t k = 0; k < m; ++k) {
 

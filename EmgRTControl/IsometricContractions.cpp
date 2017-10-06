@@ -119,9 +119,9 @@ void IsometricContractions::sf_init(const util::NoEventData* data) {
         lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
         lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
         for (int i = 0; i < lda_rows; ++i) {
-            lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
+            lda_class_eig_.row(i) = math::stdvec_to_eigvec(lda_classifier_[i]);
         }
-        lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
+        lda_inter_eig_ = math::stdvec_to_eigvec(lda_intercept_[0]);
     }
 
     // enable MEII EMG DAQ
@@ -534,7 +534,7 @@ void IsometricContractions::sf_present_target(const util::NoEventData* data) {
         force_mag = measure_task_force(command_torques, current_class_label_, dof_, condition_);
 
         // get measured emg voltages
-        filtered_emg_voltages_ = meii_.butter_hp_.filter(meii_.get_emg_voltages());
+        meii_.butter_hp_.filter(meii_.get_emg_voltages(), filtered_emg_voltages_);
         emg_data_buffer_.push_back(filtered_emg_voltages_);
         emg_share_.write(emg_data_buffer_.at(0));
 
@@ -696,9 +696,9 @@ void IsometricContractions::sf_train_classifier(const util::NoEventData* data) {
     lda_class_eig_ = Eigen::MatrixXd::Zero(lda_rows, lda_cols);
     lda_inter_eig_ = Eigen::VectorXd::Zero(lda_rows);
     for (int i = 0; i < lda_rows; ++i) {
-        lda_class_eig_.row(i) = math::stdv2eigenv(lda_classifier_[i]);
+        lda_class_eig_.row(i) = math::stdvec_to_eigvec(lda_classifier_[i]);
     }
-    lda_inter_eig_ = math::stdv2eigenv(lda_intercept_[0]);
+    lda_inter_eig_ = math::stdvec_to_eigvec(lda_intercept_[0]);
 
     util::print(lda_class_eig_);
     util::print("\n");
@@ -751,7 +751,7 @@ void IsometricContractions::sf_classify(const util::NoEventData* data) {
 
     //Convert vector of selected features to Eigen
     //Eigen::VectorXd classify_features_eig = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(classify_features.data(), classify_features.size());
-    Eigen::VectorXd classify_features_eig = math::stdv2eigenv(classify_features);
+    Eigen::VectorXd classify_features_eig = math::stdvec_to_eigvec(classify_features);
 
     //util::print(classify_features_eig);
 
@@ -771,7 +771,7 @@ void IsometricContractions::sf_classify(const util::NoEventData* data) {
         }
     }
     else {
-        double_vec lda_prob = math::eigenv2stdv(lda_dist_eig_);
+        double_vec lda_prob = math::eigvec_to_stdvec(lda_dist_eig_);
         classifier_result_ = std::distance(lda_prob.begin(), std::max_element(lda_prob.begin(), lda_prob.end()));
         classifier_result_ += 1;
     }

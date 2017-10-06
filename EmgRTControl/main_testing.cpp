@@ -88,8 +88,6 @@ int main(int argc, char * argv[]) {
         return 0;
     }   
 
-   
-
     // run state machine
     util::Clock clock(1000);
     util::enable_realtime();

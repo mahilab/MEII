@@ -183,7 +183,7 @@ void TransparentMode::sf_transparent_step() {
 
     // get measured emg voltages
     emg_voltages_ = meii_.get_emg_voltages();
-    filtered_emg_voltages_ = meii_.butter_hp_.filter(meii_.get_emg_voltages());
+    meii_.butter_hp_.filter(meii_.get_emg_voltages(), filtered_emg_voltages_);
     emg_share_.write(emg_voltages_);
     filter_emg_share_.write(filtered_emg_voltages_);
 
