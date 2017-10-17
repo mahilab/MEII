@@ -69,6 +69,7 @@ int main(int argc, char * argv[]) {
             return -1;
         }
         q8_emg->offset_encoders({ 0, -33259, 29125, 29125, 29125 });
+        q8_emg->disable();
         return 0;
     }
 

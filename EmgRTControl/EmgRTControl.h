@@ -47,6 +47,7 @@ private:
         ST_HOLD_TARGET,
         ST_FINISH,
         ST_STOP,
+        ST_FAULT_STOP,
         ST_NUM_STATES
     };
 
@@ -87,6 +88,9 @@ private:
     void sf_stop(const util::NoEventData*);
     util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_stop> sa_stop;
 
+    void sf_fault_stop(const util::NoEventData*);
+    util::StateAction<EmgRTControl, util::NoEventData, &EmgRTControl::sf_fault_stop> sa_fault_stop;
+
     // STATE MAP
     virtual const util::StateMapRow* get_state_map() {
         static const util::StateMapRow STATE_MAP[] = {
@@ -102,34 +106,46 @@ private:
             &sa_hold_target,
             &sa_finish,
             &sa_stop,
+            &sa_fault_stop,
         };
         return &STATE_MAP[0];
-    } 
+    }
 
     //-------------------------------------------------------------------------
     // PRIVATE VARIABLES
     //-------------------------------------------------------------------------
-    
+
+    // OPTIONAL MODES FOR DEBUGGING
+    // (set all to false for normal operation)
+    bool virtual_exo_ = true; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
+    bool virtual_emg_ = true; // when true, prevents any checks based on emg readings
+    bool scope_mode_ = false;
+    bool emg_signal_check_ = false;
+
     // SUBJECT/CONDITION
     int subject_number_ = 0;
     std::vector<std::string> hand_defs = { "L","R" };
     int hand_num_ = 0; // 0 or 1 for Left or Right arm of the user
     std::string hand_def_ = hand_defs[hand_num_];
     int dof_; // 0-3 is single-dof; 4-5 is multi-dof
+    int num_classes_;
     int condition_; // 0 = calibration; 1 = training; 2 = blind testing; 3 = full testing
-    
 
-    // FILE NAMES & DIRECTORIES
-    std::vector<std::string> str_conditions_long_ = { "Calibration", "Training", "Blind Testing", "Full Testing"  };
-    std::vector<std::string> str_conditions_ = { "cal", "trng", "blind", "full"  };
+    // STRING NAMES
+    std::vector<std::string> str_conditions_long_ = { "Calibration", "Training", "Blind Testing", "Full Testing" };
+    std::vector<std::string> str_conditions_ = { "cal", "trng", "blind", "full" };
     std::vector<std::string> str_dofs_long_ = { "Elbow F/E Single-DoF", "Forearm P/S Single-Dof", "Wrist F/E Single-DoF", "Wrist R/U Single-DoF", "Elbow F/E & Forearm P/S Multi-DoF", "Wrist F/E & Wrist R/U Multi-DoF" };
     std::vector<std::string> str_dofs_ = { "EFE", "FPS", "WFE", "WRU", "ELFM", "WMLT" };
+    std::vector<std::string> str_states_ = { "ST_WAIT_FOR_GUI", "ST_INIT", "ST_BACKDRIVE", "ST_INIT_RPS", "ST_TO_CENTER", "ST_HOLD_CENTER", "ST_HOLD_FOR_INPUT", "ST_PRESENT_TARGET", "ST_TO_TARGET", "ST_HOLD_TARGET", "ST_FINISH", "ST_STOP", "ST_FAULT_STOP" };
+    
+    // FILE NAMES & DIRECTORIES
     std::string program_directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\bin";
+    std::string project_directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\EmgRTControl";
     std::string subject_directory_;
     std::string subject_dof_directory_;
-    std::string calibration_data_filename_;
+    std::string emg_active_classifier_filename_;
     std::string training_data_filename_;
-    std::string lda_classifier_filename_;
+    std::string emg_dir_classifier_filename_;
 
     // UNITY GAME
     util::ExternalApp game = mel::util::ExternalApp("2D_targets", "C:\\Users\\Ted\\GitHub\\MEII\\Exo Visualization\\Builds\\Exo_Vis_Build_1.exe");
@@ -141,18 +157,13 @@ private:
     core::Daq* daq_;
     exo::MahiExoIIEmg meii_;
 
-    // INPUT CLASS LABELS
-    bool class_labels_from_file_ = false;
-    std::vector<int> class_label_sequence_;
-    int current_class_label_idx_ = -1;
-    
     // PREDEFINED TARGETS
     const double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
     const std::vector<std::vector<std::vector<double_vec>>> single_dof_targets_ = { { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
                                                                                       { { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
                                                                                       { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
                                                                                       { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } },
-            
+
                                                                                     { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
                                                                                       { { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
                                                                                       { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
@@ -166,9 +177,10 @@ private:
 
     // EXPERIMENT TIMING PARAMETERS
     double init_backdrive_time_ = 2.0; // [s] time to be in backdrive mode initially
-    double hold_center_time_ = 1.0; // time to hold at center target [s]
-    double hold_target_time_ = 1.0; // time to hold at target [s]
-    double wait_mvc_time_ = 0.5; // time to wait during MVC [s]
+    double hold_center_time_ = 1.0; // [s] time to hold at center target
+    double hold_target_time_ = 1.0; // [s] time to hold at target
+    double wait_mvc_time_ = 0.5; // [s] time to wait during MVC
+    double detection_expire_time_ = 10.0; // [s] time after which failure to detect active state is marked as misclassification
 
     // TASK FORCE MEASUREMENT
     int task_force_measurement_mode_ = 0; // 0 = commanded torques, dof/direction specific; 1 = commanded torques, dof specific, direction agnostic; 2 = commanded torques, dof/direction agnostic
@@ -200,7 +212,7 @@ private:
         { 1, -1, 1, -1 },
         { 1, 1, -1, -1 },
         { -1, 1, -1, 1 } };
-    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.35, 0.0}; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
+    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.35, 0.0 }; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
     double force_mag_goal_ = 3050.0; // 
     double force_mag_tol_ = 300.0; //
     double force_mag_dwell_time_ = 1.0; // [s]
@@ -217,37 +229,35 @@ private:
     comm::MelShare viz_target_num_share_ = comm::MelShare("target");
     comm::MelShare force_mag_share_ = comm::MelShare("force_mag");
     comm::MelShare hand_select_ = comm::MelShare("hand");
-    
+
     // EMG SENSING AND FEATURE EXTRACTION PARAMETERS
     static const int num_emg_channels_ = 8;
     static const int num_features_ = 9;
     static const int emg_calibration_window_length_ = 500;
-    static const int emg_trigger_window_length_ = 100;
     static const int emg_classification_window_length_ = 200;
-   
+
     // STATE TRANSITION EVENT VARIABLES
     bool end_of_label_sequence_ = true;
-    bool stop_ = false;
+    bool auto_stop_ = false;
+    bool manual_stop_ = false;
 
     // TEMPORARY EMG DATA CONTAINERS
+    double_vec emg_voltages_ = double_vec(meii_.N_emg_);
     exo::MahiExoIIEmg::EmgDataBuffer emg_calibration_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_calibration_window_length_);
-    exo::MahiExoIIEmg::EmgDataBuffer emg_trigger_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_trigger_window_length_);
     exo::MahiExoIIEmg::EmgDataBuffer emg_classification_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_classification_window_length_);
 
     // EMG CALIBRATION
     std::vector<double_vec> calibration_data_;
     std::vector<double_vec> tkeo_rest_data_;
-    std::vector<double_vec> tkeo_active_data_;
-    Eigen::VectorXd rest_sample_mean_ = Eigen::VectorXd::Zero(meii_.N_emg_);
-    Eigen::VectorXd active_sample_mean_ = Eigen::VectorXd::Zero(meii_.N_emg_);
-    Eigen::MatrixXd rest_sample_cov_ = Eigen::MatrixXd::Zero(meii_.N_emg_, meii_.N_emg_);
-    Eigen::MatrixXd active_sample_cov_ = Eigen::MatrixXd::Zero(meii_.N_emg_, meii_.N_emg_);
-    Eigen::MatrixXd rest_sample_cov_inv_ = Eigen::MatrixXd::Zero(meii_.N_emg_, meii_.N_emg_);
-    Eigen::MatrixXd active_sample_cov_inv_ = Eigen::MatrixXd::Zero(meii_.N_emg_, meii_.N_emg_);
-    double tkeo_threshold_;
-    //double tkeo_suff_stat_ = 0;
-    int tkeo_detector_memory_ = 0;
-    
+    std::vector<std::vector<double_vec>> tkeo_active_data_;
+    Eigen::MatrixXd tkeo_W_t_;
+    Eigen::VectorXd tkeo_w_0_;
+    double tkeo_stat_ = 0.0;
+    double active_tkeo_threshold_ = 0.45;
+    double rest_tkeo_threshold_ = 0.60;
+    int tkeo_stat_buffer_size_ = emg_classification_window_length_ + 200;
+    boost::circular_buffer<double> tkeo_stat_buffer_;
+    double tkeo_buffer_fill_time_ = static_cast<double>(tkeo_stat_buffer_size_) * clock_.delta_time_;
     
 
     // TRAINING DATA
@@ -256,12 +266,11 @@ private:
     std::vector<std::vector<double>> prev_emg_training_data_;
 
     // CLASSIFICATION
-    int pred_class_label_ = 0;
-    int classifier_result_;
-    std::vector<std::vector<double>> lda_classifier_;
-    Eigen::MatrixXd lda_class_eig_;
-    Eigen::VectorXd lda_dist_eig_;
-
+    std::vector<int> class_label_sequence_;
+    int current_class_label_idx_ = -1;
+    std::vector<int> pred_class_label_sequence_;
+    double_vec class_posteriors_;
+    Eigen::MatrixXd emg_dir_W_tt_;
 
     // PYTHON COMMUNICATION
     comm::MelShare directory_share_ = comm::MelShare("file_path");
@@ -277,18 +286,11 @@ private:
     comm::MelShare torque_share_ = comm::MelShare("torque_share");
 
     // DATA LOG
-    util::DataLog robot_log_ = util::DataLog("robot_log", false);
-    std::vector<double> robot_data_;
-    void log_robot_row();
+    util::DataLog robot_log_ = util::DataLog("robot_log", false);   
+    util::DataLog emg_log_ = util::DataLog("emg_log", false);
+    util::DataLog trial_log_ = util::DataLog("trial_log", false);
+    util::DataLog debug_log_ = util::DataLog("debug_log", false);
 
-    util::DataLog training_log_ = util::DataLog("training_log", false);
-    void log_training_row();
-
-    util::DataLog lda_log_ = util::DataLog("lda_coeff_log", false);
-    std::vector<double> lda_coeff_data_;
-
-    //util::DataLog feature_log_ = util::DataLog("feature_sel_log", false);
-    //std::vector<int> feat_sel_data;
 
     //-------------------------------------------------------------------------
     // PRIVATE FUNCTIONS
@@ -296,11 +298,23 @@ private:
 
     // EMG REAL-TIME CONTROL UTILITY FUNCTIONS
     bool process_emg();
-    int classify();
+    void classify();
+    double tkeo_detector(const double_vec& sample_vec);
+
+
+    // EMG PATTERN RECOGNITION TRAINING UTILITY FUNCTIONS
     void tkeo_model_estimation();
-    double tkeo_sufficient_statistic(double_vec& sample_vec);
-    int tkeo_detector(double_vec& sample_vec);
-    
+    void estimate_gaussian_params(const std::vector<double_vec>& sample_data, Eigen::VectorXd& sample_mean, Eigen::MatrixXd& sample_cov);
+
+
+    // EMG FEATURE EXTRACTION FUNCTIONS
+    double_vec feature_extract(const exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) const;
+    double rms_feature_extract(const double_vec& emg_channel_buffer) const;
+    double mav_feature_extract(const double_vec& emg_channel_buffer) const;
+    double wl_feature_extract(const double_vec& emg_channel_buffer) const;
+    double zc_feature_extract(const double_vec& emg_channel_buffer) const;
+    double ssc_feature_extract(const double_vec& emg_channel_buffer) const;
+    void ar_4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer) const;
 
 
     // EXPERIMENT SETUP/CONDITIONS UTILITY FUNCTIONS
@@ -312,42 +326,43 @@ private:
     bool is_training() const;
     bool is_testing() const;
     bool is_blind() const;
-    
+    bool is_full() const;
+
+
+    // EXPERIMENT VISUALIZATION UTILITY FUNCTIONS
+    void set_viz_target_num(int class_label);
+    double_vec get_target_position(int class_label);
+
+
+    // EXPERIMENT CONTROL UTILITY FUNCTIONS
+    bool check_wait_time_reached(double wait_time, double init_time, double current_time) const;
+    double measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const;
+    bool check_force_mag_reached(double force_mag_goal, double force_mag);
+
+
+    // USER INPUT/OUTPUT UTILITY FUNCTIONS
+    void check_manual_stop();
+    int is_any_num_key_pressed() const;
+
 
     // FILE READ/WRITE UTILITY FUNCTIONS
     template <typename T> bool read_csv(std::string filename, std::string directory, std::vector<std::vector<T>>& output);
     template <typename T> bool write_csv(std::string filename, std::string directory, const std::vector<std::vector<T>>& input) const;
-    void write_calibration_data();
-    void load_calibration_data();
-    void load_classifier();
-    
-    void set_viz_target_num(int class_label);
-    double_vec get_target_position(int class_label) const;
-    
-    bool check_wait_time_reached(double wait_time, double init_time, double current_time) const;
-    double measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const;
-    bool check_force_mag_reached(double force_mag_goal, double force_mag);
-    
-    
-    void save_data();
-    bool check_stop();
-    int is_any_num_key_pressed() const;
-    //void compute_teager_kaiser_threshold(const std::vector<double_vec>& calibration_data, std::vector<double_vec>& thresholds);
-    //bool check_teager_kaiser_threshold(const exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer, double threshold) const;
-    //void teager_kaiser(const double_vec& emg_channel_buffer, double_vec& teager_kaiser_vec) const;
+    void write_emg_active_classifier();
+    void load_emg_active_classifier();
+    void load_emg_dir_classifier();
     void store_buffer(const exo::MahiExoIIEmg::EmgDataBuffer& data_buffer, std::vector<double_vec>& data_matrix);
-    
-    
+    void save_log_data();
+    void init_robot_log();
+    void init_emg_log();
+    void init_trial_log();
+    void init_debug_log();
+    void log_robot_row();
+    void log_emg_row();
+    void log_trial_row();
+    void log_debug_row(double_vec debug_row);
 
-    // EMG FEATURE EXTRACTION FUNCTIONS
-    double_vec feature_extract(const exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer) const;
-    double rms_feature_extract(const double_vec& emg_channel_buffer) const;
-    double mav_feature_extract(const double_vec& emg_channel_buffer) const;
-    double wl_feature_extract(const double_vec& emg_channel_buffer) const;
-    double zc_feature_extract(const double_vec& emg_channel_buffer) const;
-    double ssc_feature_extract(const double_vec& emg_channel_buffer) const;
-    void ar_4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer) const;
-
-    
+    // DATA ANALYSIS UTILITY FUNCTIONS
+    Eigen::MatrixXd gen_confusion_mat(const std::vector<int>& actual_labels, const std::vector<int>& predicted_labels) const;
 
 };

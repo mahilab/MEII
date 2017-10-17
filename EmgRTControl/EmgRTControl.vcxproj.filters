@@ -49,6 +49,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="IsometricContractions.cpp">
+      <Filter>Archived</Filter>
+    </ClCompile>
+    <ClCompile Include="testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -72,7 +75,10 @@
       <Filter>Archived</Filter>
     </ClInclude>
     <ClInclude Include="IsometricContractions.h">
-      <Filter>Header Files</Filter>
+      <Filter>Archived</Filter>
+    </ClInclude>
+    <ClInclude Include="testing.h">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
