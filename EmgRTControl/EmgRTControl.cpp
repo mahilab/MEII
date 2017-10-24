@@ -846,12 +846,12 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
                 }
                 else if (num_observations_per_class == 0) {
                     finished = true;
-                }*/
+                }
             }
-            else {
+            else {*/
                 util::print("ERROR: Condition number was set improperly. Going to ST_FAULT_STOP.");
                 auto_stop_ = true;
-            }
+            //}
         }
 
         // check for external input upon end of label sequence
