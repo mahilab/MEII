@@ -117,8 +117,8 @@ private:
 
     // OPTIONAL MODES FOR DEBUGGING
     // (set all to false for normal operation)
-    bool virtual_exo_ = true; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
-    bool virtual_emg_ = true; // when true, prevents any checks based on emg readings
+    bool virtual_exo_ = false; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
+    bool virtual_emg_ = false; // when true, prevents any checks based on emg readings
     bool scope_mode_ = false;
     bool emg_signal_check_ = false;
 
@@ -212,7 +212,7 @@ private:
         { 1, -1, 1, -1 },
         { 1, 1, -1, -1 },
         { -1, 1, -1, 1 } };
-    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.35, 0.0 }; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
+    const double_vec gravity_offsets_ = { 0.3, 0.0, 0.0, -0.35, 0.0 }; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
     double force_mag_goal_ = 3050.0; // 
     double force_mag_tol_ = 300.0; //
     double force_mag_dwell_time_ = 1.0; // [s]
@@ -243,6 +243,7 @@ private:
 
     // TEMPORARY EMG DATA CONTAINERS
     double_vec emg_voltages_ = double_vec(meii_.N_emg_);
+    double_vec filtered_emg_voltages_ = double_vec(meii_.N_emg_);
     exo::MahiExoIIEmg::EmgDataBuffer emg_calibration_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_calibration_window_length_);
     exo::MahiExoIIEmg::EmgDataBuffer emg_classification_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_classification_window_length_);
 
@@ -253,9 +254,9 @@ private:
     Eigen::MatrixXd tkeo_W_t_;
     Eigen::VectorXd tkeo_w_0_;
     double tkeo_stat_ = 0.0;
-    double active_tkeo_threshold_ = 0.45;
-    double rest_tkeo_threshold_ = 0.60;
-    int tkeo_stat_buffer_size_ = emg_classification_window_length_ + 200;
+    double active_tkeo_threshold_ = 0.80;
+    double rest_tkeo_threshold_ = 0.80;
+    int tkeo_stat_buffer_size_ = emg_classification_window_length_ + 50;
     boost::circular_buffer<double> tkeo_stat_buffer_;
     double tkeo_buffer_fill_time_ = static_cast<double>(tkeo_stat_buffer_size_) * clock_.delta_time_;
     

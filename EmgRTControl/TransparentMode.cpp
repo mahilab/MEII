@@ -114,7 +114,7 @@ void TransparentMode::sf_transparent(const util::NoEventData* data) {
         vel_share_.write(meii_.get_anatomical_joint_velocities());
 
         // set zero torques
-        meii_.set_joint_torques(command_torques);
+        //meii_.set_joint_torques(command_torques);
 
         // write to daq
         daq_->write_all();

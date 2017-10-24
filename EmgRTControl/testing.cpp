@@ -63,26 +63,4 @@ template bool write_csv<int>(std::string filename, std::string directory, const 
 template bool write_csv<double>(std::string filename, std::string directory, const std::vector<std::vector<double>>& input);
 
 
-double softmax(const Eigen::VectorXd& a, int k) {
-    if (k < 0 || k > a.size()) {
-        util::print("ERROR: Function softmax received input index k outside of bounds of input vector a.");
-        return NAN;
-    }
-    Eigen::VectorXd b(a.size());
-    for (int i = 0; i < a.size(); ++i) {
-        b(i) = std::exp(a(i));
-    }
-    
-    if (b.allFinite()) {
-        return b(k) / b.sum();
-    }
-    else {
-        if (std::isinf(b(k))) {
-            return 1.0;
-        }
-        else {
-            return 0.0;
-        }
-    }
-}
 

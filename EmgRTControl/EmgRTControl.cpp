@@ -225,7 +225,7 @@ void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
             }
 
             // set zero torques
-            meii_.set_joint_torques(command_torques);
+            //meii_.set_joint_torques(command_torques);             //this command doesn't seem to exist
 
             if (scope_mode_) {
 
@@ -508,12 +508,14 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
     bool rest_state_reached = false;
     double st_enter_time = clock_.time();
     double_vec command_torques(meii_.N_aj_, 0.0);
-    double_vec filtered_emg_voltages = double_vec(meii_.N_emg_, 0.0);
+    //double_vec filtered_emg_voltages = double_vec(meii_.N_emg_, 0.0);
     double_vec tkeo_vec(meii_.N_emg_, 0.0);
     double_vec filtered_tkeo_vec(meii_.N_emg_, 0.0);
     bool tkeo_buffer_full = false;
+    emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
+    filtered_emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
 
-    double_vec debug_signal(4, 0.0);
+    double_vec debug_signal(17, 0.0);
 
     // write to Unity
     viz_target_num_ = 0;
@@ -551,56 +553,72 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
       
         // get measured emg voltages and log them
         emg_voltages_ = meii_.get_emg_voltages();
-        meii_.butter_hp_.filter(emg_voltages_, filtered_emg_voltages);
+        meii_.butter_hp_.filter(emg_voltages_, filtered_emg_voltages_);
         log_emg_row();
         if (scope_mode_) {
-            emg_share_.write(filtered_emg_voltages);
+            emg_share_.write(filtered_emg_voltages_);
         }
 
         // compute the teager-kaiser metric online with rectification and filtering
-        meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
-        std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
-        meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+        meii_.tko_.tkeo(filtered_emg_voltages_, tkeo_vec);
 
-       
+        //Delay the filtering and logging of TKEO one sample to avoid filter instability
+        if (clock_.time() > st_enter_time + 0.001) {
 
-        // check for hold time reached
-        hold_center_time_reached = check_wait_time_reached(hold_center_time_, st_enter_time, clock_.time());
+            std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
 
-        if (is_cal()) {
+            auto it = std::copy(tkeo_vec.begin(), tkeo_vec.end(), debug_signal.begin());
 
-            // store calibration data in buffer
-            emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
+            meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
 
-            if (hold_center_time_reached) {
-                rest_state_reached = true;
-            }
-        }
-        else {
+            std::copy(filtered_tkeo_vec.begin(), filtered_tkeo_vec.end(), it);
 
-            // compute tkeo detector statistic and fill buffer
-            tkeo_stat_ = tkeo_detector(filtered_tkeo_vec);
+            // check for hold time reached
+            hold_center_time_reached = check_wait_time_reached(hold_center_time_, st_enter_time, clock_.time());
 
-            if (hold_center_time_reached) {
-                
-                // check for detection buffer full
-                if (!tkeo_buffer_full) {
-                    tkeo_buffer_full = check_wait_time_reached(tkeo_buffer_fill_time_, st_enter_time, clock_.time());
-                }
-                else if (tkeo_buffer_full) {
+            if (is_cal()) {
 
-                    if (!virtual_emg_) {
+                // store calibration data in buffer
+                emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
 
-                        rest_state_reached = tkeo_stat_ > rest_tkeo_threshold_;
-                    }
-                    else {
-                        rest_state_reached = true;
-                    }
+                if (hold_center_time_reached) {
+                    rest_state_reached = true;
                 }
             }
-        }
+            else {
 
-       
+                // compute tkeo detector statistic and fill buffer
+                tkeo_stat_ = tkeo_detector(filtered_tkeo_vec);
+
+                if (tkeo_stat_ == 0 || tkeo_stat_ == 1) {
+                    util::print("WARNING: TKEO_stat at 0 or 1");
+                }
+
+                debug_signal.at(16) = tkeo_stat_;
+
+                if (hold_center_time_reached) {
+
+                    // check for detection buffer full
+                    if (!tkeo_buffer_full) {
+                        tkeo_buffer_full = check_wait_time_reached(tkeo_buffer_fill_time_, st_enter_time, clock_.time());
+                    }
+                    else if (tkeo_buffer_full) {
+
+                        if (!virtual_emg_) {
+                            util::print(tkeo_stat_);
+                            rest_state_reached = tkeo_stat_ > rest_tkeo_threshold_;
+                            rest_state_reached = true;
+
+                        }
+                        else {
+                            rest_state_reached = true;
+                        }
+                    }
+                }
+            }
+
+            log_debug_row(debug_signal);
+        }
         // log robot data
         log_robot_row();
 
@@ -685,8 +703,17 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
             // read in classifier from file
             load_emg_dir_classifier();
 
-            // ask user how much testing data they want to collect
-            util::print("How many observations per class would you like to test? (0-9)");
+            if (is_blind()) {
+                num_observations_per_class = 10;
+            }
+            else {
+                num_observations_per_class = 5;
+            }
+            present_more_targets = true;
+
+
+            /*// ask user how much testing data they want to collect
+            util::print("How many observations per class would you like to test? (0-9)");*/
         }
         else {
             util::print("ERROR: Condition number was set improperly. Going to ST_FAULT_STOP.");
@@ -772,7 +799,7 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
         // check for external input upon first entry to ST_HOLD_FOR_INPUT
         if (!end_of_label_sequence_) {
             if (is_cal()) {
-                util::print("ERROR: Should not be reached. Going to ST_STOP.");
+                util::print("ERROR: Should not be reached. Going to ST_FAULT_STOP.");
                 auto_stop_ = true;
             }
             else if (is_training()) {
@@ -797,17 +824,21 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
                     }
                 }
                 else {
-                    num_observations_per_class = is_any_num_key_pressed();
+                    util::print("ERROR: Should not be reached. Going to ST_FAULT_STOP.");
+                    util::print("meow");
+                    auto_stop_ = true;
+
+                    /*num_observations_per_class = is_any_num_key_pressed();
                     if (num_observations_per_class > 0) {
                         present_more_targets = true;
                     }
                     else if (num_observations_per_class == 0) {
                         more_training_data = false;
                         finished = true;
-                    }
+                    }*/
                 }
             }
-            else if (is_testing()) {
+            else if (is_training()) {
 
                 num_observations_per_class = is_any_num_key_pressed();
                 if (num_observations_per_class > 0) {
@@ -946,6 +977,8 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     meii_.tkeo_butter_lp_.reset();
     tkeo_stat_buffer_.clear();
     tkeo_stat_buffer_.resize(tkeo_stat_buffer_size_);
+    emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
+    filtered_emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
 
     // initialize local state variables
     bool force_mag_reached = false;
@@ -956,7 +989,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     bool mvc_completed = false;
     bool keep_mvc = false;
     bool redo_mvc = false;
-    double_vec filtered_emg_voltages(meii_.N_emg_, 0.0);
+    //double_vec filtered_emg_voltages(meii_.N_emg_, 0.0);
     double_vec tkeo_vec(meii_.N_emg_, 0.0);
     double_vec filtered_tkeo_vec(meii_.N_emg_, 0.0);
     double_vec command_torques(meii_.N_aj_, 0.0);
@@ -965,7 +998,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
     bool tkeo_buffer_full = false;
     double st_enter_time = clock_.time();
     
-    double_vec debug_signal(4, 0.0);
+    double_vec debug_signal(17, 0.0);
     
     
     // initialize magnitude force checking algorithm
@@ -1015,92 +1048,104 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
 
         // get measured emg voltages and log them
         emg_voltages_ = meii_.get_emg_voltages();
-        meii_.butter_hp_.filter(emg_voltages_, filtered_emg_voltages);
+        meii_.butter_hp_.filter(emg_voltages_, filtered_emg_voltages_);
         log_emg_row();
         if (scope_mode_) {
-            emg_share_.write(filtered_emg_voltages);
+            emg_share_.write(filtered_emg_voltages_);
         }
 
-        // compute the teager-kaiser metric online with rectification and filtering and store in calibration buffer
-        //debug_signal[0] = filtered_emg_voltages[0];
-        meii_.tko_.tkeo(filtered_emg_voltages, tkeo_vec);
-        //debug_signal[1] = tkeo_vec[0];
-        std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });     
-        //debug_signal[2] = tkeo_vec[0];
-        meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
-        //debug_signal[3] = filtered_tkeo_vec[0];
-        log_debug_row(debug_signal);
+        // compute the teager-kaiser metric online with rectification and filtering and store in calibration buffer       
+        meii_.tko_.tkeo(filtered_emg_voltages_, tkeo_vec);
 
-        // store emg data in appropriate buffer
-        if (is_cal()) {
-            if (mvc_started && !mvc_completed) {               
-                emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
-            }
-        }
-        else {
-            emg_classification_data_buffer_.push_back(filtered_emg_voltages);    
-        }
-        
-        // measure interaction force for specified dof(s)
-        force_mag = measure_task_force(command_torques, class_label_sequence_[current_class_label_idx_], dof_, condition_);
+        if (clock_.time() > st_enter_time+0.001) {
+            std::for_each(tkeo_vec.begin(), tkeo_vec.end(), [](double x) { return std::abs(x); });
 
-        // check for break conditions
-        if (is_cal()) {
+            auto it = std::copy(tkeo_vec.begin(), tkeo_vec.end(), debug_signal.begin());
 
-            // check for user input
-            if (!mvc_started) {
-                if (util::Input::is_key_pressed(util::Input::Enter)) {
-                    mvc_started = true;
-                    mvc_start_time = clock_.time();
-                    util::print("Holding for contraction.");
+            meii_.tkeo_butter_lp_.filter(tkeo_vec, filtered_tkeo_vec);
+
+            std::copy(filtered_tkeo_vec.begin(), filtered_tkeo_vec.end(), it);
+
+
+            // store emg data in appropriate buffer
+            if (is_cal()) {
+                if (mvc_started && !mvc_completed) {
+                    emg_calibration_data_buffer_.push_back(filtered_tkeo_vec);
                 }
-            }
-            else {  
-                if (!mvc_completed) {
-                    mvc_completed = check_wait_time_reached(wait_mvc_time_, mvc_start_time, clock_.time());
-                    if (mvc_completed) {
-                        util::print("Do you want to keep the calibration data for this contraction (Y/N)?");
-                    }
-                }
-                else {                   
-                    util::Input::Key key = util::Input::are_any_keys_pressed({ util::Input::Y, util::Input::N });
-                    switch (key) {
-                    case util::Input::Y:
-                        keep_mvc = true;
-                        break;
-                    case util::Input::N:
-                        redo_mvc = true;
-                        break;
-                    }
-                }  
-            }
-        }
-        else {
-
-            // compute tkeo detector statistic and fill buffer
-            tkeo_stat_ = tkeo_detector(filtered_tkeo_vec);
-            
-            // check for detection buffer full
-            if (!tkeo_buffer_full) {
-                tkeo_buffer_full = check_wait_time_reached(tkeo_buffer_fill_time_, st_enter_time, clock_.time());
-                tkeo_active_mag = 0.0;
             }
             else {
+                emg_classification_data_buffer_.push_back(filtered_emg_voltages_);
+            }
 
-                if (!virtual_emg_) {
-                    
-                    active_state_reached = tkeo_stat_ < (1.0 - active_tkeo_threshold_);
-                    tkeo_active_mag = (1.0 - tkeo_stat_) * force_mag_goal_;
+            // measure interaction force for specified dof(s)
+            force_mag = measure_task_force(command_torques, class_label_sequence_[current_class_label_idx_], dof_, condition_);
 
-                    if (is_testing()) {
+            // check for break conditions
+            if (is_cal()) {
 
-                        // check for detector expiry
-                        detector_expired = check_wait_time_reached(detection_expire_time_, st_enter_time, clock_.time());
+                // check for user input
+                if (!mvc_started) {
+                    if (util::Input::is_key_pressed(util::Input::Enter)) {
+                        mvc_started = true;
+                        mvc_start_time = clock_.time();
+                        util::print("Holding for contraction.");
                     }
                 }
                 else {
-                    active_state_reached = true;
-                    tkeo_active_mag = force_mag_goal_;
+                    if (!mvc_completed) {
+                        mvc_completed = check_wait_time_reached(wait_mvc_time_, mvc_start_time, clock_.time());
+                        if (mvc_completed) {
+                            util::print("Do you want to keep the calibration data for this contraction (Y/N)?");
+                        }
+                    }
+                    else {
+                        util::Input::Key key = util::Input::are_any_keys_pressed({ util::Input::Y, util::Input::N });
+                        switch (key) {
+                        case util::Input::Y:
+                            keep_mvc = true;
+                            break;
+                        case util::Input::N:
+                            redo_mvc = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            else {
+
+                // compute tkeo detector statistic and fill buffer
+                tkeo_stat_ = tkeo_detector(filtered_tkeo_vec);
+
+                if (tkeo_stat_ == 0 || tkeo_stat_ == 1) {
+                    util::print("WARNING: TKEO_stat at 0 or 1");
+                }
+
+                //util::print(tkeo_stat_);
+                debug_signal.at(16) = tkeo_stat_;
+                log_debug_row(debug_signal);
+
+                // check for detection buffer full
+                if (!tkeo_buffer_full) {
+                    tkeo_buffer_full = check_wait_time_reached(tkeo_buffer_fill_time_, st_enter_time, clock_.time());
+                    tkeo_active_mag = 0.0;
+                }
+                else {
+
+                    if (!virtual_emg_) {
+                        util::print(tkeo_stat_);
+                        active_state_reached = tkeo_stat_ < (1.0 - active_tkeo_threshold_);
+                        tkeo_active_mag = (1.0 - tkeo_stat_) * force_mag_goal_;
+
+                        if (is_testing()) {
+
+                            // check for detector expiry
+                            detector_expired = check_wait_time_reached(detection_expire_time_, st_enter_time, clock_.time());
+                        }
+                    }
+                    else {
+                        active_state_reached = true;
+                        tkeo_active_mag = force_mag_goal_;
+                    }
                 }
             }
         }
@@ -1497,15 +1542,39 @@ void EmgRTControl::sf_fault_stop(const util::NoEventData* data) {
     }
 
     // ask user if want to save data
-    util::print("The was stopped manually or with a fault. Would you still like to save the data to the 'Error Report' directory (Y/N)?");
+    util::print("The program was stopped manually or with a fault. Would you still like to save the data to the 'Error Report' directory (Y/N)?");
     util::Input::Key key = util::Input::wait_for_any_keys({ util::Input::Y, util::Input::N });
     switch (key) {
     case util::Input::Y:
         save_log_data();
+        
         break;
     case util::Input::N:
         util::print("Data not saved.");
         break;
+    }
+
+    if (is_training()) {
+
+        // ask user if want to save data
+        util::print("The program was stopped manually or with a fault. Would you still like to save the training data to the subject directory (Y/N)?");
+        util::Input::Key key = util::Input::wait_for_any_keys({ util::Input::Y, util::Input::N });
+        switch (key) {
+        case util::Input::Y:
+
+            // write training data to file
+            if (!write_csv<double>(training_data_filename_, subject_dof_directory_, emg_training_data_)) {
+            }
+
+            manual_stop_ = false;
+            save_log_data();
+            manual_stop_ = true;
+
+            break;
+        case util::Input::N:
+            util::print("Data not saved.");
+            break;
+        }     
     }
 }
 
@@ -2227,6 +2296,9 @@ void EmgRTControl::init_emg_log() {
         for (int i = 0; i < meii_.N_emg_; ++i) {
             emg_log_.add_col("Ch. " + std::to_string(i));
         }
+        for (int i = 0; i < meii_.N_emg_; ++i) {
+            emg_log_.add_col("Filt Ch. " + std::to_string(i));
+        }
         emg_log_.add_col("State");
 }
 
@@ -2270,9 +2342,12 @@ void EmgRTControl::init_trial_log() {
 }
 
 void EmgRTControl::init_debug_log() {
-    
-    debug_log_.add_col("Time [s]")
-        .add_col("Sig. 0").add_col("Sig. 1").add_col("Sig. 2").add_col("Sig. 3");
+    int N = 16;
+    debug_log_.add_col("Time [s]");
+        for (int i = 0; i < N; ++i) {
+            debug_log_.add_col("Sig. " + std::to_string(i));
+        }
+    debug_log_.add_col("Posterior");
 }
 
 void EmgRTControl::log_robot_row() {
@@ -2304,6 +2379,9 @@ void EmgRTControl::log_emg_row() {
     row.push_back(clock_.time());   
     for (int i = 0; i < meii_.N_emg_; ++i) {
         row.push_back(emg_voltages_[i]);
+    }
+    for (int i = 0; i < meii_.N_emg_; ++i) {
+        row.push_back(filtered_emg_voltages_[i]);
     }
     row.push_back(get_current_state());
     emg_log_.add_row(row);

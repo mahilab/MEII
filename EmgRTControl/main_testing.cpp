@@ -21,6 +21,7 @@
 #include <numeric>
 #include <Eigen\Dense>
 #include <Eigen\StdVector>
+#include "Filter.h"
 
 using namespace mel;
 
@@ -44,15 +45,34 @@ int main(int argc, char * argv[]) {
         return 0;
     }
 
-   
-    Eigen::VectorXd y(4);
-    y <<  -2.08e16, -2.04e16, -2.07e16, -1.9e16;
-    double_vec p(4);
-    for (int i = 0; i < 4; ++i) {
-        p[i] = math::softmax(y, i);
+    
+
+    std::string project_directory = "C:\\Users\\Ted\\GitHub\\MEII\\EmgRTControl\\ErrorReport";
+    std::string input_filename = "emg_data_log_S00_FPS_cal_2017-10-23-18.44.20";
+    std::string output_filename = "test_output";
+
+    std::vector<double_vec> test_data_in;
+    std::vector<double_vec> test_data_out;
+
+    read_csv<double>(input_filename, project_directory, test_data_in);
+
+    int num_emg_channels = 8;
+
+    double_vec emg_voltages(num_emg_channels, 0.0);
+    double_vec filtered_emg_voltages(num_emg_channels, 0.0);
+    math::Filter butter_hp_ = math::Filter(num_emg_channels, { 0.814254556886246, -3.257018227544984,   4.885527341317476, -3.257018227544984,   0.814254556886246 }, { 1.000000000000000, -3.589733887112175,   4.851275882519415, -2.924052656162457,   0.663010484385890 });
+
+
+    for (int n = 0; n < test_data_in.size(); ++n) {
+        std::copy(test_data_in[n].begin() + 1, test_data_in[n].begin() + num_emg_channels + 1, emg_voltages.begin());
+        butter_hp_.filter(emg_voltages, filtered_emg_voltages);
+        test_data_out.push_back(filtered_emg_voltages);
     }
-    std::cout << y << std::endl;
-    util::print(p);
+
+    write_csv<double>(output_filename, project_directory, test_data_out);
+
+
+
 
     /*//  create a Q8Usb object for the board connected to robot motors
     uint32 id_mot = 0;
