@@ -64,12 +64,7 @@ int main(int argc, char * argv[]) {
 
     // manual zero joint positions
     if (var_map.count("zero")) {
-        q8_emg->enable();
-        if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
-            return -1;
-        }
-        q8_emg->offset_encoders({ 0, -33259, 29125, 29125, 29125 });
-        q8_emg->disable();
+        meii.zero_encoders(q8_emg);
         return 0;
     }
 

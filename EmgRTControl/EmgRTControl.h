@@ -117,10 +117,11 @@ private:
 
     // OPTIONAL MODES FOR DEBUGGING
     // (set all to false for normal operation)
-    bool virtual_exo_ = false; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
-    bool virtual_emg_ = false; // when true, prevents any checks based on emg readings
+    bool virtual_exo_ = true; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
+    bool virtual_emg_ = true; // when true, prevents any checks based on emg readings
     bool scope_mode_ = false;
     bool emg_signal_check_ = false;
+    bool find_neutral_position_ = false;
 
     // SUBJECT/CONDITION
     int subject_number_ = 0;
@@ -159,21 +160,25 @@ private:
 
     // PREDEFINED TARGETS
     const double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
-    const std::vector<std::vector<std::vector<double_vec>>> single_dof_targets_ = { { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } },
+    const std::vector<std::vector<std::vector<double_vec>>> single_dof_targets_ =     // left arm
+                                                                                    { { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // elbow f/e : up, down
+                                                                                        { { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // forearm p/s : right, left
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // wrist f/e : right, left
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } }, // wrist r/u : up, down
+                                                                                      
+                                                                                      // right arm
+                                                                                      { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // elbow f/e : up, down
+                                                                                        { { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // forearm p/s : left, right
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // wrist f/e : left, right
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } } }; // wrist r/u : up, down
 
-                                                                                    { { {  -5 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } } };
+    const std::vector<std::vector<std::vector<double_vec>>>  multi_dof_targets_ =     // left arm
+                                                                                    { { { {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // elbow f/e & forearm p/s
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } }, // wrist f/e & wrist r/u
 
-    const std::vector<std::vector<std::vector<double_vec>>>  multi_dof_targets_ = { { { {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } },
-
-                                                                                    { { {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } },
-                                                                                      { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 } } } };
+                                                                                      // right arm
+                                                                                      { { {  -5 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, {  -5 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD,  30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 }, { -65 * math::DEG2RAD, -30 * math::DEG2RAD,   0 * math::DEG2RAD,   0 * math::DEG2RAD,  0.09 } }, // elbow f/e & forearm p/s
+                                                                                        { { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD,  15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD,  15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 }, { -35 * math::DEG2RAD,   0 * math::DEG2RAD, -15 * math::DEG2RAD, -15 * math::DEG2RAD,  0.09 } } } }; // wrist f/e & wrist r/u
 
     // EXPERIMENT TIMING PARAMETERS
     double init_backdrive_time_ = 2.0; // [s] time to be in backdrive mode initially
@@ -253,8 +258,8 @@ private:
     std::vector<std::vector<double_vec>> tkeo_active_data_;
     Eigen::MatrixXd tkeo_W_t_;
     Eigen::VectorXd tkeo_w_0_;
-    double tkeo_stat_ = 0.0;
-    double active_tkeo_threshold_ = 0.80;
+    double tkeo_stat_ = 1.0;
+    double active_tkeo_threshold_ = 0.50;
     double rest_tkeo_threshold_ = 0.80;
     int tkeo_stat_buffer_size_ = emg_classification_window_length_ + 50;
     boost::circular_buffer<double> tkeo_stat_buffer_;
@@ -266,12 +271,20 @@ private:
     std::vector<std::vector<double>> emg_training_data_;
     std::vector<std::vector<double>> prev_emg_training_data_;
 
+    // TRAINING PARAMETERS
+    double min_cv_score_ = 0.85;
+    double min_avg_cv_score_ = 0.95;
+
     // CLASSIFICATION
     std::vector<int> class_label_sequence_;
     int current_class_label_idx_ = -1;
     std::vector<int> pred_class_label_sequence_;
     double_vec class_posteriors_;
     Eigen::MatrixXd emg_dir_W_tt_;
+
+    // TESTING PARAMETERS
+    int num_blind_testing_trials_ = 10;
+    int num_full_testing_trials_ = 5;
 
     // PYTHON COMMUNICATION
     comm::MelShare directory_share_ = comm::MelShare("file_path");
