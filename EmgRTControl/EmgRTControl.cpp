@@ -136,7 +136,7 @@ void EmgRTControl::sf_init(const util::NoEventData* data) {
     meii_.disable();
 
     // initialize data loggers
-    init_robot_log();
+    meii_.init_robot_log();
     init_emg_log();
     init_trial_log();
     init_debug_log();
@@ -304,7 +304,7 @@ void EmgRTControl::sf_backdrive(const util::NoEventData* data) {
         check_manual_stop();
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         if (!virtual_exo_) {
 
@@ -394,7 +394,7 @@ void EmgRTControl::sf_init_rps(const util::NoEventData* data) {
         }
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for manual stop input
         check_manual_stop();
@@ -490,7 +490,7 @@ void EmgRTControl::sf_to_center(const util::NoEventData* data) {
         }
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for manual stop input
         check_manual_stop();
@@ -648,7 +648,7 @@ void EmgRTControl::sf_hold_center(const util::NoEventData* data) {
         }
         
         // log robot data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for stop input
         check_manual_stop();
@@ -885,7 +885,7 @@ void EmgRTControl::sf_hold_for_input(const util::NoEventData* data) {
         }
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for manual stop input
         check_manual_stop();
@@ -1106,7 +1106,7 @@ void EmgRTControl::sf_present_target(const util::NoEventData* data) {
         }    
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for stop input
         check_manual_stop();
@@ -1244,7 +1244,7 @@ void EmgRTControl::sf_to_target(const util::NoEventData* data) {
         }
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for stop input
         check_manual_stop();
@@ -1319,7 +1319,7 @@ void EmgRTControl::sf_hold_target(const util::NoEventData* data) {
         hold_target_time_reached = check_wait_time_reached(hold_target_time_, st_enter_time, clock_.time());
 
         // log data
-        log_robot_row();
+        meii_.log_robot_row(clock_.time());
 
         // check for stop input
         check_manual_stop();
@@ -1429,6 +1429,9 @@ void EmgRTControl::sf_finish(const util::NoEventData* data) {
             // wait for the next clock cycle
             clock_.hybrid_wait();
         }
+
+        // wait to ensure data is logged
+        clock_.wait_for(3);
     }
 
     // wait for user input
@@ -1513,7 +1516,7 @@ void EmgRTControl::sf_fault_stop(const util::NoEventData* data) {
     switch (key) {
     case util::Input::Y:
         save_log_data();
-        
+        clock_.wait_for(3); // wait to ensure data is logged
         break;
     case util::Input::N:
         util::print("Data not saved.");
@@ -1535,7 +1538,7 @@ void EmgRTControl::sf_fault_stop(const util::NoEventData* data) {
             manual_stop_ = false;
             save_log_data();
             manual_stop_ = true;
-
+            clock_.wait_for(3); // wait to ensure data is logged
             break;
         case util::Input::N:
             util::print("Data not saved.");
@@ -2229,8 +2232,7 @@ void EmgRTControl::save_log_data() {
     log_file_name += std::to_string(subject_number_) + "_" + str_dofs_[dof_] + "_" + str_conditions_[condition_];
 
     // save standard robot data log
-    robot_log_.save_and_clear_data("robot_data_log_" + log_file_name, directory, true);
-    robot_log_ = util::DataLog("robot_log", false);
+    meii_.save_and_clear_robot_log("robot_data_log_" + log_file_name, directory, true);
 
     // save emg data log
     emg_log_.save_and_clear_data("emg_data_log_" + log_file_name, directory, true);
@@ -2247,15 +2249,15 @@ void EmgRTControl::save_log_data() {
     }
 }
 
-void EmgRTControl::init_robot_log() {
+/*void EmgRTControl::init_robot_log() {
     robot_log_.add_col("Time [s]")
-        .add_col("MEII EFE Position [deg]").add_col("MEII EFE Velocity [deg/s]").add_col("MEII EFE Commanded Torque [Nm]")
-        .add_col("MEII FPS Position [deg]").add_col("MEII FPS Velocity [deg/s]").add_col("MEII FPS Commanded Torque [Nm]")
+        .add_col("MEII EFE Position [rad]").add_col("MEII EFE Velocity [rad/s]").add_col("MEII EFE Commanded Torque [Nm]")
+        .add_col("MEII FPS Position [rad]").add_col("MEII FPS Velocity [rad/s]").add_col("MEII FPS Commanded Torque [Nm]")
         .add_col("MEII RPS1 Position [m]").add_col("MEII RPS1 Velocity [m/s]").add_col("MEII RPS1 Commanded Force [N]")
         .add_col("MEII RPS2 Position [m]").add_col("MEII RPS2 Velocity [m/s]").add_col("MEII RPS2 Commanded Force [N]")
         .add_col("MEII RPS3 Position [m]").add_col("MEII RPS3 Velocity [m/s]").add_col("MEII RPS3 Commanded Force [N]")
         .add_col("State");
-}
+}*/
 
 void EmgRTControl::init_emg_log() {
     emg_log_.add_col("Time [s]");
@@ -2316,28 +2318,33 @@ void EmgRTControl::init_debug_log() {
     debug_log_.add_col("Posterior");
 }
 
-void EmgRTControl::log_robot_row() {
+/*void EmgRTControl::log_robot_row() {
 
     std::vector<double> row;
     row.push_back(clock_.time());
-    row.push_back(meii_.joints_[0]->get_position() * math::RAD2DEG);
-    row.push_back(meii_.joints_[0]->get_velocity() * math::RAD2DEG);
-    row.push_back(static_cast<core::Motor*>(meii_.actuators_[0])->get_torque_command());
-    row.push_back(meii_.joints_[1]->get_position() * math::RAD2DEG);
-    row.push_back(meii_.joints_[1]->get_velocity() * math::RAD2DEG);
-    row.push_back(static_cast<core::Motor*>(meii_.actuators_[1])->get_torque_command());
-    row.push_back(meii_.joints_[2]->get_position() * math::RAD2DEG);
-    row.push_back(meii_.joints_[2]->get_velocity() * math::RAD2DEG);
-    row.push_back(static_cast<core::Motor*>(meii_.actuators_[2])->get_torque_command());
-    row.push_back(meii_.joints_[3]->get_position() * math::RAD2DEG);
-    row.push_back(meii_.joints_[3]->get_velocity() * math::RAD2DEG);
-    row.push_back(static_cast<core::Motor*>(meii_.actuators_[3])->get_torque_command());
-    row.push_back(meii_.joints_[4]->get_position() * math::RAD2DEG);
-    row.push_back(meii_.joints_[4]->get_velocity() * math::RAD2DEG);
-    row.push_back(static_cast<core::Motor*>(meii_.actuators_[4])->get_torque_command());
+    row.push_back(meii_.joints_[0]->get_position());
+    row.push_back(meii_.joints_[0]->get_velocity());
+    //row.push_back(static_cast<core::Motor*>(meii_.actuators_[0])->get_torque_command());
+    row.push_back(meii_.joints_[0]->get_torque());
+    row.push_back(meii_.joints_[1]->get_position());
+    row.push_back(meii_.joints_[1]->get_velocity());
+    //row.push_back(static_cast<core::Motor*>(meii_.actuators_[1])->get_torque_command());
+    row.push_back(meii_.joints_[1]->get_torque());
+    row.push_back(meii_.joints_[2]->get_position());
+    row.push_back(meii_.joints_[2]->get_velocity());
+    //row.push_back(static_cast<core::Motor*>(meii_.actuators_[2])->get_torque_command());
+    row.push_back(meii_.joints_[2]->get_torque());
+    row.push_back(meii_.joints_[3]->get_position());
+    row.push_back(meii_.joints_[3]->get_velocity());
+    //row.push_back(static_cast<core::Motor*>(meii_.actuators_[3])->get_torque_command());
+    row.push_back(meii_.joints_[3]->get_torque());
+    row.push_back(meii_.joints_[4]->get_position());
+    row.push_back(meii_.joints_[4]->get_velocity());
+    //row.push_back(static_cast<core::Motor*>(meii_.actuators_[4])->get_torque_command());
+    row.push_back(meii_.joints_[4]->get_torque());
     row.push_back(get_current_state());
     robot_log_.add_row(row);
-}
+}*/
 
 void EmgRTControl::log_emg_row() {
 

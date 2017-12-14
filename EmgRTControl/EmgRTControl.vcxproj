@@ -69,7 +69,7 @@
     </ClCompile>
     <ClCompile Include="mahiexoii_util.cpp" />
     <ClCompile Include="main.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="main_emg_training.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
@@ -78,13 +78,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="main_testing.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="SmoothPositionControl.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="testing.cpp" />
-    <ClCompile Include="TransparentMode.cpp" />
+    <ClCompile Include="BackdriveMode.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="EmgRTControl.h">
@@ -103,8 +102,7 @@
     <ClInclude Include="SmoothPositionControl.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="testing.h" />
-    <ClInclude Include="TransparentMode.h" />
+    <ClInclude Include="BackdriveMode.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\MEL\MEL\MEL.vcxproj">

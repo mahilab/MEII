@@ -27,9 +27,6 @@
     <ClCompile Include="SmoothPositionControl.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TransparentMode.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="FesExperiment.cpp">
       <Filter>Archived</Filter>
     </ClCompile>
@@ -51,7 +48,7 @@
     <ClCompile Include="IsometricContractions.cpp">
       <Filter>Archived</Filter>
     </ClCompile>
-    <ClCompile Include="testing.cpp">
+    <ClCompile Include="BackdriveMode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -65,9 +62,6 @@
     <ClInclude Include="SmoothPositionControl.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TransparentMode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="EmgTraining.h">
       <Filter>Archived</Filter>
     </ClInclude>
@@ -77,8 +71,8 @@
     <ClInclude Include="IsometricContractions.h">
       <Filter>Archived</Filter>
     </ClInclude>
-    <ClInclude Include="testing.h">
-      <Filter>Source Files</Filter>
+    <ClInclude Include="BackdriveMode.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

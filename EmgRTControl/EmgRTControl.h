@@ -117,16 +117,16 @@ private:
 
     // OPTIONAL MODES FOR DEBUGGING
     // (set all to false for normal operation)
-    bool virtual_exo_ = true; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
+    bool virtual_exo_ = false; // when true, prevents computing joint kinematics, computing and setting joint torques, and all writing to the DAQ; also prevents any checks dependent on exo motion
     bool virtual_emg_ = true; // when true, prevents any checks based on emg readings
-    bool scope_mode_ = false;
+    bool scope_mode_ = true;
     bool emg_signal_check_ = false;
     bool find_neutral_position_ = false;
 
     // SUBJECT/CONDITION
     int subject_number_ = 0;
     std::vector<std::string> hand_defs = { "L","R" };
-    int hand_num_ = 0; // 0 or 1 for Left or Right arm of the user
+    int hand_num_ = 1; // 0 or 1 for Left or Right arm of the user
     std::string hand_def_ = hand_defs[hand_num_];
     int dof_; // 0-3 is single-dof; 4-5 is multi-dof
     int num_classes_;
@@ -300,7 +300,7 @@ private:
     comm::MelShare torque_share_ = comm::MelShare("torque_share");
 
     // DATA LOG
-    util::DataLog robot_log_ = util::DataLog("robot_log", false);   
+    //util::DataLog robot_log_ = util::DataLog("robot_log", false);
     util::DataLog emg_log_ = util::DataLog("emg_log", false);
     util::DataLog trial_log_ = util::DataLog("trial_log", false);
     util::DataLog debug_log_ = util::DataLog("debug_log", false);
@@ -367,11 +367,11 @@ private:
     void load_emg_dir_classifier();
     void store_buffer(const exo::MahiExoIIEmg::EmgDataBuffer& data_buffer, std::vector<double_vec>& data_matrix);
     void save_log_data();
-    void init_robot_log();
+    //void init_robot_log();
     void init_emg_log();
     void init_trial_log();
     void init_debug_log();
-    void log_robot_row();
+    //void log_robot_row();
     void log_emg_row();
     void log_trial_row();
     void log_debug_row(double_vec debug_row);
