@@ -1,4 +1,3 @@
-#include "testing.h"
 #include <iostream>
 #include <csignal>
 #include "Q8Usb.h"

@@ -4,7 +4,6 @@
 #include "Clock.h"
 #include "MahiExoIIEmg.h"
 #include "mel_util.h"
-#include "mahiexoii_util.h"
 #include <boost/program_options.hpp>
 #include "EmgRTControl.h"
 #include "MelShare.h"
@@ -14,8 +13,7 @@ using namespace mel;
 
 int main(int argc, char * argv[]) {
 
-    // ignore CTRL-C signal (we can do this with Input)
-    //signal(SIGINT, SIG_IGN);
+    // ignore CTRL-C signal
     util::Input::ignore_ctrl_c();
 
     // set up program options 

@@ -1,6 +1,5 @@
 #include "BackdriveMode.h"
 #include "Input.h"
-#include "mahiexoii_util.h"
 #include "Q8Usb.h"
 
 using namespace mel;
