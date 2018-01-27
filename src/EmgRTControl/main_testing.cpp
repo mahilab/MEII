@@ -1,17 +1,17 @@
 #include <iostream>
 #include <csignal>
-#include "Q8Usb.h"
-#include "Clock.h"
-#include "MahiExoIIEmg.h"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Utility/Clock.hpp"
+#include "MEl/Exoskeletons/MahiExoII/MahiExoIIEmg.hpp"
 #include "mel_util.h"
-#include "mahiexoii_util.h"
+#include "EmgRTControl/mahiexoii_util.hpp"
 #include <boost/program_options.hpp>
-#include "BackdriveMode.h"
-#include "SmoothPositionControl.h"
-#include "IsometricContractions.h"
-#include "EmgRTControl.h"
-#include "MelShare.h"
-#include "Input.h"
+#include "EmgRTControl/BackdriveMode.hpp"
+#include "EmgRTControl/SmoothPositionControl.hpp"
+#include "EmgRTControl/IsometricContractions.hpp"
+#include "EmgRTControl/EmgRTControl.hpp"
+#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -19,7 +19,7 @@
 #include <numeric>
 #include <Eigen\Dense>
 #include <Eigen\StdVector>
-#include "Filter.h"
+#include "MEL/Math/Filter.hpp"
 
 using namespace mel;
 
@@ -39,7 +39,7 @@ int main(int argc, char * argv[]) {
     boost::program_options::notify(var_map);
 
     if (var_map.count("help")) {
-        util::print(desc);
+        print(desc);
         return 0;
     }
 
@@ -61,17 +61,17 @@ int main(int argc, char * argv[]) {
 
 
     /*// create and configure a MahiExoII object
-    exo::MahiExoII::Config config;
-    for (int i = 0; i < exo::MahiExoII::N_rj_; ++i) {
+    MahiExoII::Config config;
+    for (int i = 0; i < MahiExoII::N_rj_; ++i) {
         config.enable_[i] = q8_mot->do_(i+1);
         config.command_[i] = q8_mot->ao_(i+1);
         config.encoder_[i] = q8_mot->encoder_(i+1);
         config.encrate_[i] = q8_mot->encrate_(i+1);
     }
-    exo::MahiExoII meii(config);*/
+    MahiExoII meii(config);*/
 
     // create and configure a MahiExoIIEmg object
-    exo::MahiExoIIEmg::Config config;
+    MahiExoIIEmg::Config config;
     for (int i = 0; i < 5; ++i) {
         config.enable_[i] = q8_mot->do_(i + 1);
         config.command_[i] = q8_mot->ao_(i + 1);
@@ -81,7 +81,7 @@ int main(int argc, char * argv[]) {
     for (int i = 0; i < 8; ++i) {
         config.emg_[i] = q8_mot->ai_(i);
     }
-    exo::MahiExoIIEmg meii(config);
+    MahiExoIIEmg meii(config);
 
     // manual zero joint positions
     if (var_map.count("zero")) {
@@ -91,12 +91,12 @@ int main(int argc, char * argv[]) {
 
 
     // run state machine
-    util::Clock clock(1000);
-    util::enable_realtime();
+    Clock clock(1000);
+    enable_realtime();
     BackdriveMode bd_mode(clock, q8_mot, meii);
     bd_mode.execute();
     delete q8_mot;
-    util::disable_realtime();
+    disable_realtime();
     return 0;
 
 }

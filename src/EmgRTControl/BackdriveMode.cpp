@@ -1,49 +1,58 @@
-#include "BackdriveMode.h"
-#include "Input.h"
-#include "Q8Usb.h"
+#include "EmgRTControl/BackdriveMode.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
 
 using namespace mel;
 
-BackdriveMode::BackdriveMode(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii) :
+BackdriveMode::BackdriveMode(Timer timer,Daq& daq, Input<voltage>& analog_input, Output<voltage>& analog_output, Watchdog& watchdog, MahiExoIIEmg& meii) :
     StateMachine(4),
-    clock_(clock),
+    timer_(timer),
     daq_(daq),
-    meii_(meii)
+    analog_input_(analog_input),
+    analog_output_(analog_output_),
+    watchdog_(watchdog),
+    meii_(meii),
+    pos_share_("pos_share"),
+    vel_share_("vel_share"),
+    emg_share_("emg_share"),
+    filter_emg_share_("filter_emg_share")
 {
+
 }
 
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void BackdriveMode::sf_init(const util::NoEventData* data) {
+void BackdriveMode::sf_init(const NoEventData* data) {
 
    
     // reset global variables
-    emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
-    filtered_emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
+    emg_voltages_ = std::vector<double>(meii_.N_emg_, 0.0);
+    filtered_emg_voltages_ = std::vector<double>(meii_.N_emg_, 0.0);
 
     // reset robot
     meii_.disable();
 
     // enable MEII EMG DAQ
-    daq_->enable();
-    if (!daq_->is_enabled()) {
+    daq_.enable();
+    if (!daq_.is_enabled()) {
         event(ST_FAULT_STOP);
         return;
     }
 
     // check DAQ behavior for safety
-    daq_->read_all();
+    analog_input_.update();
     meii_.update_kinematics();
     if (meii_.check_all_joint_limits()) {
         event(ST_FAULT_STOP);
         return;
     }
-    if (!dev::Q8Usb::check_digital_loopback(0, 7)) {
-        event(ST_FAULT_STOP);
-        return;
-    }
+
+    //Removed: should add to main loop to make this generalizable
+    //if (!Q8Usb::identify(7)) {
+    //    event(ST_FAULT_STOP);
+    //    return;
+    //}
 
     // enable MEII
     meii_.enable();
@@ -53,13 +62,13 @@ void BackdriveMode::sf_init(const util::NoEventData* data) {
     }
 
     // confirm start of experiment
-    util::print("\nRunning Backdrive Mode ... ");
+    print("\nRunning Backdrive Mode ... ");
 
     // start the watchdog
-    daq_->start_watchdog(0.1);
+    watchdog_.start();
 
     // start the clock
-    clock_.start();
+    timer_.restart();
 
     // transition to next state from "INITIALIZATION"
     if (auto_stop_ || manual_stop_) {
@@ -74,22 +83,22 @@ void BackdriveMode::sf_init(const util::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "BACKDRIVE" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void BackdriveMode::sf_backdrive(const util::NoEventData* data) {
-    util::print("Robot Backdrivable");
+void BackdriveMode::sf_backdrive(const NoEventData* data) {
+    print("Robot Backdrivable");
 
     // BACKDRIVE START
     sf_backdrive_start();
 
     // initialize local state variables
-    const double_vec command_torques(meii_.N_aj_, 0.0);
+    const std::vector<double> command_torques(meii_.N_aj_, 0.0);
     bool exit_program = false;
 
     // enter the control loop
     while (!exit_program && !manual_stop_ && !auto_stop_) {
 
         // read and reload DAQs
-        daq_->reload_watchdog();
-        daq_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
@@ -104,7 +113,7 @@ void BackdriveMode::sf_backdrive(const util::NoEventData* data) {
         }
 
         // check for end of experiment
-        if (util::Input::is_key_pressed(util::Input::Enter)) {
+        if (Keyboard::is_key_pressed(Keyboard::Enter)) {
             exit_program = true;
         }
 
@@ -115,10 +124,10 @@ void BackdriveMode::sf_backdrive(const util::NoEventData* data) {
         meii_.set_joint_torques(command_torques);
 
         // write to daq
-        daq_->write_all();
+        analog_output_.update();
 
         // wait for the next clock cycle
-        clock_.hybrid_wait();
+        timer_.wait();
     }
 
     // BACKDRIVE STOP
@@ -132,7 +141,7 @@ void BackdriveMode::sf_backdrive(const util::NoEventData* data) {
         event(ST_STOP);
     }
     else {
-        util::print("ERROR: State transition undefined. Going to ST_FAULT_STOP.");
+        print("ERROR: State transition undefined. Going to ST_FAULT_STOP.");
         event(ST_FAULT_STOP);
     }
 }
@@ -142,13 +151,13 @@ void BackdriveMode::sf_backdrive(const util::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void BackdriveMode::sf_stop(const util::NoEventData* data) {
+void BackdriveMode::sf_stop(const NoEventData* data) {
     std::cout << "Exiting Program" << std::endl;
     if (meii_.is_enabled()) {
         meii_.disable();
     }
-    if (daq_->is_enabled()) {
-        daq_->disable();
+    if (daq_.is_enabled()) {
+        daq_.disable();
     }
 }
 
@@ -156,18 +165,18 @@ void BackdriveMode::sf_stop(const util::NoEventData* data) {
 // "FAULT STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void BackdriveMode::sf_fault_stop(const util::NoEventData* data) {
+void BackdriveMode::sf_fault_stop(const NoEventData* data) {
     std::cout << "Program Stopped with Potential Fault" << std::endl;
 
     // disable robot and daq
     if (meii_.is_enabled()) {
         meii_.disable();
     }
-    if (daq_->is_enabled()) {
-        if (daq_->is_watchdog_expired()) {
-            util::print("WATCHDOG HAS EXPIRED.");
+    if (daq_.is_enabled()) {
+        if (watchdog_.is_expired()) {
+            print("WATCHDOG HAS EXPIRED.");
         }
-        daq_->disable();
+        daq_.disable();
     }
 
 }
@@ -183,9 +192,9 @@ void BackdriveMode::sf_backdrive_start() {
     double q_ser_1_ = meii_.get_anatomical_joint_position(3);
     double q_ser_2_ = meii_.get_anatomical_joint_position(4);
 
-    mel::Integrator q_ser_igr_0_ = mel::Integrator(q_ser_0_);
-    mel::Integrator q_ser_igr_1_ = mel::Integrator(q_ser_1_);
-    mel::Integrator q_ser_igr_2_ = mel::Integrator(q_ser_2_);*/
+    Integrator q_ser_igr_0_ = Integrator(q_ser_0_);
+    Integrator q_ser_igr_1_ = Integrator(q_ser_1_);
+    Integrator q_ser_igr_2_ = Integrator(q_ser_2_);*/
 }
 
 void BackdriveMode::sf_backdrive_step() {
@@ -201,8 +210,8 @@ void BackdriveMode::sf_backdrive_step() {
     // get measured emg voltages
     //emg_voltages_ = meii_.get_emg_voltages();
     //meii_.butter_hp_.filter(meii_.get_emg_voltages(), filtered_emg_voltages_);
-    //emg_share_.write(emg_voltages_);
-    //filter_emg_share_.write(filtered_emg_voltages_);
+    //emg_share_.write_data(emg_voltages_);
+    //filter_emg_share_.write_data(filtered_emg_voltages_);
 
 }
 
@@ -215,6 +224,6 @@ void BackdriveMode::sf_backdrive_stop() {
 //-----------------------------------------------------------------------------
 
 void BackdriveMode::check_manual_stop() {
-    std::vector<util::Input::Key> keys{ util::Input::LControl, util::Input::C };
-    manual_stop_ = (util::Input::are_all_keys_pressed(keys, false) | manual_stop_);
+    std::vector<Keyboard::Key> keys{ Keyboard::LControl, Keyboard::C };
+    manual_stop_ = (Keyboard::are_all_keys_pressed(keys, false) | manual_stop_);
 }

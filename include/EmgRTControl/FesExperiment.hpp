@@ -1,12 +1,13 @@
 #pragma once
-#include "StateMachine.h"
-#include "Q8Usb.h"
-#include "MahiExoII.h"
-#include "Filter.h"
-#include "Clock.h"
+#include "MEL/Utility/StateMachine.hpp"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Exoskeletons/MahiExoII/MahiExoII.hpp"
+#include "MEL/Math/Filter.hpp"
+#include "MEL/Utility/Clock.hpp"
 #include "util.h"
-#include "MelShare.h"
-#include "DataLog.h"
+#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Utility/DataLog.hpp"
+#include "MEL/Utility/Timer.hpp"
 
 // Simple udp client
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
@@ -22,13 +23,15 @@
 #define BUFLEN 512  //Max length of buffer
 #define PORT 8888   //The port on which to listen for incoming data
 
-class FesExperimentData : public mel::EventData {
+using namespace mel;
+
+class FesExperimentData : public EventData {
 
 public:
 
 };
 
-class FesExperiment : public mel::StateMachine {
+class FesExperiment : public StateMachine {
 
 public:
 
@@ -36,7 +39,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    FesExperiment(mel::Clock& clock, mel::Daq* q8_emg, mel::MahiExoII& meii, int subject_number, int trial);
+    FesExperiment(Timer timer, Daq* q8_emg, Input<voltage>& analog_input, Output<voltage>& analog_ouput, Watchdog& watchdog, MahiExoII& meii, int subject_number, int trial);
 
 private:
 
@@ -59,36 +62,36 @@ private:
     };
 
     // STATE FUNCTIONS
-    void sf_init(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_init> sa_init;
+    void sf_init(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_init> sa_init;
 
-    void sf_transparent(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_transparent> sa_transparent;
+    void sf_transparent(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_transparent> sa_transparent;
 
-    void sf_to_extended(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_to_extended> sa_to_extended;
+    void sf_to_extended(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_to_extended> sa_to_extended;
 
-    void sf_hold_extended(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_hold_extended> sa_hold_extended;
+    void sf_hold_extended(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_hold_extended> sa_hold_extended;
 
-    void sf_flexion_trajectory(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_flexion_trajectory> sa_flexion_trajectory;
+    void sf_flexion_trajectory(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_flexion_trajectory> sa_flexion_trajectory;
 
-    void sf_hold_flexed(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_hold_flexed> sa_hold_flexed;
+    void sf_hold_flexed(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_hold_flexed> sa_hold_flexed;
 
-    void sf_extension_trajectory(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_extension_trajectory> sa_extension_trajectory;
+    void sf_extension_trajectory(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_extension_trajectory> sa_extension_trajectory;
 
-    void sf_finish(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_finish> sa_finish;
+    void sf_finish(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_finish> sa_finish;
 
-    void sf_stop(const mel::NoEventData*);
-    mel::StateAction<FesExperiment, mel::NoEventData, &FesExperiment::sf_stop> sa_stop;
+    void sf_stop(const NoEventData*);
+    StateAction<FesExperiment, NoEventData, &FesExperiment::sf_stop> sa_stop;
 
     // STATE MAP
-    virtual const mel::StateMapRow* get_state_map() {
-        static const mel::StateMapRow STATE_MAP[] = {
+    virtual const StateMapRow* get_state_map() {
+        static const StateMapRow STATE_MAP[] = {
             &sa_init,
             &sa_transparent,
             &sa_to_extended,
@@ -113,12 +116,12 @@ private:
 
     int current_target_ = 0;
     double init_transparent_time_ = 1.0; // [s]
-    mel::char_vec target_check_joint_ = { 1, 1, 1, 1, 1 };
-    mel::double_vec target_tol_ = { 2.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 1.0 * mel::DEG2RAD, 0.01 };
+    std::vector<char> target_check_joint_ = { 1, 1, 1, 1, 1 };
+    std::vector<double> target_tol_ = { 2.0 * DEG2RAD, 1.0 * DEG2RAD, 1.0 * DEG2RAD, 1.0 * DEG2RAD, 0.01 };
     double hold_extended_time_ = 1.0; // time to hold at start of trajectory [s]
     double hold_flexed_time_ = 1.0; // time to hold at end of trajectory [s]
-    mel::double_vec extended_pos_ = { -60 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD,  0.09 };
-    mel::double_vec flexed_pos_ = { -10 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD, 0 * mel::DEG2RAD,  0.09 };
+    std::vector<double> extended_pos_ = { -60 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD,  0.09 };
+    std::vector<double> flexed_pos_ = { -10 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD,  0.09 };
     double elbow_extended_pos_ = extended_pos_[0];
     double elbow_flexed_pos_ = flexed_pos_[0];
     double flexion_trajectory_time_ = 5.0; // time of trajectory from start to finish [s] 
@@ -151,19 +154,23 @@ private:
     int CONDITION_;
 
     // DATA LOG
-    mel::DataLog log_ = mel::DataLog("fes_exp_log",false);
+    DataLog log_ = DataLog("fes_exp_log",false);
     std::vector<double> log_data_;
     void log_row();
 
     // HARDWARE CLOCK
-    mel::Clock clock_;
+    Timer timer_;
 
     // HARDWARE
-    mel::Daq* q8_emg_;
-    mel::MahiExoII meii_;
+    Daq* q8_emg_;
+    Input<voltage>& analog_input_;
+    Output<voltage>& analog_output_;
+    Watchdog& watchdog_;
+    MahiExoII meii_;
+    
 
     // MEII PARAMETERS
-    mel::int8_vec backdrive_ = { 0,1,1,1,1 }; // anatomical joints; 1 = backdrivable, 0 = active
+    std::vector<uint8> backdrive_ = { 0,1,1,1,1 }; // anatomical joints; 1 = backdrivable, 0 = active
 
     // UDP
     double elbow_pos_deg_ = 0.0; 
@@ -176,18 +183,18 @@ private:
     void FesExperiment::send_udp_packet(double elbow_pos_deg);
 
     // MEII POSITION CONTROL
-    mel::double_vec kp_ = { 50, 7, 25, 30, 0 };
-    mel::double_vec kd_ = { 0.25, 0.06, 0.05, 0.08, 0 };
-    mel::double_vec init_pos_ = mel::double_vec(5, 0);
-    mel::double_vec goal_pos_ = mel::double_vec(5, 0);
+    std::vector<double> kp_ = { 50, 7, 25, 30, 0 };
+    std::vector<double> kd_ = { 0.25, 0.06, 0.05, 0.08, 0 };
+    std::vector<double> init_pos_ = std::vector<double>(5, 0);
+    std::vector<double> goal_pos_ = std::vector<double>(5, 0);
     double init_time_ = 0.0;
-    mel::double_vec speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
-    mel::double_vec x_ref_ = mel::double_vec(5, 0);
-    mel::double_vec set_points_ = mel::double_vec(5, 0);
-    mel::double_vec new_torques_ = mel::double_vec(5, 0);
+    std::vector<double> speed_ = { 0.25, 0.25, 0.125, 0.125, 0.0125 };
+    std::vector<double> x_ref_ = std::vector<double>(5, 0);
+    std::vector<double> set_points_ = std::vector<double>(5, 0);
+    std::vector<double> new_torques_ = std::vector<double>(5, 0);
 
     // FORCE SENSING
-    mel::double_vec commanded_torques_ = mel::double_vec(5, 0);
+    std::vector<double> commanded_torques_ = std::vector<double>(5, 0);
 
     // STATE TRANSITION EVENTS
     bool first_udp_packet_sent = false;
@@ -203,15 +210,15 @@ private:
     double st_enter_time_;
 
     // UTILITY FUNCTIONS
-    bool check_target_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec check_joint, bool print_output = false);
+    bool check_target_reached(std::vector<double> goal_pos, std::vector<double> current_pos, std::vector<char> check_joint, bool print_output = false);
     bool check_wait_time_reached(double wait_time, double init_time, double current_time);
     double compute_elbow_anatomical_position(double robot_elbow_position);
     double compute_elbow_flexion_trajectory(double init_time, double current_time);
     double compute_elbow_extension_trajectory(double init_time, double current_time);
     
     // MELSCOPE VARIABLES
-    mel::share::MelShare pos_share_ = mel::share::MelShare("pos_share");
-    mel::share::MelShare vel_share_ = mel::share::MelShare("vel_share");
-    mel::share::MelShare torque_share_ = mel::share::MelShare("torque_share");
-    mel::share::MelShare ref_share_ = mel::share::MelShare("ref_share");
+    MelShare pos_share_;
+    MelShare vel_share_;
+    MelShare torque_share_;
+    MelShare ref_share_;
 };

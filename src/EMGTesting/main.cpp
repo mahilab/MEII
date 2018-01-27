@@ -1,20 +1,20 @@
 #include <iostream>
 #include <csignal>
-#include "Q8Usb.h"
-#include "Clock.h"
-#include "MahiExoIIEmg.h"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Utility/Clock.hpp"
+#include "MEL/Exoskeletons/MahiExoII/MahiExoIIEmg.hpp"
 #include "mel_util.h"
-#include <boost/program_options.hpp>
-#include "LogEMG.h"
-#include "MelShare.h"
-#include "Input.h"
+//#include <boost/program_options.hpp>
+#include "EMGTesting/LogEmg.hpp"
+#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
 
 using namespace mel;
 
 int main(int argc, char * argv[]) {
 
     // ignore CTRL-C signal
-    util::Input::ignore_ctrl_c();
+    Input::ignore_ctrl_c();
 
     // set up program options 
     boost::program_options::options_description desc("Available Options");
@@ -27,7 +27,7 @@ int main(int argc, char * argv[]) {
     boost::program_options::notify(var_map);
 
     if (var_map.count("help")) {
-        util::print(desc);
+        print(desc);
         return 0;
     }
 
@@ -39,17 +39,17 @@ int main(int argc, char * argv[]) {
     channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
     channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
     channel_vec enc_channels = { 1, 2, 3, 4, 5 };
-    dev::Q8Usb::Options options;
+    Q8Usb::Options options;
     for (int i = 0; i < 8; ++i) {
         options.do_initial_signals_[i] = 1;
         options.do_final_signals_[i] = 1;
         options.do_expire_signals_[i] = 1;
     }
-    core::Daq* q8_mot = new dev::Q8Usb(id_mot, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
+    Daq* q8_mot = new dev::Q8Usb(id_mot, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
 
 
     // create and configure a MahiExoIIEmg object
-    exo::MahiExoIIEmg::Config config;
+    MahiExoIIEmg::Config config;
     for (int i = 0; i < 5; ++i) {
         config.enable_[i] = q8_mot->do_(i + 1);
         config.command_[i] = q8_mot->ao_(i + 1);
@@ -59,7 +59,7 @@ int main(int argc, char * argv[]) {
     for (int i = 0; i < 8; ++i) {
         config.emg_[i] = q8_mot->ai_(i);
     }
-    exo::MahiExoIIEmg meii(config);
+    MahiExoIIEmg meii(config);
 
     // manual zero joint positions
     if (var_map.count("zero")) {
@@ -68,8 +68,8 @@ int main(int argc, char * argv[]) {
     }
 
     // run state machine
-    util::Clock clock(1000);
-    util::enable_realtime();
+    Clock clock(1000);
+    enable_realtime();
     LogEMG log_emg(clock, q8_mot, meii);
     log_emg.execute();
 
@@ -77,7 +77,7 @@ int main(int argc, char * argv[]) {
     delete q8_mot;
 
     // exit real-time execution
-    util::disable_realtime();
+    disable_realtime();
 
     return 0;
 

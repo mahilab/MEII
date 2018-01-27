@@ -1,13 +1,13 @@
 #include <iostream>
 #include <csignal>
-#include "Q8Usb.h"
-#include "Clock.h"
-#include "MahiExoII.h"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Utility/Clock.hpp"
+#include "MEL/Exoskeletons/MahiExoII/MahiExoII.hpp"
 #include "util.h"
 #include "mahiexoii_util.h"
 #include <boost/program_options.hpp>
-#include "FesExperiment.h"
-#include "Input.h"
+#include "EmgRTControl/FesExperiment.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
 
 int main(int argc, char * argv[]) {
 
@@ -29,35 +29,35 @@ int main(int argc, char * argv[]) {
     boost::program_options::notify(var_map);
 
     if (var_map.count("help")) {
-        mel::print(desc);
+        print(desc);
         return 0;
     }
 
     //  create a Q8Usb object
-    mel::uint32 id_emg = 0;
-    mel::channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  ao_channels = { 1, 2, 3, 4, 5 };
-    mel::channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec enc_channels = { 1, 2, 3, 4, 5 };
-    mel::Q8Usb::Options options;
+    uint32 id_emg = 0;
+    channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  ao_channels = { 1, 2, 3, 4, 5 };
+    channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec enc_channels = { 1, 2, 3, 4, 5 };
+    Q8Usb::Options options;
     for (int i = 0; i < 8; ++i) {
         options.do_initial_signals_[i] = 1;
         options.do_final_signals_[i] = 1;
         options.do_expire_signals_[i] = 1;
     }
-    mel::Daq* q8_emg = new mel::Q8Usb(id_emg, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
+    Daq* q8_emg = new Q8Usb(id_emg, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
 
 
     // create and configure a MahiExoII object
-    mel::MahiExoII::Config config;
+    MahiExoII::Config config;
     for (int i = 0; i < 5; ++i) {
         config.enable_[i] = q8_emg->do_(i + 1);
         config.command_[i] = q8_emg->ao_(i + 1);
         config.encoder_[i] = q8_emg->encoder_(i + 1);
         config.encrate_[i] = q8_emg->encrate_(i + 1);
     }
-    mel::MahiExoII meii(config);
+    MahiExoII meii(config);
 
     // manual zero joint positions
     if (var_map.count("zero")) {
@@ -74,13 +74,13 @@ int main(int argc, char * argv[]) {
         trial = var_map["trial"].as<int>();
     }
     else {
-        mel::print("Not enough input parameters were provided to run the experiment.");
+        print("Not enough input parameters were provided to run the experiment.");
         delete q8_emg;
         return -1;
     }
 
     // run the experiment
-    mel::Clock clock(1000);
+    Clock clock(1000);
     FesExperiment fes_experiment( clock, q8_emg, meii, subject, trial);
     fes_experiment.execute();
     delete q8_emg;

@@ -1,23 +1,32 @@
-#include "FesExperiment.h"
-#include "Input.h"
-#include "mahiexoii_util.h"
+#include "EmgRTControl/FesExperiment.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
+#include "EmgRTControl/mahiexoii_util.hpp"
+#include "MEL/Core/PdController.hpp"
 
+using namespace mel;
 
-FesExperiment::FesExperiment(mel::Clock& clock, mel::Daq* q8_emg, mel::MahiExoII& meii, int subject_number, int trial) :
+FesExperiment::FesExperiment(Timer timer, Daq* q8_emg, Input<voltage>& analog_input, Output<voltage>& analog_output, Watchdog& watchdog, MahiExoII& meii, int subject_number, int trial) :
     StateMachine(9),
-    clock_(clock),
+    timer_(timer),
     q8_emg_(q8_emg),
+    analog_input_(analog_input),
+    analog_output_(analog_output),
+    watchdog_(watchdog),
     meii_(meii),
     SUBJECT_NUMBER_(subject_number),
     TRIAL_(trial),
-    CONDITION_(cond_mat_[subject_number-1][trial])
+    CONDITION_(cond_mat_[subject_number-1][trial]),
+    pos_share_("pos_share"),
+    vel_share_("vel_share"),
+    torque_share_("torque_share"),
+    ref_share_("ref_share")
 {
 
     if (subject_number < 1 || subject_number > 10) {
-        mel::print("ERROR: Subject number out of range (1-10)");
+        print("ERROR: Subject number out of range (1-10)");
     }
     if (trial < 0 || subject_number > 27) {
-        mel::print("ERROR: Trial number out of range (0-27)");
+        print("ERROR: Trial number out of range (0-27)");
     }
 
     // create subject folder
@@ -40,40 +49,40 @@ FesExperiment::FesExperiment(mel::Clock& clock, mel::Daq* q8_emg, mel::MahiExoII
 
 void FesExperiment::log_row() {
     std::vector<double> row;
-    row.push_back(clock_.time());
+    row.push_back(timer_.get_elapsed_time());
     row.push_back(get_current_state());
     row.push_back(elbow_ref_pos_deg_);
     row.push_back(elbow_pos_deg_);
-    row.push_back(meii_.joints_[0]->get_position() * mel::RAD2DEG);
-    row.push_back(meii_.joints_[0]->get_velocity() * mel::RAD2DEG);
-    row.push_back(static_cast<mel::Motor*>(meii_.actuators_[0])->get_torque_command());
-    row.push_back(meii_.joints_[1]->get_position() * mel::RAD2DEG);
-    row.push_back(meii_.joints_[1]->get_velocity() * mel::RAD2DEG);
-    row.push_back(static_cast<mel::Motor*>(meii_.actuators_[1])->get_torque_command());
-    row.push_back(meii_.joints_[2]->get_position() * mel::RAD2DEG);
-    row.push_back(meii_.joints_[2]->get_velocity() * mel::RAD2DEG);
-    row.push_back(static_cast<mel::Motor*>(meii_.actuators_[2])->get_torque_command());
-    row.push_back(meii_.joints_[3]->get_position() * mel::RAD2DEG);
-    row.push_back(meii_.joints_[3]->get_velocity() * mel::RAD2DEG);
-    row.push_back(static_cast<mel::Motor*>(meii_.actuators_[3])->get_torque_command());
-    row.push_back(meii_.joints_[4]->get_position() * mel::RAD2DEG);
-    row.push_back(meii_.joints_[4]->get_velocity() * mel::RAD2DEG);
-    row.push_back(static_cast<mel::Motor*>(meii_.actuators_[4])->get_torque_command());
+    row.push_back(meii_.joints_[0]->get_position() * RAD2DEG);
+    row.push_back(meii_.joints_[0]->get_velocity() * RAD2DEG);
+    row.push_back(static_cast<Motor*>(meii_.actuators_[0])->get_torque_command());
+    row.push_back(meii_.joints_[1]->get_position() * RAD2DEG);
+    row.push_back(meii_.joints_[1]->get_velocity() * RAD2DEG);
+    row.push_back(static_cast<Motor*>(meii_.actuators_[1])->get_torque_command());
+    row.push_back(meii_.joints_[2]->get_position() * RAD2DEG);
+    row.push_back(meii_.joints_[2]->get_velocity() * RAD2DEG);
+    row.push_back(static_cast<Motor*>(meii_.actuators_[2])->get_torque_command());
+    row.push_back(meii_.joints_[3]->get_position() * RAD2DEG);
+    row.push_back(meii_.joints_[3]->get_velocity() * RAD2DEG);
+    row.push_back(static_cast<Motor*>(meii_.actuators_[3])->get_torque_command());
+    row.push_back(meii_.joints_[4]->get_position() * RAD2DEG);
+    row.push_back(meii_.joints_[4]->get_velocity() * RAD2DEG);
+    row.push_back(static_cast<Motor*>(meii_.actuators_[4])->get_torque_command());
     log_.add_row(row);
 }
 
 void FesExperiment::wait_for_input() {
-     mel::Input::wait_for_key(mel::Input::Key::Space);
+     Keyboard::wait_for_key(Keyboard::Key::Space);
 }
 
 bool FesExperiment::check_stop() {
-    return mel::Input::is_key_pressed(mel::Input::Escape) || (mel::Input::is_key_pressed(mel::Input::LControl) && mel::Input::is_key_pressed(mel::Input::C));
+    return Keyboard::is_key_pressed(Keyboard::Escape) || (Keyboard::is_key_pressed(Keyboard::LControl) && Keyboard::is_key_pressed(Keyboard::C));
 }
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_init(const mel::NoEventData* data) {
+void FesExperiment::sf_init(const NoEventData* data) {
 
     // initialize UDP
     WSADATA wsa;
@@ -96,8 +105,8 @@ void FesExperiment::sf_init(const mel::NoEventData* data) {
     si_other_.sin_addr.S_un.S_addr = inet_addr(SERVER);
 
     // enable MEII EMG DAQ
-    mel::print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
+    Keyboard::wait_for_key(Keyboard::Key::Return);
     q8_emg_->enable();
     if (!q8_emg_->is_enabled()) {
         event(ST_STOP);
@@ -105,20 +114,20 @@ void FesExperiment::sf_init(const mel::NoEventData* data) {
     }
 
     // check DAQ behavior for safety
-    q8_emg_->read_all();
+    analog_input_.update();
     meii_.update_kinematics();
     if (meii_.check_all_joint_limits()) {
         event(ST_STOP);
         return;
     }
-    if (!check_digital_loopback(0, 7)) {
+    if (!q8_emg_.identify(7)) {
         event(ST_STOP);
         return;
     }
 
     // enable MEII
-    mel::print("\nPress Enter to enable MEII.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    print("\nPress Enter to enable MEII.");
+    Keyboard::wait_for_key(Keyboard::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -127,15 +136,15 @@ void FesExperiment::sf_init(const mel::NoEventData* data) {
 
     // confirm start of experiment
     std::cout << "Press Enter to start the controller" << std::endl;
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
-    q8_emg_->start_watchdog(0.1);
+    Keyboard::wait_for_key(Keyboard::Key::Return);
+    watchdog_.start();
     std::cout << "Starting the controller ... " << std::endl;
 
     // check for stop input
     stop_ = check_stop();
 
     // start the clock
-    clock_.start();
+    timer_.restart();
 
     // transition to next state
     if (stop_) {
@@ -152,30 +161,30 @@ void FesExperiment::sf_init(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "TRANSPARENT" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_transparent(const mel::NoEventData* data) {
-    mel::print("Robot Transparent");
+void FesExperiment::sf_transparent(const NoEventData* data) {
+    print("Robot Transparent");
 
     if (CONDITION_ == 0 && initial_position_reached_) {
-        clock_.start();
+        timer_.restart();
         init_transparent_time_ = flexion_trajectory_time_ + hold_flexed_time_ + extension_trajectory_time_ + hold_extended_time_;
     }
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time;
     init_transparent_time_reached_ = false;
 
     // enter the control loop
     while (!init_transparent_time_reached_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         if (CONDITION_ == 0 && initial_position_reached_) {
 
@@ -184,13 +193,13 @@ void FesExperiment::sf_transparent(const mel::NoEventData* data) {
 
             // update elbow reference position
             if (clock_.time() <= flexion_trajectory_time_) {
-                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(compute_elbow_flexion_trajectory(st_enter_time_, clock_.time())) * mel::RAD2DEG;
+                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(compute_elbow_flexion_trajectory(st_enter_time_, clock_.time())) * RAD2DEG;
             }
             else if ((clock_.time() > flexion_trajectory_time_) && (clock_.time() <= (flexion_trajectory_time_ + hold_flexed_time_)) ) {
-                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(elbow_flexed_pos_) * mel::RAD2DEG;
+                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(elbow_flexed_pos_) * RAD2DEG;
             }
             else if (clock_.time() > flexion_trajectory_time_ + hold_flexed_time_) {
-                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(compute_elbow_extension_trajectory(st_enter_time_ + flexion_trajectory_time_ + hold_flexed_time_, clock_.time())) * mel::RAD2DEG;
+                elbow_ref_pos_deg_ = compute_elbow_anatomical_position(compute_elbow_extension_trajectory(st_enter_time_ + flexion_trajectory_time_ + hold_flexed_time_, clock_.time())) * RAD2DEG;
             }
         }
 
@@ -205,14 +214,14 @@ void FesExperiment::sf_transparent(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for init transparent time reached
         if (CONDITION_ != 3) {
             init_transparent_time_reached_ = check_wait_time_reached(init_transparent_time_, st_enter_time_, clock_.time());
         }
         else {
-            mel::print(elbow_pos_deg_);
+            print(elbow_pos_deg_);
         }
 
         // log data
@@ -222,7 +231,7 @@ void FesExperiment::sf_transparent(const mel::NoEventData* data) {
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        timer_.wait();
     }
 
     // transition to next state
@@ -245,7 +254,7 @@ void FesExperiment::sf_transparent(const mel::NoEventData* data) {
         }
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -254,16 +263,16 @@ void FesExperiment::sf_transparent(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "GO TO EXTENDED" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
-    mel::print("Go to Extended Position");
+void FesExperiment::sf_to_extended(const NoEventData* data) {
+    print("Go to Extended Position");
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time();
     target_reached_ = false;
 
     // get current position and time to initialize trajectory
-    q8_emg_->reload_watchdog();
-    q8_emg_->read_all();
+    watchdog_.kick();
+    analog_input_.update();
     meii_.update_kinematics();
     init_pos_ = meii_.get_anatomical_joint_positions();
 
@@ -277,14 +286,14 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
     while (!target_reached_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         // check joint limits
         if (meii_.check_all_joint_limits()) {
@@ -294,8 +303,8 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
 
         // compute pd torques
         for (auto i = 0; i < 5; ++i) {
-            x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));    
+            x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, timer_.get_elapsed_time(), speed_[i]);
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));    
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -306,7 +315,7 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for target reached
         target_reached_ = check_target_reached(goal_pos_, meii_.get_anatomical_joint_positions(), target_check_joint_);
@@ -318,7 +327,7 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
         stop_ = check_stop();
 
         // wait for the next clock cycle
-        clock_.wait();
+        timer_.wait();
     }
 
     // transition to next state
@@ -331,7 +340,7 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
         event(ST_HOLD_EXTENDED);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -339,11 +348,11 @@ void FesExperiment::sf_to_extended(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "HOLD AT EXTENDED" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
-    mel::print("Hold at Extended Position");
+void FesExperiment::sf_hold_extended(const NoEventData* data) {
+    print("Hold at Extended Position");
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time();
     hold_extended_time_reached_ = false;
 
     // initialize moving set point
@@ -354,14 +363,14 @@ void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
     while (!hold_extended_time_reached_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         if (flexion_trajectory_finished_ && extension_trajectory_finished_) {
 
@@ -378,7 +387,7 @@ void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
         // compute pd torques
         for (int i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -389,7 +398,7 @@ void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for hold time reached
         hold_extended_time_reached_ = check_wait_time_reached(hold_extended_time_, st_enter_time_, clock_.time());
@@ -424,7 +433,7 @@ void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
         }
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -432,14 +441,14 @@ void FesExperiment::sf_hold_extended(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "FLEXION TRAJECTORY" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
-    mel::print("Flexion Trajectory");
+void FesExperiment::sf_flexion_trajectory(const NoEventData* data) {
+    print("Flexion Trajectory");
 
     // restart the clock
-    clock_.start();
+    timer_.restart();
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time();
 
     // initialize reference position
     x_ref_ = extended_pos_;
@@ -448,14 +457,14 @@ void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
     while (!flexion_trajectory_finished_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         // send elbow joint angle and time through UDP
         send_udp_packet(elbow_pos_deg_);
@@ -468,11 +477,11 @@ void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
 
         // update elbow reference position
         x_ref_[0] = compute_elbow_flexion_trajectory(st_enter_time_, clock_.time());
-        elbow_ref_pos_deg_ = compute_elbow_anatomical_position(x_ref_[0]) * mel::RAD2DEG;
+        elbow_ref_pos_deg_ = compute_elbow_anatomical_position(x_ref_[0]) * RAD2DEG;
 
         // compute pd torques
         for (int i = 0; i < 5; ++i) {
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -483,7 +492,7 @@ void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for trajectory finished
         flexion_trajectory_finished_ = check_wait_time_reached(flexion_trajectory_time_, st_enter_time_, clock_.time());
@@ -507,7 +516,7 @@ void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
         event(ST_HOLD_FLEXED);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -515,11 +524,11 @@ void FesExperiment::sf_flexion_trajectory(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "HOLD AT FLEXED" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
-    mel::print("Hold at Flexed Position");
+void FesExperiment::sf_hold_flexed(const NoEventData* data) {
+    print("Hold at Flexed Position");
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time();
     hold_flexed_time_reached_ = false;
 
     // initialize moving set point
@@ -530,14 +539,14 @@ void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
     while (!hold_flexed_time_reached_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         // send elbow joint angle and time through UDP
         send_udp_packet(elbow_pos_deg_);
@@ -551,7 +560,7 @@ void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
         // compute pd torques
         for (int i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], st_enter_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -562,7 +571,7 @@ void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for hold time reached
         hold_flexed_time_reached_ = check_wait_time_reached(hold_flexed_time_, st_enter_time_, clock_.time());
@@ -587,7 +596,7 @@ void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
         event(ST_EXTENSION_TRAJECTORY);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -595,11 +604,11 @@ void FesExperiment::sf_hold_flexed(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "EXTENSION TRAJECTORY" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
-    mel::print("Extension Trajectory");
+void FesExperiment::sf_extension_trajectory(const NoEventData* data) {
+    print("Extension Trajectory");
 
     // initialize event variables
-    st_enter_time_ = clock_.time();
+    st_enter_time_ = timer_.get_elapsed_time();
 
     // initialize reference position
     x_ref_ = flexed_pos_;
@@ -608,14 +617,14 @@ void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
     while (!extension_trajectory_finished_ && !stop_) {
 
         // read and reload DAQs
-        q8_emg_->reload_watchdog();
-        q8_emg_->read_all();
+        watchdog_.kick();
+        analog_input_.update();
 
         // update robot kinematics
         meii_.update_kinematics();
 
         // compute anatomical elbow position
-        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * mel::RAD2DEG;
+        elbow_pos_deg_ = compute_elbow_anatomical_position(meii_.get_anatomical_joint_position(0)) * RAD2DEG;
 
         // send elbow joint angle and time through UDP
         send_udp_packet(elbow_pos_deg_);
@@ -627,12 +636,12 @@ void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
         }
 
         // update elbow reference position
-        x_ref_[0] = compute_elbow_extension_trajectory(st_enter_time_, clock_.time());
-        elbow_ref_pos_deg_ = compute_elbow_anatomical_position(x_ref_[0]) * mel::RAD2DEG;
+        x_ref_[0] = compute_elbow_extension_trajectory(st_enter_time_, timer_.get_elapsed_time());
+        elbow_ref_pos_deg_ = compute_elbow_anatomical_position(x_ref_[0]) * RAD2DEG;
 
         // compute pd torques
         for (int i = 0; i < 5; ++i) {
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -643,7 +652,7 @@ void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
         meii_.set_anatomical_joint_torques(commanded_torques_);
 
         // write to daq
-        q8_emg_->write_all();
+        analog_output_.update();
 
         // check for trajectory finished
         extension_trajectory_finished_ = check_wait_time_reached(extension_trajectory_time_, st_enter_time_, clock_.time());
@@ -667,7 +676,7 @@ void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
         event(ST_HOLD_EXTENDED);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -675,8 +684,8 @@ void FesExperiment::sf_extension_trajectory(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "FINISH Experiment" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void FesExperiment::sf_finish(const mel::NoEventData* data) {
-    mel::print("Finish Experiment and Stop Robot");
+void FesExperiment::sf_finish(const NoEventData* data) {
+    print("Finish Experiment and Stop Robot");
 
     if (meii_.is_enabled()) {
         meii_.disable();
@@ -711,7 +720,7 @@ void FesExperiment::sf_finish(const mel::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void FesExperiment::sf_stop(const mel::NoEventData* data) {
+void FesExperiment::sf_stop(const NoEventData* data) {
     std::cout << "Stop Robot" << std::endl;
     if (meii_.is_enabled()) {
         meii_.disable();
@@ -725,14 +734,14 @@ void FesExperiment::sf_stop(const mel::NoEventData* data) {
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-bool FesExperiment::check_target_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec target_check_joint, bool print_output) {
+bool FesExperiment::check_target_reached(std::vector<double> goal_pos, std::vector<double> current_pos, char target_check_joint, bool print_output) {
 
     bool target_reached = true;
     for (int i = 0; i < 5; ++i) {
         if (target_check_joint[i]) {
             if (std::abs(goal_pos[i] - current_pos[i]) > std::abs(target_tol_[i])) {
                 if (print_output && target_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*mel::RAD2DEG) << std::endl;
+                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*RAD2DEG) << std::endl;
                 }
                 target_reached = false;
             }
@@ -755,7 +764,7 @@ double FesExperiment::compute_elbow_flexion_trajectory(double init_time, double 
     double t = current_time - init_time;
     double delta = elbow_extended_pos_ - elbow_flexed_pos_;
     double ref_pos = - (6 * delta) * std::pow(t,5) / std::pow(flexion_trajectory_time_,5) + (15 * delta) * std::pow(t,4) / std::pow(flexion_trajectory_time_,4) - (10 * delta) * std::pow(t,3) / std::pow(flexion_trajectory_time_,3) + elbow_extended_pos_;
-    ref_pos = mel::saturate(ref_pos,elbow_flexed_pos_,elbow_extended_pos_);
+    ref_pos = saturate(ref_pos,elbow_flexed_pos_,elbow_extended_pos_);
 
     return ref_pos;  
 }
@@ -764,14 +773,14 @@ double FesExperiment::compute_elbow_extension_trajectory(double init_time, doubl
     double t = current_time - init_time;
     double delta = elbow_flexed_pos_ - elbow_extended_pos_;
     double ref_pos = -(6 * delta) * std::pow(t, 5) / std::pow(extension_trajectory_time_, 5) + (15 * delta) * std::pow(t, 4) / std::pow(extension_trajectory_time_, 4) - (10 * delta) * std::pow(t, 3) / std::pow(extension_trajectory_time_, 3) + elbow_flexed_pos_;
-    ref_pos = mel::saturate(ref_pos, elbow_flexed_pos_, elbow_extended_pos_);
+    ref_pos = saturate(ref_pos, elbow_flexed_pos_, elbow_extended_pos_);
 
     return ref_pos;
 }
 
 void FesExperiment::send_udp_packet(double elbow_pos_deg) {
     UDP_data_[0] = elbow_pos_deg;
-    UDP_data_[1] = clock_.time();
+    UDP_data_[1] = timer_.get_elapsed_time();
     UDP_data_[2] = SUBJECT_NUMBER_;
     UDP_data_[3] = TRIAL_;
     UDP_data_[4] = CONDITION_;

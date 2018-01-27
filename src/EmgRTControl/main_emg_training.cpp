@@ -1,13 +1,13 @@
 #include <iostream>
 #include <csignal>
-#include "Q8Usb.h"
-#include "Clock.h"
-#include "MahiExoIIEmg.h"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Utility/Clock.hpp"
+#include "MEL/Exoskeletons/MahiExoII/MahiExoIIEmg.hpp"
 #include "mel_util.h"
-#include "mahiexoii_util.h"
+#include "EmgRTControl/mahiexoii_util.hpp"
 #include <boost/program_options.hpp>
-#include "EmgTraining.h"
-#include "MelShare.h"
+#include "EmgRTControl/EmgTraining.hpp"
+#include "MEL/Communications/Windows/MelShare.hpp"
 #include "GuiFlag.h"
 
 
@@ -30,41 +30,41 @@ int main(int argc, char * argv[]) {
     po::notify(var_map);
 
     if (var_map.count("help")) {
-        mel::print(desc);
+        print(desc);
         return 0;
     }
 
     // identify Q8Usb's
-    mel::uint32 id_emg = 0;
-    mel::uint32 id_ati = 1;
+    uint32 id_emg = 0;
+    uint32 id_ati = 1;
     if (!check_digital_loopback(0, 7)) {
-        mel::print("Warning: Digital loopback not connected to Q8Usb 0");
+        print("Warning: Digital loopback not connected to Q8Usb 0");
         if (check_digital_loopback(1, 7)) {
             id_emg = 1;
             id_ati = 0;
         }
         else {
-            mel::print("Error: Digital loopback not connected to Q8Usb 1. EMG DAQ not identified.");
+            print("Error: Digital loopback not connected to Q8Usb 1. EMG DAQ not identified.");
             return -1;
         }
     }
 
     //  create a Q8Usb object
-    mel::channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  ao_channels = { 0, 1, 2, 3, 4 };
-    mel::channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
-    mel::channel_vec enc_channels = { 0, 1, 2, 3, 4 };
+    channel_vec  ai_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  ao_channels = { 0, 1, 2, 3, 4 };
+    channel_vec  di_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec  do_channels = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    channel_vec enc_channels = { 0, 1, 2, 3, 4 };
 
     // zero the encoders if requested by user
-    mel::Q8Usb::Options options;
+    Q8Usb::Options options;
     for (int i = 0; i < 8; ++i) {
         options.do_initial_signals_[i] = 1;
         options.do_final_signals_[i] = 1;
         options.do_expire_signals_[i] = 1;
     }
 
-    mel::Daq* q8_emg = new mel::Q8Usb(id_emg, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
+    Daq* q8_emg = new Q8Usb(id_emg, ai_channels, ao_channels, di_channels, do_channels, enc_channels, options);
 
 
     /*//  create a second Q8Usb object
@@ -74,7 +74,7 @@ int main(int argc, char * argv[]) {
     do_channels = {};
     enc_channels = {};
 
-    mel::Daq* q8_ati = new mel::Q8Usb(id_ati, ai_channels, ao_channels, di_channels, do_channels, enc_channels);*/
+    Daq* q8_ati = new Q8Usb(id_ati, ai_channels, ao_channels, di_channels, do_channels, enc_channels);*/
 
 
     // create and configure a MahiExoII object
@@ -107,7 +107,7 @@ int main(int argc, char * argv[]) {
 
     // run the experiment
     int input_mode = 0;
-    mel::Clock clock(1000);
+    Clock clock(1000);
     //EmgTraining emg_training(clock, q8_emg, q8_ati, meii, gui_flag, input_mode);
     EmgTraining emg_training(clock, q8_emg, meii, gui_flag, input_mode);
     emg_training.execute();

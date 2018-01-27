@@ -1,43 +1,50 @@
-#include "EmgTraining.h"
-#include "Input.h"
-#include "Motor.h"
+#include "EmgRTControl/EmgTraining.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
+#include "MEL/Core/Motor.hpp"
 
+using namespace mel;
 
-
-//EmgTraining::EmgTraining(mel::Clock& clock, mel::Daq* q8_emg, mel::Daq* q8_ati, MahiExoIIEmgFrc& meii, GuiFlag& gui_flag, int input_mode) :
-EmgTraining::EmgTraining(mel::Clock& clock, mel::Daq* q8_emg, MahiExoIIEmg& meii, GuiFlag& gui_flag, int input_mode) :
+//EmgTraining::EmgTraining(Clock& clock, Daq* q8_emg, Daq* q8_ati, MahiExoIIEmgFrc& meii, GuiFlag& gui_flag, int input_mode) :
+EmgTraining::EmgTraining(Clock& clock, Daq* q8_emg, MahiExoIIEmg& meii, GuiFlag& gui_flag, int input_mode) :
     StateMachine(7),
     clock_(clock),
     q8_emg_(q8_emg),
     //q8_ati_(q8_ati),
     meii_(meii),
     gui_flag_(gui_flag),
-    INPUT_MODE_(input_mode)
+    INPUT_MODE_(input_mode),
+    scene_num_("scene_num"),
+    target_("target"),
+    force_mag_("force_mag"),
+    pos_share_("pos_share"),
+    vel_share_("vel_share"),
+    emg_share_("emg_share"),
+    pos_data_("MEII_pos")
 { 
 }
 
 void EmgTraining::wait_for_input() {
     if (INPUT_MODE_ == 0) {
-        mel::Input::wait_for_key_press(mel::Input::Key::Space);
+        Keyboard::wait_for_key_press(Keyboard::Key::Space);
     }
     else if (INPUT_MODE_ = 1) {
         gui_flag_.wait_for_flag(1);
-        mel::print("");
+        print("");
     }
 }
 
 bool EmgTraining::check_stop() {
-    return mel::Input::is_key_pressed(mel::Input::Escape) || (mel::Input::is_key_pressed(mel::Input::LControl) && mel::Input::is_key_pressed(mel::Input::C));
+    return Keyboard::is_key_pressed(Keyboard::Escape) || (Keyboard::is_key_pressed(Keyboard::LControl) && Keyboard::is_key_pressed(Keyboard::C));
 }
 
 //-----------------------------------------------------------------------------
 // "INITIALIZATION" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_init(const mel::NoEventData* data) {
+void EmgTraining::sf_init(const NoEventData* data) {
 
     // enable MEII EMG DAQ
-    mel::print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    print("\nPress Enter to enable MEII EMG Daq <" + q8_emg_->name_ + ">.");
+    Keyboard::wait_for_key(Keyboard::Key::Return);
     q8_emg_->enable();
     if (!q8_emg_->is_enabled()) {
         event(ST_STOP);
@@ -45,8 +52,8 @@ void EmgTraining::sf_init(const mel::NoEventData* data) {
     }
 
     /*// enable MEII ATI DAQ
-    mel::print("\nPress Enter to enable MEII ATI Daq <" + q8_ati_->name_ + ">.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    print("\nPress Enter to enable MEII ATI Daq <" + q8_ati_->name_ + ">.");
+    Keyboard::wait_for_key_press(Keyboard::Key::Return);
     q8_ati_->enable();
     if (!q8_ati_->is_enabled()) {
         event(ST_STOP);
@@ -54,8 +61,8 @@ void EmgTraining::sf_init(const mel::NoEventData* data) {
     }*/
 
     // enable MEII
-    mel::print("\nPress Enter to enable MEII.");
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    print("\nPress Enter to enable MEII.");
+    Keyboard::wait_for_key(Keyboard::Key::Return);
     meii_.enable();
     if (!meii_.is_enabled()) {
         event(ST_STOP);
@@ -64,7 +71,7 @@ void EmgTraining::sf_init(const mel::NoEventData* data) {
 
     // confirm start of experiment
     std::cout << "Press Enter to start the controller" << std::endl;
-    mel::Input::wait_for_key_press(mel::Input::Key::Return);
+    Keyboard::wait_for_key(Keyboard::Key::Return);
     q8_emg_->start_watchdog(0.1);
     std::cout << "Starting the controller ... " << std::endl;
 
@@ -87,9 +94,9 @@ void EmgTraining::sf_init(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "GO TO CENTER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_to_center(const mel::NoEventData* data) {
+void EmgTraining::sf_to_center(const NoEventData* data) {
 
-    mel::print("Go to Center");
+    print("Go to Center");
     
     // get current position and time to initialize trajectory
     q8_emg_->reload_watchdog();
@@ -100,10 +107,10 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
     //double arm_translation_force = 1; // for debugging
 
     // set goal position for trajectory
-    goal_pos_[0] = -35 * mel::DEG2RAD; // elbow neutral [rad]
-    goal_pos_[1] = 0 * mel::DEG2RAD; // forearm neutral [rad]
-    goal_pos_[2] = 0 * mel::DEG2RAD; // wrist f/e neutral [rad]
-    goal_pos_[3] = 0 * mel::DEG2RAD; // wrist r/u neutral [rad]
+    goal_pos_[0] = -35 * DEG2RAD; // elbow neutral [rad]
+    goal_pos_[1] = 0 * DEG2RAD; // forearm neutral [rad]
+    goal_pos_[2] = 0 * DEG2RAD; // wrist f/e neutral [rad]
+    goal_pos_[3] = 0 * DEG2RAD; // wrist r/u neutral [rad]
     goal_pos_[4] = 0.09; // arm translation neutral [rad]
 
     // set joints to be checked for target reached
@@ -125,7 +132,7 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
         meii_.update_kinematics();
 
         // debugging output
-        mel::print(meii_.get_anatomical_joint_velocity(0));
+        print(meii_.get_anatomical_joint_velocity(0));
 
         // check joint limits
         if (meii_.check_all_joint_limits()) {
@@ -133,15 +140,15 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
             break;
         }
 
-        //mel::print(meii_.get_anatomical_joint_velocities());
-        vel_share_.write(meii_.get_anatomical_joint_velocities());
-        //mel::print(meii_.get_anatomical_joint_positions());
-        pos_share_.write(meii_.get_anatomical_joint_positions());
+        //print(meii_.get_anatomical_joint_velocities());
+        vel_share_.write_data(meii_.get_anatomical_joint_velocities());
+        //print(meii_.get_anatomical_joint_positions());
+        pos_share_.write_data(meii_.get_anatomical_joint_positions());
 
         // compute pd torques
         for (auto i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], init_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             //if (i == 4) {
             //    arm_translation_force = new_torques_[i]; // for debugging
             //}
@@ -149,10 +156,10 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
                 new_torques_[i] = 0;
             }
         }
-        //mel::print(arm_translation_force);
+        //print(arm_translation_force);
         
-        //mel::double_vec printable = { new_torques_[0],static_cast<mel::Motor*>(meii_.joints_[0]->actuator_)->get_current_limited() };
-        //mel::print(printable);
+        //std::vector<double> printable = { new_torques_[0],static_cast<Motor*>(meii_.joints_[0]->actuator_)->get_current_limited() };
+        //print(printable);
         
         // set new torques
         //meii_.set_anatomical_joint_torques(new_torques_);
@@ -186,7 +193,7 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
         event(ST_HOLD_CENTER);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -194,18 +201,18 @@ void EmgTraining::sf_to_center(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "HOLD AT CENTER" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_hold_center(const mel::NoEventData* data) {
+void EmgTraining::sf_hold_center(const NoEventData* data) {
 
-    mel::print("Hold at Center");
+    print("Hold at Center");
 
     // restart the clock
     clock_.start();
 
     // initialize trajectory
-    goal_pos_[0] = -35 * mel::DEG2RAD; // elbow neutral [rad]
-    goal_pos_[1] = 0 * mel::DEG2RAD; // forearm neutral [rad]
-    goal_pos_[2] = 0 * mel::DEG2RAD; // wrist f/e neutral [rad]
-    goal_pos_[3] = 0 * mel::DEG2RAD; // wrist r/u neutral [rad]
+    goal_pos_[0] = -35 * DEG2RAD; // elbow neutral [rad]
+    goal_pos_[1] = 0 * DEG2RAD; // forearm neutral [rad]
+    goal_pos_[2] = 0 * DEG2RAD; // wrist f/e neutral [rad]
+    goal_pos_[3] = 0 * DEG2RAD; // wrist r/u neutral [rad]
     goal_pos_[4] = 0.09; // arm translation neutral [rad]
     init_pos_ = goal_pos_;
     init_time_ = clock_.time();
@@ -237,7 +244,7 @@ void EmgTraining::sf_hold_center(const mel::NoEventData* data) {
         init_time_ = 0;
         for (auto i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], init_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -273,7 +280,7 @@ void EmgTraining::sf_hold_center(const mel::NoEventData* data) {
         event(ST_PRESENT_TARGET);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -281,15 +288,15 @@ void EmgTraining::sf_hold_center(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "PRESENT TARGET" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_present_target(const mel::NoEventData* data) {
+void EmgTraining::sf_present_target(const NoEventData* data) {
 
-    mel::print("Present Target");
+    print("Present Target");
 
     // initialize trajectory
-    goal_pos_[0] = -35 * mel::DEG2RAD; // elbow neutral [rad]
-    goal_pos_[1] = 0 * mel::DEG2RAD; // forearm neutral [rad]
-    goal_pos_[2] = 0 * mel::DEG2RAD; // wrist f/e neutral [rad]
-    goal_pos_[3] = 0 * mel::DEG2RAD; // wrist r/u neutral [rad]
+    goal_pos_[0] = -35 * DEG2RAD; // elbow neutral [rad]
+    goal_pos_[1] = 0 * DEG2RAD; // forearm neutral [rad]
+    goal_pos_[2] = 0 * DEG2RAD; // wrist f/e neutral [rad]
+    goal_pos_[3] = 0 * DEG2RAD; // wrist r/u neutral [rad]
     goal_pos_[4] = 0.09; // arm translation neutral [rad]
     init_pos_ = goal_pos_;
     init_time_ = clock_.time();
@@ -314,7 +321,7 @@ void EmgTraining::sf_present_target(const mel::NoEventData* data) {
 
     // initialize emg data buffer
     //boost::circular_buffer<double> emg_data_buffer_(200);
-    //emg_data_buffer_ = mel::array_2D<double, 8, 200>(0);
+    //emg_data_buffer_ = array_2D<double, 8, 200>(0);
 
     // enter the control loop
     while (!force_mag_reached_ && !end_of_target_sequence_ && !stop_) {
@@ -337,7 +344,7 @@ void EmgTraining::sf_present_target(const mel::NoEventData* data) {
         init_time_ = 0;
         for (auto i = 0; i < 5; ++i) {
             x_ref_[i] = moving_set_point(init_pos_[i], goal_pos_[i], init_time_, clock_.time(), speed_[i]);
-            new_torques_[i] = mel::pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
+            new_torques_[i] = pd_controller(kp_[i], kd_[i], x_ref_[i], meii_.get_anatomical_joint_position(i), 0, meii_.get_anatomical_joint_velocity(i));
             if (backdrive_[i] == 1) {
                 new_torques_[i] = 0;
             }
@@ -358,10 +365,10 @@ void EmgTraining::sf_present_target(const mel::NoEventData* data) {
         // get measured emg voltages
         // TO DO: add in band pass filtering
         emg_data_buffer_.push_back(meii_.get_emg_voltages());
-        emg_share_.write(emg_data_buffer_.at(0));
+        emg_share_.write_data(emg_data_buffer_.at(0));
 
         // check force magnitude
-        //mel::print(force_share_);
+        //print(force_share_);
         //force_mag_reached_ = check_force_mag_reached(force_mag_goal_, force_share_);
 
         // write to unity
@@ -393,7 +400,7 @@ void EmgTraining::sf_present_target(const mel::NoEventData* data) {
         event(ST_FINISH);
     }
     else {
-        mel::print("ERROR: State transition undefined. Going to ST_STOP.");
+        print("ERROR: State transition undefined. Going to ST_STOP.");
         event(ST_STOP);
     }
 }
@@ -401,13 +408,13 @@ void EmgTraining::sf_present_target(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "PROCESS EMG DATA" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_process_emg(const mel::NoEventData* data) {
+void EmgTraining::sf_process_emg(const NoEventData* data) {
 
-    mel::print("Process EMG Data");
+    print("Process EMG Data");
 
     // extract features from EMG data
     feature_vec_ = feature_extract(emg_data_buffer_);
-    mel::print(feature_vec_);
+    print(feature_vec_);
 
     stop_ = true;
 
@@ -427,9 +434,9 @@ void EmgTraining::sf_process_emg(const mel::NoEventData* data) {
 //-----------------------------------------------------------------------------
 // "FINISH Experiment" STATE FUNCTION
 //-----------------------------------------------------------------------------
-void EmgTraining::sf_finish(const mel::NoEventData* data) {
+void EmgTraining::sf_finish(const NoEventData* data) {
 
-    mel::print("Finish Experiment");
+    print("Finish Experiment");
 
     event(ST_STOP);
 
@@ -439,7 +446,7 @@ void EmgTraining::sf_finish(const mel::NoEventData* data) {
 // "STOP" STATE FUNCTION
 //-----------------------------------------------------------------------------
 
-void EmgTraining::sf_stop(const mel::NoEventData* data) {
+void EmgTraining::sf_stop(const NoEventData* data) {
     std::cout << "State Stop " << std::endl;
     meii_.disable();
     q8_emg_->disable();
@@ -450,14 +457,14 @@ void EmgTraining::sf_stop(const mel::NoEventData* data) {
 // UTILITY FUNCTIONS
 //-----------------------------------------------------------------------------
 
-bool EmgTraining::check_target_reached(mel::double_vec goal_pos, mel::double_vec current_pos, mel::char_vec target_check_joint, bool print_output) {
+bool EmgTraining::check_target_reached(std::vector<double> goal_pos, std::vector<double> current_pos, char target_check_joint, bool print_output) {
 
     bool target_reached = true;
     for (int i = 0; i < 5; ++i) {
         if (target_check_joint[i]) {
             if (std::abs(goal_pos[i] - current_pos[i]) > std::abs(target_tol_[i])) {
                 if (print_output && target_reached) {
-                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*mel::RAD2DEG) << std::endl;
+                    std::cout << "Joint " << std::to_string(i) << " error is " << (abs(goal_pos[i] - current_pos[i])*RAD2DEG) << std::endl;
                 }
                 target_reached = false;
             }
@@ -477,20 +484,20 @@ bool EmgTraining::check_force_mag_reached(double force_mag_goal, double force_ma
     return force_mag_maintained_ > force_mag_dwell_time_;
 }
 
-mel::double_vec EmgTraining::feature_extract(EmgDataBuffer& emg_data_buffer) {
+std::vector<double> EmgTraining::feature_extract(EmgDataBuffer& emg_data_buffer) {
 
-    mel::double_vec feature_vec;
+    std::vector<double> feature_vec;
     feature_vec.reserve(num_channels_*num_features_);
-    mel::double_vec nrms_vec;
-    mel::double_vec nmav_vec;
-    mel::double_vec nwl_vec;
-    mel::double_vec nzc_vec;
-    mel::double_vec nssc_vec;
-    mel::double_vec ar_vec(4);
-    mel::double_vec ar1_vec;
-    mel::double_vec ar2_vec;
-    mel::double_vec ar3_vec;
-    mel::double_vec ar4_vec;
+    std::vector<double> nrms_vec;
+    std::vector<double> nmav_vec;
+    std::vector<double> nwl_vec;
+    std::vector<double> nzc_vec;
+    std::vector<double> nssc_vec;
+    std::vector<double> ar_vec(4);
+    std::vector<double> ar1_vec;
+    std::vector<double> ar2_vec;
+    std::vector<double> ar3_vec;
+    std::vector<double> ar4_vec;
 
     // extract unnormalized features
     for (int i = 0; i < emg_data_buffer.num_channels_; ++i) {
@@ -586,16 +593,16 @@ double EmgTraining::ssc_feature_extract(boost::circular_buffer<double> emg_chann
     return sum_abs_diff_sign_diff / 2;
 }
 
-void EmgTraining::ar4_feature_extract(mel::double_vec& coeffs, const mel::double_vec& emg_channel_buffer) {
+void EmgTraining::ar4_feature_extract(std::vector<double>& coeffs, const std::vector<double>& emg_channel_buffer) {
 
     // initialize
     size_t N = emg_channel_buffer.size();
     size_t m = coeffs.size();
-    mel::print(m);
-    mel::double_vec A_k(m + 1, 0.0);
+    print(m);
+    std::vector<double> A_k(m + 1, 0.0);
     A_k[0] = 1.0;
-    mel::double_vec f(emg_channel_buffer);
-    mel::double_vec b(emg_channel_buffer);
+    std::vector<double> f(emg_channel_buffer);
+    std::vector<double> b(emg_channel_buffer);
     double D_k = 0;
     for (size_t j = 0; j <= N; ++j) {
         D_k += 2.0 * std::pow(f[j], 2);

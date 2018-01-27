@@ -1,24 +1,26 @@
 
 #pragma once
-#include "StateMachine.h"
-#include "Q8Usb.h"
-#include "MahiExoIIEmg.h"
-#include "MelShare.h"
-#include "Clock.h"
+#include "MEL/Utility/StateMachine.hpp"
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Exoskeletons/MahiExoII/MahiExoIIEmg.hpp"
+#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Utility/Clock.hpp"
+#include "MEL/Utility/Timer.hpp"
 #include "mel_util.h"
 #include "mahiexoii_util.h"
-#include "ExternalApp.h"
+#include "MEL/Utility/Windows/ExternalApp.hpp"
+#include "MEL/Math/Functions.hpp"
 
 
 using namespace mel;
 
-class IsometricContractionsData : public util::EventData {
+class IsometricContractionsData : public EventData {
 
 public:
 
 };
 
-class IsometricContractions : public util::StateMachine {
+class IsometricContractions : public StateMachine {
 
 public:
 
@@ -26,7 +28,7 @@ public:
     // CONSTRUCTOR(S) / DESTRUCTOR(S)
     //---------------------------------------------------------------------
 
-    IsometricContractions(util::Clock& clock, core::Daq* daq, exo::MahiExoIIEmg& meii);
+    IsometricContractions(Clock& clock, Timer timer, Daq& daq, Input<voltage>& analog_input, Output<voltage>& analog_output, Watchdog& watchdog, MahiExoIIEmg& meii);
 
 private:
 
@@ -52,45 +54,45 @@ private:
     };
 
     // STATE FUNCTIONS
-    void sf_wait_for_gui(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_wait_for_gui> sa_wait_for_gui;
+    void sf_wait_for_gui(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_wait_for_gui> sa_wait_for_gui;
 
-    void sf_init(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_init> sa_init;
+    void sf_init(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_init> sa_init;
 
-    void sf_backdrive(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_backdrive> sa_backdrive;
+    void sf_backdrive(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_backdrive> sa_backdrive;
 
-    void sf_init_rps(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_init_rps> sa_init_rps;
+    void sf_init_rps(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_init_rps> sa_init_rps;
 
-    void sf_to_center(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_to_center> sa_to_center;
+    void sf_to_center(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_to_center> sa_to_center;
 
-    void sf_hold_center(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_hold_center> sa_hold_center;
+    void sf_hold_center(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_hold_center> sa_hold_center;
 
-    void sf_present_target(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_present_target> sa_present_target;
+    void sf_present_target(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_present_target> sa_present_target;
 
-    void sf_process_emg(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_process_emg> sa_process_emg;
+    void sf_process_emg(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_process_emg> sa_process_emg;
 
-    void sf_train_classifier(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_train_classifier> sa_train_classifier;
+    void sf_train_classifier(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_train_classifier> sa_train_classifier;
 
-    void sf_classify(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_classify> sa_classify;
+    void sf_classify(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_classify> sa_classify;
 
-    void sf_finish(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_finish> sa_finish;
+    void sf_finish(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_finish> sa_finish;
 
-    void sf_stop(const util::NoEventData*);
-    util::StateAction<IsometricContractions, util::NoEventData, &IsometricContractions::sf_stop> sa_stop;
+    void sf_stop(const NoEventData*);
+    StateAction<IsometricContractions, NoEventData, &IsometricContractions::sf_stop> sa_stop;
 
     // STATE MAP
-    virtual const util::StateMapRow* get_state_map() {
-        static const util::StateMapRow STATE_MAP[] = {
+    virtual const StateMapRow* get_state_map() {
+        static const StateMapRow STATE_MAP[] = {
             &sa_wait_for_gui,
             &sa_init,
             &sa_backdrive,
@@ -119,24 +121,28 @@ private:
     std::string hand_def_ = hand_defs[hand_num_];
 
     // UNITY GAME
-    util::ExternalApp game = mel::util::ExternalApp("2D_targets", "C:\\Users\\Ted\\GitHub\\MEII\\Exo Visualization\\Builds\\Exo_Vis_Build_1.exe");
+    ExternalApp game = ExternalApp("2D_targets", "C:\\Users\\Ted\\GitHub\\MEII\\Exo Visualization\\Builds\\Exo_Vis_Build_1.exe");
 
     // FILE DIRECTORIES
     std::string program_directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\bin\\";
 
     // HARDWARE CLOCK
-    util::Clock clock_;
+    Clock clock_;
+    Timer timer_;
 
     // HARDWARE
-    core::Daq* daq_;
-    exo::MahiExoIIEmg meii_;
+    Daq& daq_;
+    Input<voltage>& analog_input_;
+    Output<voltage>& analog_output_;
+    Watchdog& watchdog_;
+    MahiExoIIEmg meii_;
 
     // INPUT CLASS LABELS
     std::vector<int> class_label_sequence_;
     int current_class_label_ = 0;
 
     // PREDEFINED TARGETS
-    const double_vec center_pos_ = { -35 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD, 0 * math::DEG2RAD,  0.09 }; // anatomical joint positions
+    const std::vector<double> center_pos_ = { -35 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD, 0 * DEG2RAD,  0.09 }; // anatomical joint positions
     
     // EXPERIMENT TIMING PARAMETERS
     const double init_backdrive_time_ = 2.0; // [s] time to be in backdrive mode initially
@@ -144,13 +150,13 @@ private:
 
                                           // TASK FORCE MEASUREMENT
     int task_force_measurement_mode_ = 0; // 0 = commanded torques, dof/direction specific; 1 = commanded torques, dof specific, direction agnostic; 2 = commanded torques, dof/direction agnostic
-    const std::vector<std::vector<double_vec>> force_dof_scale_ = { { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // elbow f/e single-dof
+    const std::vector<std::vector<std::vector<double>>> force_dof_scale_ = { { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // elbow f/e single-dof
                                                                     { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // forearm p/s single-dof
                                                                     { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // wrist f/e single-dof
                                                                     { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // wrist r/u single-dof
                                                                     { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 },{ 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } }, // elbow f/e & forearm p/s multi-dof
                                                                     { { 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 },{ 1.50, 0.20, 0.15, 0.15 },{ 1.50, 0.40, 0.15, 0.15 } } }; // wrist f/e & wrist r/u multi-dof
-    const std::vector<char_vec> target_dir_L_ = {
+    const std::vector<char> target_dir_L_ = {
         { 1, -1 },
         { -1, 1 },
         { -1, 1 },
@@ -159,7 +165,7 @@ private:
         { -1, 1, -1, 1 },
         { 1, 1, -1, -1 },
         { 1, -1, 1, -1 } };
-    const std::vector<char_vec> target_dir_R_ = {
+    const std::vector<char> target_dir_R_ = {
         { 1, -1 },
         { 1, -1 },
         { 1, -1 },
@@ -168,7 +174,7 @@ private:
         { 1, -1, 1, -1 },
         { 1, 1, -1, -1 },
         { -1, 1, -1, 1 } };
-    const double_vec gravity_offsets_ = { -0.0, 0.0, 0.0, -0.35, 0.0 }; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
+    const std::vector<double> gravity_offsets_ = { -0.0, 0.0, 0.0, -0.35, 0.0 }; // for all 5 anatomical dofs, due to counterweight elbow can be under 'negative gravity'
     double force_mag_goal_ = 3050.0; // 
     double force_mag_tol_ = 300.0; //
     double force_mag_dwell_time_ = 1.0; // [s]
@@ -181,10 +187,10 @@ private:
     // UNITY INPUT/OUTPUT
     int SCENE_NUM_ = 0; // capitalized because it is the external data provided from GUI and should be handled carefully!
     int viz_target_num_ = 0;
-    comm::MelShare scene_num_share_ = comm::MelShare("scene_num");
-    comm::MelShare viz_target_num_share_ = comm::MelShare("target");
-    comm::MelShare force_mag_share_ = comm::MelShare("force_mag");
-    comm::MelShare hand_select_ = comm::MelShare("hand");
+    MelShare scene_num_share_;
+    MelShare viz_target_num_share_;
+    MelShare force_mag_share_;
+    MelShare hand_select_;
 
     // EMG SENSING AND FEATURE EXTRACTION PARAMETERS
     static const int num_emg_channels_ = 8;
@@ -215,11 +221,11 @@ private:
     int lda_training_complete_ = 0;
 
     // TEMPORARY EMG DATA AND FEATURE CONTAINERS
-    double_vec emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
-    double_vec filtered_emg_voltages_ = double_vec(meii_.N_emg_, 0.0);
-    double_vec feature_vec_ = double_vec(num_features_ * meii_.N_emg_, 0.0);
+    std::vector<double> emg_voltages_ = std::vector<double>(meii_.N_emg_, 0.0);
+    std::vector<double> filtered_emg_voltages_ = std::vector<double>(meii_.N_emg_, 0.0);
+    std::vector<double> feature_vec_ = std::vector<double>(num_features_ * meii_.N_emg_, 0.0);
     std::array<double, num_features_ * num_emg_channels_> feature_array_;
-    exo::MahiExoIIEmg::EmgDataBuffer emg_data_buffer_ = exo::MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_window_length_);
+    MahiExoIIEmg::EmgDataBuffer emg_data_buffer_ = MahiExoIIEmg::EmgDataBuffer(meii_.N_emg_, emg_window_length_);
     int num_class_;
     std::vector<std::array<double, num_features_ * num_emg_channels_>> emg_training_data_;
     size_t N_train_;
@@ -233,7 +239,7 @@ private:
     bool is_testing();
     bool is_blind();
     bool check_wait_time_reached(double wait_time, double init_time, double current_time) const;
-    double measure_task_force(double_vec commanded_torques, int target_num, int dof, int condition) const;
+    double measure_task_force(std::vector<double> commanded_torques, int target_num, int dof, int condition) const;
     bool check_force_mag_reached(double force_mag_goal, double force_mag);
     void read_csv(std::string filename, std::vector<std::vector<double>>& output);
     void read_csv(std::string filename, std::vector<std::vector<int>>& output);
@@ -244,27 +250,27 @@ private:
     bool stop_ = false;
 
     // EMG FEATURE EXTRACTION FUNCTIONS
-    double_vec feature_extract(exo::MahiExoIIEmg::EmgDataBuffer& emg_data_buffer);
+    std::vector<double> feature_extract(MahiExoIIEmg::EmgDataBuffer& emg_data_buffer);
     double rms_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double mav_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double wl_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double zc_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
     double ssc_feature_extract(boost::circular_buffer<double> emg_channel_buffer);
-    void ar4_feature_extract(double_vec& coeffs, const double_vec& emg_channel_buffer);
+    void ar4_feature_extract(std::vector<double>& coeffs, const std::vector<double>& emg_channel_buffer);
 
     // PYTHON COMMUNICATION
-    comm::MelShare trng_size_ = comm::MelShare("trng_size");
-    comm::MelShare trng_share_ = comm::MelShare("trng_share", 16384);
-    comm::MelShare label_share_ = comm::MelShare("label_share");
-    comm::MelShare lda_coeff_ = comm::MelShare("LDA_coeff", 2048);
-    comm::MelShare trng_size2_ = comm::MelShare("trng_size2");
-    comm::MelShare feat_id_ = comm::MelShare("feat_id");
-    comm::MelShare lda_training_flag_ = comm::MelShare("lda_training_flag");
+    MelShare trng_size_;
+    MelShare trng_share_;
+    MelShare label_share_;
+    MelShare lda_coeff_;
+    MelShare trng_size2_;
+    MelShare feat_id_;
+    MelShare lda_training_flag_;
 
     // MELSCOPE VARIABLES
-    comm::MelShare pos_share_ = comm::MelShare("pos_share");
-    comm::MelShare vel_share_ = comm::MelShare("vel_share");
-    comm::MelShare emg_share_ = comm::MelShare("emg_share");
-    comm::MelShare torque_share_ = comm::MelShare("torque_share");
+    MelShare pos_share_;
+    MelShare vel_share_;
+    MelShare emg_share_;
+    MelShare torque_share_;
 
 };
