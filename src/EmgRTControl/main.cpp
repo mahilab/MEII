@@ -1,18 +1,19 @@
 #include <iostream>
 #include <csignal>
 #include "MEL/Daq/Quanser/Q8Usb.hpp"
-#include "MEL/Utility/Clock.hpp"
+#include "MEL/Utility/Timer.hpp"
 #include "MEL/Exoskeletons/MahiExoII/MahiExoIIEmg.hpp"
 #include "EmgRTControl/EmgRTControl.hpp"
 #include "MEL/Communications/Windows/MelShare.hpp"
 #include "MEL/Utility/Windows/Keyboard.hpp"
+#include <MEL/Utility/Options.hpp>
 
 using namespace mel;
 
 static bool stop = false;
 static void handler(int var) {
     stop = true;
-
+}
 
 int main(int argc, char * argv[]) {
 
@@ -20,7 +21,7 @@ int main(int argc, char * argv[]) {
     Options options("ex_mahiexoii_q8usb.exe", "MahiExoII Q8 USB Demo");
     options.add_options()
         ("c,calibrate", "Calibrates the MAHI Exo-II")
-        ("e,EmgRTControl", "Runs the EMG Real-Time Control Experiment for MAHI Exo-II")
+        ("r,run", "Runs the EMG Real-Time Control Experiment for MAHI Exo-II")
         ("h,help", "Prints this help message");
 
     auto result = options.parse(argc, argv);
@@ -34,40 +35,64 @@ int main(int argc, char * argv[]) {
     // register ctrl-c handler
     register_ctrl_c_handler(handler);
 
+    // enable Windows realtime
+    enable_realtime();
 
     // make Q8 USB and configure
     Q8Usb q8;
     q8.digital_output.set_enable_values(std::vector<logic>(8, HIGH));
     q8.digital_output.set_disable_values(std::vector<logic>(8, HIGH));
     q8.digital_output.set_expire_values(std::vector<logic>(8, HIGH));
-
-
-    // create and configure a MahiExoII object
-    exo::MahiExoIIEmg::Config config;
-    for (int i = 0; i < 5; ++i) {
-        config.enable_[i] = q8_emg->do_(i + 1);
-        config.command_[i] = q8_emg->ao_(i + 1);
-        config.encoder_[i] = q8_emg->encoder_(i + 1);
-        config.encrate_[i] = q8_emg->encrate_(i + 1);
+    if (!q8.identify(7)) {
+        print("Incorrect DAQ");
+        return 0;
     }
-    for (int i = 0; i < 8; ++i) {
-        config.emg_[i] = q8_emg->ai_(i);
-    }
-    exo::MahiExoIIEmg meii(config);
 
-    // manual zero joint positions
-    if (var_map.count("zero")) {
-        meii.zero_encoders(q8_emg);
+
+    // create MahiExoII and bind Q8 channels to it
+    std::vector<Amplifier> amplifiers;
+    std::vector<double> amp_gains;
+    for (uint32 i = 0; i < 2; ++i) {
+        amplifiers.push_back(
+            Amplifier("meii_amp_" + std::to_string(i),
+                Amplifier::TtlLevel::Low,
+                q8.digital_output[i + 1],
+                1.8,
+                q8.analog_output[i + 1])
+        );
+    }
+    for (uint32 i = 2; i < 5; ++i) {
+        amplifiers.push_back(
+            Amplifier("meii_amp_" + std::to_string(i),
+                Amplifier::TtlLevel::Low,
+                q8.digital_output[i + 1],
+                0.184,
+                q8.analog_output[i + 1])
+        );
+    }
+    MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers, q8.analog_input[{0, 1, 2, 3, 4, 5, 6, 7}]);
+    MahiExoIIEmg meii(config);
+
+    // calibrate - manually zero the encoders (right arm supinated)
+    if (result.count("calibrate") > 0) {
+        meii.calibrate(stop);
         return 0;
     }
 
 
     // run the experiment
-    Clock clock(1000);
-    enable_realtime();
-    EmgRTControl emg_rt_control(clock, q8_emg, meii);
-    emg_rt_control.execute();
-    delete q8_emg;
+    if (result.count("run") > 0) {
+
+
+
+        // enable DAQ
+        q8.enable();
+
+        EmgRTControl emg_rt_control(meii, q8, q8.watchdog);
+        emg_rt_control.execute();
+        
+    }
+
     disable_realtime();
     return 0;
 
