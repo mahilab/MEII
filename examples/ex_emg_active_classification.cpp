@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
 
     // initialize testing conditions
     Time Ts = milliseconds(1); // sample period
-    std::size_t num_classes = 4; // number of active classes    
+    std::size_t num_classes = 2; // number of active classes    
     Time mes_rest_capture_period = seconds(1);
     Time mes_active_capture_period = seconds(3);
     Time mes_active_period = milliseconds(200);
