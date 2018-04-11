@@ -1,0 +1,35 @@
+
+add_executable(ex_melnet_unity ex_melnet_unity.cpp)
+target_link_libraries(ex_melnet_unity MEII)
+
+add_executable(ex_melshare_unity ex_melshare_unity.cpp)
+target_link_libraries(ex_melshare_unity MEII)
+
+add_executable(ex_classification ex_classification.cpp)
+target_link_libraries(ex_classification MEII)
+
+add_executable(ex_emg_active_classification ex_emg_active_classification.cpp)
+target_link_libraries(ex_emg_active_classification MEII)
+
+add_executable(ex_emg_direction_classification ex_emg_direction_classification.cpp)
+target_link_libraries(ex_emg_direction_classification MEII)
+
+add_executable(ex_trajectory ex_trajectory.cpp)
+target_link_libraries(ex_trajectory MEII)
+
+add_executable(ex_mahiexoii_pos_ctrl ex_mahiexoii_pos_ctrl.cpp)
+target_link_libraries(ex_mahiexoii_pos_ctrl MEII)
+
+add_executable(ex_matrix ex_matrix.cpp)
+target_link_libraries(ex_matrix MEII)
+
+add_executable(ex_myoelectric_signal ex_myoelectric_signal.cpp)
+target_link_libraries(ex_myoelectric_signal MEII)
+
+add_executable(ex_mes_array ex_mes_array.cpp)
+target_link_libraries(ex_mes_array MEII)
+
+if(PHRI_LEARN)
+	add_executable(ex_dynamic_motion_primitive ex_dynamic_motion_primitive.cpp)
+	target_link_libraries(ex_dynamic_motion_primitive MEII)
+endif()

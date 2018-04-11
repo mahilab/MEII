@@ -1,0 +1,26 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  curve_names: ['ms_sp[0]', 'ms_sp[1]', 'ms_sp[2]', 'ms_sp[3]', 'ms_sp[4]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2, 2, 2, 2, 2]
+  mode: Write Only
+  name: ms_sp
+  settings: null
+  size: 5
+  type: melshare
+GRID_COLS: 1
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    ms_sp: [true, true, true, true, true]
+  index: 0
+  legend: false
+  mode: Numeric
+  title: Scope0
+  yrange: [-1, 1]
+THEME: Dark

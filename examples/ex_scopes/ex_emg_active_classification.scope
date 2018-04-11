@@ -1,0 +1,48 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  - [177, 89, 40]
+  - [166, 206, 227]
+  curve_names: ['mes_tkeo_env[0]', 'mes_tkeo_env[1]', 'mes_tkeo_env[2]', 'mes_tkeo_env[3]',
+    'mes_tkeo_env[4]', 'mes_tkeo_env[5]', 'mes_tkeo_env[6]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: mes_tkeo_env
+  settings: null
+  size: 7
+  type: melshare
+- curve_colors:
+  - [251, 154, 153]
+  curve_names: ['active_state[0]']
+  curve_styles: [Solid]
+  curve_widths: [2.0]
+  mode: Read Only
+  name: active_state
+  settings: null
+  size: 1
+  type: melshare
+GRID_COLS: 2
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    active_state: [false]
+    mes_tkeo_env: [true, true, true, true, true, true, true]
+  index: 0
+  legend: false
+  mode: Plot
+  title: Scope0
+  yrange: [-1.0, 1.0]
+- filter:
+    active_state: [true]
+    mes_tkeo_env: [false, false, false, false, false, false, false]
+  index: 1
+  legend: false
+  mode: Plot
+  title: Scope1
+  yrange: [-1.0, 1.0]
+THEME: Dark

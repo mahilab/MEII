@@ -1,0 +1,78 @@
+DATA_SOURCES:
+- curve_colors:
+  - [227, 26, 28]
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  - [177, 89, 40]
+  - [166, 206, 227]
+  curve_names: ['mes_tkeo_env[0]', 'mes_tkeo_env[1]', 'mes_tkeo_env[2]', 'mes_tkeo_env[3]',
+    'mes_tkeo_env[4]', 'mes_tkeo_env[5]', 'mes_tkeo_env[6]', 'mes_tkeo_env[7]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: mes_tkeo_env
+  settings: null
+  size: 8
+  type: melshare
+- curve_colors:
+  - [31, 120, 180]
+  - [251, 154, 153]
+  - [178, 223, 138]
+  - [253, 191, 111]
+  - [202, 178, 214]
+  - [255, 255, 153]
+  - [141, 211, 199]
+  - [255, 255, 179]
+  curve_names: ['mes_dm[0]', 'mes_dm[1]', 'mes_dm[2]', 'mes_dm[3]', 'mes_dm[4]', 'mes_dm[5]',
+    'mes_dm[6]', 'mes_dm[7]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: mes_dm
+  settings: null
+  size: 8
+  type: melshare
+- curve_colors:
+  - [190, 186, 218]
+  curve_names: ['pred_label[0]']
+  curve_styles: [Solid]
+  curve_widths: [2.0]
+  mode: Read Only
+  name: pred_label
+  settings: null
+  size: 1
+  type: melshare
+GRID_COLS: 3
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    mes_dm: [false, false, false, false, false, false, false, false]
+    mes_tkeo_env: [true, false, false, false, false, false, false, false]
+    pred_label: [false]
+  index: 0
+  legend: false
+  mode: Plot
+  title: Scope0
+  yrange: [-1.0, 1.0]
+- filter:
+    mes_dm: [true, false, false, false, false, false, false, false]
+    mes_tkeo_env: [false, false, false, false, false, false, false, false]
+    pred_label: [false]
+  index: 1
+  legend: false
+  mode: Plot
+  title: Scope1
+  yrange: [-1.0, 1.0]
+- filter:
+    mes_dm: [false, false, false, false, false, false, false, false]
+    mes_tkeo_env: [false, false, false, false, false, false, false, false]
+    pred_label: [true]
+  index: 2
+  legend: false
+  mode: Plot
+  title: Scope2
+  yrange: [-1.0, 1.0]
+THEME: Dark

@@ -1,0 +1,55 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  curve_names: ['input_signal[0]', 'input_signal[1]', 'input_signal[2]']
+  curve_styles: [Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0]
+  mode: Read Only
+  name: input_signal
+  settings: null
+  size: 3
+  type: melshare
+- curve_colors:
+  - [255, 127, 0]
+  curve_names: ['true_label[0]']
+  curve_styles: [Solid]
+  curve_widths: [2.0]
+  mode: Read Only
+  name: true_label
+  settings: null
+  size: 1
+  type: melshare
+- curve_colors:
+  - [106, 61, 154]
+  curve_names: ['pred_label[0]']
+  curve_styles: [Solid]
+  curve_widths: [2.0]
+  mode: Read Only
+  name: pred_label
+  settings: null
+  size: 1
+  type: melshare
+GRID_COLS: 2
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    input_signal: [true, true, true]
+    pred_label: [false]
+    true_label: [false]
+  index: 0
+  legend: false
+  mode: Plot
+  title: Scope0
+  yrange: [-1.0, 1.0]
+- filter:
+    input_signal: [false, false, false]
+    pred_label: [true]
+    true_label: [true]
+  index: 1
+  legend: false
+  mode: Numeric
+  title: Scope1
+  yrange: [-1.0, 1.0]
+THEME: Dark

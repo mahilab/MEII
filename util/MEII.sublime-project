@@ -1,0 +1,33 @@
+{
+	"build_systems":
+	[
+		{
+			"file_regex": "/([^/:]+):(\\d+):(\\d+): ",
+			"name": "CMake (Windows MSVC)",
+			"selector":
+			[
+				"source.cmake"
+			],
+			"shell_cmd": "cmake .. -G \"Visual Studio 15 2017 Win64\" -DPHRI_LEARN=ON -DEMG_RT_CTRL=OFF -DEXAMPLES=ON -DTESTS=ON",
+			"working_dir": "$project_path/../build"
+		},
+		{
+			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+			"name": "CMake (Clean)",
+			"shell_cmd": "python clean.py",
+			"working_dir": "$project_path/../util"
+		},
+		{
+			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+			"name": "Anaconda Python Builder",
+			"selector": "source.python",
+			"shell_cmd": "\"python\" -u \"$file\""
+		}
+	],
+	"folders":
+	[
+		{
+			"path": "../"
+		}
+	]
+}
