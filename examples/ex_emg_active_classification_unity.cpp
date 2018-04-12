@@ -11,6 +11,7 @@
 #include <MEII/Classification/EmgActiveEnsClassifier.hpp>
 #include <MEII/EMG/EmgDataCapture.hpp>
 #include <MEL/Utility/Options.hpp>
+#include <MEII/Unity/UnityEmgRtc.hpp>
 
 using namespace mel;
 using namespace meii;
@@ -49,33 +50,25 @@ int main(int argc, char *argv[]) {
     register_ctrl_handler(handler);   
 
     // construct Q8 USB and configure    
-    Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
-    q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
-    if (!q8.identify(7)) {
-        LOG(Error) << "Incorrect DAQ";
-        return 0;
-    }
-    emg_channel_numbers = q8.analog_input.get_channel_numbers();
-    std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+    //Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
+    //q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
+    //q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
+    //q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+    //if (!q8.identify(7)) {
+    //    LOG(Error) << "Incorrect DAQ";
+    //    return 0;
+    //}
+    //emg_channel_numbers = q8.analog_input.get_channel_numbers();
+    //std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+	std::size_t emg_channel_count = emg_channel_numbers.size();
     
     // construct array of Myoelectric Signals    
-    MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
+    //MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
 
     // make MelShares
     MelShare ms_mes_tkeo_env("mes_tkeo_env");
     MelShare ms_active_state("active_state");
 
-    // create data log for EMG data
-    DataLogger emg_log(WriterType::Buffered, false);
-    std::vector<std::string> emg_log_header;
-    emg_log_header.push_back("Time [s]");
-    for (std::size_t i = 0; i < emg_channel_count; ++i) {
-        emg_log_header.push_back("MES TKEO ENV " + stringify(emg_channel_numbers[i]));
-    }
-    emg_log.set_header(emg_log_header);
-    std::vector<double> emg_log_row(emg_log_header.size());   
 
     // initialize testing conditions
     Time Ts = milliseconds(1); // sample period
@@ -85,7 +78,7 @@ int main(int argc, char *argv[]) {
     Time mes_active_period = milliseconds(200);
     std::size_t mes_rest_capture_window_size = mes_rest_capture_period.as_seconds() / Ts.as_seconds();
     std::size_t mes_active_capture_window_size = mes_active_capture_period.as_seconds() / Ts.as_seconds();
-    mes.resize_buffer(std::max(mes_rest_capture_window_size, mes_active_capture_window_size));
+    //mes.resize_buffer(std::max(mes_rest_capture_window_size, mes_active_capture_window_size));
     std::size_t mes_active_window_size = mes_active_period.as_seconds() / Ts.as_seconds();
     bool active_detector_computed = false;
     std::size_t active_state = 0;
@@ -96,18 +89,18 @@ int main(int argc, char *argv[]) {
     active_detector.resize(num_classes);
     
     // enable DAQ
-    q8.enable();   
+    //q8.enable();   
 
     // construct clock to regulate interaction
     Clock keypress_refract_clock;
     
-    Time keypress_refract_time = seconds((double)((signed)mes.get_buffer_capacity()) * Ts.as_seconds());
+	Time keypress_refract_time = seconds(3);// seconds((double)((signed)mes.get_buffer_capacity()) * Ts.as_seconds());
 
     // construct timer in hybrid mode to avoid using 100% CPU
     Timer timer(Ts, Timer::Hybrid);
 
     // start while loop
-    q8.watchdog.start();
+    //q8.watchdog.start();
 
     // promt the user for input
     print("Press 'A + 0' to add 'rest' state training data to all classifiers.");
@@ -122,15 +115,10 @@ int main(int argc, char *argv[]) {
     while (!stop) {
 
         // update all DAQ input channels
-        q8.update_input();
+        //q8.update_input();
            
         // emg signal processing
-        mes.update_and_buffer();
-
-        // write to emg data log
-        emg_log_row = mes.get_tkeo_envelope();
-        emg_log_row.insert(emg_log_row.begin(), timer.get_elapsed_time().as_seconds());
-        emg_log.buffer(emg_log_row);
+        //mes.update_and_buffer();
         
         // predict state
         if (active_detector.update(mes.get_tkeo_envelope()))

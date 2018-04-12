@@ -1,0 +1,210 @@
+#include "MEL/Daq/Quanser/Q8Usb.hpp"
+#include "MEL/Utility/System.hpp"
+#include "MEL/Logging/Log.hpp"
+#include "MEL/Utility/Console.hpp"
+#include "MEII/EMG/MesArray.hpp"
+#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Utility/Windows/Keyboard.hpp"
+#include "MEII/Classification/EmgDirClassifier.hpp"
+#include <MEL/Core/Clock.hpp>
+#include <MEL/Logging/DataLogger.hpp>
+#include <MEL/Core/Timer.hpp>
+#include <MEII/EMG/EmgDataCapture.hpp>
+
+using namespace mel;
+using namespace meii;
+
+ctrl_bool stop(false);
+bool handler(CtrlEvent event) {
+    stop = true;
+    return true;
+}
+
+int main(int argc, char *argv[]) {
+
+    // handle inputs 
+    std::vector<uint32> emg_channel_numbers;
+    if (argc > 1) {
+        uint32 ch;
+        for (int i = 1; i < argc; ++i) {
+            std::stringstream ss(argv[i]);
+            ss >> ch;
+            if (ch >= 0 && ch < 8) {
+                emg_channel_numbers.push_back(ch);
+            }
+        }
+    }
+    else {
+        return 0;
+    }
+
+    // enable Windows realtime
+    enable_realtime();
+
+    // initialize logger
+    init_logger();
+
+    // register ctrl-c handler
+    register_ctrl_handler(handler);
+
+    // construct Q8 USB and configure    
+    Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
+    q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
+    q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
+    q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+    if (!q8.identify(7)) {
+        LOG(Error) << "Incorrect DAQ";
+        return 0;
+    }
+    emg_channel_numbers = q8.analog_input.get_channel_numbers();
+    std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+
+    // construct array of Myoelectric Signals    
+    MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
+
+    // make MelShares
+    MelShare ms_mes_tkeo_env("mes_tkeo_env");
+    MelShare ms_mes_dm("mes_dm");
+    MelShare ms_pred_label("pred_label");
+   
+
+    // create data log for EMG data
+    DataLogger emg_log(WriterType::Buffered, false);
+    std::vector<std::string> emg_log_header;
+    emg_log_header.push_back("Time [s]");
+    for (std::size_t i = 0; i < emg_channel_count; ++i) {
+        emg_log_header.push_back("MES DM " + stringify(emg_channel_numbers[i]));
+    }
+    emg_log.set_header(emg_log_header);
+    std::vector<double> emg_log_row(emg_log_header.size());
+
+
+    // initialize testing conditions
+    Time Ts = milliseconds(1); // sample period
+    std::size_t num_classes = 4; // number of active classes
+    std::vector<Key> active_keys = { Key::Num1, Key::Num2, Key::Num3, Key::Num4 };
+    Time mes_active_capture_period = seconds(3);
+    Time mes_active_period = milliseconds(200);
+    std::size_t mes_active_capture_window_size = (std::size_t)((unsigned)(mes_active_capture_period.as_seconds() / Ts.as_seconds()));
+    mes.resize_buffer(mes_active_capture_window_size);
+    std::size_t mes_active_window_size = (std::size_t)((unsigned)(mes_active_period.as_seconds() / Ts.as_seconds()));
+    std::size_t pred_label = 0;
+    
+
+    // initialize classifier
+    bool RMS = true;
+    bool MAV = true;
+    bool WL = true;
+    bool ZC = false;
+    bool SSC = false;
+    bool AR1 = false;
+    bool AR2 = false;
+    bool AR3 = false;
+    bool AR4 = false;
+    EmgDirClassifier dir_classifier(num_classes, emg_channel_count, Ts, RMS, MAV, WL, ZC, SSC, AR1, AR2, AR3, AR4);
+    
+    // enable DAQ
+    q8.enable();
+
+    // construct clock to regulate interaction
+    Clock keypress_refract_clock;
+    Time keypress_refract_time = seconds((double)((signed)mes.get_buffer_capacity()) * Ts.as_seconds());
+
+    // construct timer in hybrid mode to avoid using 100% CPU
+    Timer timer(Ts, Timer::Hybrid);
+
+    // start while loop
+    q8.watchdog.start();
+
+    // prompt the user for input
+    print("Press 'A + target #' to add training data for one target.");
+    print("Press 'C + target #' to clear training data for one target.");
+    print("Number of targets/classes is:");
+    print(num_classes);
+    print("Press 'T' to train classifier and begin real-time classification.");
+    print("Press 'Escape' to exit.");
+
+    while (!stop) {
+
+        // update all DAQ input channels
+        q8.update_input();
+
+        // emg signal processing
+        mes.update_and_buffer();
+
+
+        // write to emg data log
+        emg_log_row = mes.get_demean();
+        emg_log_row.insert(emg_log_row.begin(), timer.get_elapsed_time().as_seconds());
+        emg_log.buffer(emg_log_row);
+
+
+        // predict state
+		if (dir_classifier.update(mes.get_demean())) {
+			pred_label = dir_classifier.get_class();
+		}
+
+        // clear active data
+        for (std::size_t k = 0; k < num_classes; ++k) {
+            if (Keyboard::are_all_keys_pressed({ Key::C, active_keys[k] })) {
+                if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+                    if (dir_classifier.clear_training_data(k)) {
+                        LOG(Info) << "Cleared active data for target " + stringify(k + 1) + ".";
+                    }
+                    keypress_refract_clock.restart();
+                }
+            }
+        }
+
+
+
+
+        // capture active data
+        for (std::size_t k = 0; k < num_classes; ++k) {
+            if (Keyboard::are_all_keys_pressed({ Key::A, active_keys[k] })) {
+                if (mes.is_buffer_full()) {
+                    if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) { 
+                        if (dir_classifier.add_training_data(k, find_sum_max_window(mes.get_tkeo_env_buffer_data(mes_active_capture_window_size), mes_active_window_size, mes.get_dm_buffer_data(mes_active_capture_window_size)))) {
+                            LOG(Info) << "Added active data for target " + stringify(k + 1) + ".";
+                        }
+                        keypress_refract_clock.restart();
+                    }
+                }
+            }
+        }
+
+        // train the active/rest classifiers
+        if (Keyboard::is_key_pressed(Key::T)) {
+            if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+                if (dir_classifier.train()) {
+                    LOG(Info) << "Trained new active/rest classifier based on given data.";
+                }
+                keypress_refract_clock.restart();
+            }
+        }
+
+        // write to MelShares
+        ms_mes_tkeo_env.write_data(mes.get_tkeo_envelope());
+        ms_mes_dm.write_data(mes.get_demean());
+        ms_pred_label.write_data({ (double)((signed)(pred_label + 1)) });
+
+        // check for exit key
+        if (Keyboard::is_key_pressed(Key::Escape)) {
+            stop = true;
+        }
+
+        // kick watchdog
+        if (!q8.watchdog.kick()) {
+            stop = true;
+        }
+
+        // wait for remainder of sample period
+        timer.wait();
+
+    } // end control loop
+
+    // disable Windows realtime and exit the program
+    disable_realtime();
+    return 0;
+}
+
