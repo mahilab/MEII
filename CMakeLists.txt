@@ -9,7 +9,7 @@ option(EXAMPLES    "Turn ON to build example executable(s)."                    
 option(TESTS       "Turn ON to build test executable(s)"                                       OFF)
 
 set(QUANSER_ROOT "C:/Program Files/Quanser" CACHE FILEPATH "Absolute path to Quanser installation.")
-set(MEL_ROOT     "C:/Users/Ted/GitHub/MEL"  CACHE FILEPATH "Absolute path to MEL.")
+set(MEL_ROOT     "C:/Git/MEL"  CACHE FILEPATH "Absolute path to MEL.")
 set(EIGEN_ROOT   "C:/dev/eigen"             CACHE FILEPATH "Absolute path to Eigen installation.")
 
 # enable C/C++
@@ -39,7 +39,7 @@ set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} /MP") # MULTICORE BUILDS
 #===============================================================================
 
 # MEL Lib and Eigen Lib
-set(INCLUDE_DIRS include C:/Users/Ted/GitHub/MEL/include C:/dev/eigen)
+set(INCLUDE_DIRS include ${MEL_ROOT}/include ${EIGEN_ROOT})
 
 # include directories
 include_directories(${INCLUDE_DIRS})

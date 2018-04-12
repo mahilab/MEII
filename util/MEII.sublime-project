@@ -29,5 +29,8 @@
 		{
 			"path": "../"
 		}
-	]
+	],
+	"settings": {
+		"python_interpreter": "C:\\dev\\python27"
+	}
 }

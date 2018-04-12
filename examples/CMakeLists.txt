@@ -11,8 +11,14 @@ target_link_libraries(ex_classification MEII)
 add_executable(ex_emg_active_classification ex_emg_active_classification.cpp)
 target_link_libraries(ex_emg_active_classification MEII)
 
+add_executable(ex_emg_active_classification_unity ex_emg_active_classification_unity.cpp)
+target_link_libraries(ex_emg_active_classification_unity MEII)
+
 add_executable(ex_emg_direction_classification ex_emg_direction_classification.cpp)
 target_link_libraries(ex_emg_direction_classification MEII)
+
+add_executable(ex_emg_triggered_direction_classification ex_emg_triggered_direction_classification.cpp)
+target_link_libraries(ex_emg_triggered_direction_classification MEII)
 
 add_executable(ex_trajectory ex_trajectory.cpp)
 target_link_libraries(ex_trajectory MEII)
