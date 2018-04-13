@@ -1,19 +1,20 @@
-#include "EmgRealTimeControl/EmgRealTimeControl.hpp"
+#include "MEII/EmgRealTimeControl/EmgRealTimeControl.hpp"
 #include <MEL/Daq/Quanser/Q8Usb.hpp>
-#include <MEL/Utility/Timer.hpp>
-#include <MEL/Exoskeletons/MahiExoII/MahiExoII.hpp>
+#include <MEL/Core/Timer.hpp>
+#include <MEII/MahiExoII/MahiExoII.hpp>
 #include <MEL/Communications/Windows/MelShare.hpp>
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Utility/System.hpp>
 #include <MEL/Logging/Log.hpp>
 #include "MEL/Utility/Console.hpp"
-#include "EMG/MesArray.hpp"
+#include "MEII/EMG/MesArray.hpp"
 #include <iostream>
 
 
 
 using namespace mel;
+using namespace meii;
 
 // create global stop variable CTRL-C handler function
 ctrl_bool stop(false);
@@ -25,13 +26,12 @@ bool handler(CtrlEvent event) {
 int main(int argc, char * argv[]) {
 
     // make options
-    Options options("ex_mahiexoii_q8usb.exe", "MahiExoII Q8 USB Demo");
+    Options options("emg_real_time_control.exe", "EMG Real-Time Control of MAHI Exo-II");
     options.add_options()
         ("c,calibrate", "Calibrates the MAHI Exo-II")
         ("e,emg","EMG signal check")
         ("n,neutral","Find the neutral wrist position")
         ("r,run", "Runs the EMG Real-Time Control Experiment for MAHI Exo-II")
-        ("v,virtual","Runs the code without interacting with hardward for debugging")
         ("h,help", "Prints this help message");
 
     auto result = options.parse(argc, argv);
@@ -105,9 +105,6 @@ int main(int argc, char * argv[]) {
     if (result.count("emg") > 0) {
         LOG(Info) << "Showing EMG on MelScope";
         
-        // make and launch MelScope
-        ExternalApp melscope = ExternalApp("melscope", "C:\\Program Files\\MELScope\\MELScope.exe");
-        melscope.launch();
 
         // make MelShares
         MelShare ms_mes_raw("ms_mes_raw");
@@ -134,17 +131,13 @@ int main(int argc, char * argv[]) {
             q8.update_input();
 
             // emg signal processing
-            meii.update_emg();
-            mes_raw = meii.get_mes_raw();
-            mes_demean = meii.get_mes_dm();
-            mes_env = meii.get_mes_env();
-            mes_tkeo_env = meii.get_mes_tkeo_env();
+            mes.update();
 
             // write to MelShares
-            ms_mes_raw.write_data(mes_raw);
-            ms_mes_demean.write_data(mes_demean);
-            ms_mes_env.write_data(mes_env);
-            ms_mes_tkeo_env.write_data(mes_tkeo_env);
+            ms_mes_raw.write_data(mes.get_raw());
+            ms_mes_demean.write_data(mes.get_demean());
+            ms_mes_env.write_data(mes.get_envelope());
+            ms_mes_tkeo_env.write_data(mes.get_tkeo_envelope());
 
             // check for user input
             if (Keyboard::is_key_pressed(Key::Escape)) {
@@ -229,10 +222,10 @@ int main(int argc, char * argv[]) {
     if (result.count("run") > 0) {
 
         // enable DAQ
-        q8.enable();
+        //q8.enable();
 
-        EmgRealTimeControl emg_real_time_control(meii, q8, q8.watchdog, stop, virtual_hardware);
-        emg_real_time_control.execute();
+        //EmgRealTimeControl emg_real_time_control(meii, q8, q8.watchdog, stop, virtual_hardware);
+        //emg_real_time_control.execute();
         
     }
 

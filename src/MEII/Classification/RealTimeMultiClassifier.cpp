@@ -9,9 +9,9 @@
 using namespace mel;
 
 namespace meii {
-
+		
     RealTimeMultiClassifier::RealTimeMultiClassifier(std::size_t class_count, std::size_t sample_dimension, Time sample_period, Time classification_period, Time feature_period, Time classification_overlap) :
-        class_count_(class_count < 2 ? 2 : class_count),
+		class_count_(class_count < 2 ? 2 : class_count),
         sample_dim_(sample_dimension),
         Ts_(sample_period),
         classification_window_size_(sample_period < classification_period ? (std::size_t)((unsigned)std::round(classification_period.as_seconds() / sample_period.as_seconds())) : 1),
@@ -20,13 +20,13 @@ namespace meii {
         pred_spacing_(classification_overlap > classification_period ? 1 : (std::size_t)((unsigned)std::round((classification_period.as_seconds() - classification_overlap.as_seconds()) / sample_period.as_seconds()))),
         classification_buffer_(classification_window_size_),
         sample_buffer_(feature_window_size_),
-        training_data_(class_count),
-        feature_data_(class_count),
+        training_data_(class_count_),
+        feature_data_(class_count_),
         feature_dim_(get_feature_dim()),
-        w_(class_count),
-        w_0_(class_count),
-        y_(class_count),
-        p_(class_count),
+        w_(class_count_),
+        w_0_(class_count_),
+        y_(class_count_),
+        p_(class_count_),
         trained_(false)
     {}
 
@@ -64,11 +64,12 @@ namespace meii {
     }
 
     bool RealTimeMultiClassifier::add_training_data(std::size_t class_label, const std::vector<std::vector<double>>& class_data) {
-        if (class_label >= class_count_) {
+		if (class_label >= class_count_) {
             LOG(Warning) << "Invalid class label provided. Training data was not added.";
             return false;
         }
         training_data_[class_label].insert(training_data_[class_label].end(), class_data.begin(), class_data.end());
+		LOG(Verbose) << "Added training data to RealTimeMultiClassifier for class " << class_label << ". This class now has " << training_data_[class_label].size() << " samples of training data.";
         return true;
     }
 
@@ -84,7 +85,7 @@ namespace meii {
     bool RealTimeMultiClassifier::train() {
         for (std::size_t i = 0; i < class_count_; ++i) {
             if (training_data_[i].empty()) {
-                LOG(Warning) << "Must collect training data for all classes before calling train(). Training was aborted.";
+                LOG(Warning) << "Must collect training data for all classes before calling RealTimeMultiClassifier::train(). Training was aborted.";
                 return trained_ = false;
             }
         }
@@ -102,6 +103,22 @@ namespace meii {
 
         return trained_ = true;
     }
+
+	void RealTimeMultiClassifier::compute_features() {
+		std::vector<std::vector<std::vector<double>>> binned_data;
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			if (training_data_[i].size() < feature_window_size_) {
+				LOG(Warning) << "Not enough training data was provided for class " << i << " when calling RealTimeMultiClassifier::compute_features().";
+			}
+			else {
+				binned_data = bin_signal(training_data_[i], feature_window_size_);
+				feature_data_[i].resize(binned_data.size());
+				for (std::size_t j = 0; j < binned_data.size(); ++j) {
+					feature_data_[i][j] = feature_extraction(binned_data[j]);
+				}
+			}
+		}
+	}
 
     bool RealTimeMultiClassifier::set_model(const std::vector<std::vector<double>>& w, const std::vector<double>& w_0) {
         if (w.size() != class_count_) {
@@ -134,20 +151,38 @@ namespace meii {
         w_0 = w_0_;
     }
 
-    const std::vector<std::vector<double>>& RealTimeMultiClassifier::get_class_training_data(std::size_t class_label) const {
-        if (class_label >= class_count_) {
-            LOG(Warning) << "Invalid class label provided to RealTimeMultiClassifier::get_class_training_data(). Class label set to 0.";
-            class_label = 0;
-        }
-        return training_data_[class_label];
+    std::vector<std::vector<double>> RealTimeMultiClassifier::get_class_training_data(std::size_t class_label) const {
+		if (class_label >= class_count_) {
+			LOG(Warning) << "Invalid class label provided to RealTimeMultiClassifier::get_class_training_data(). Returning empty vector.";
+			return std::vector<std::vector<double>>();
+		}
+		if (training_data_.empty() || training_data_[class_label].empty()) {
+			LOG(Warning) << "No feature data found during call to RealTimeMultiClassifier::get_class_training_data(). Returning empty vector.";
+			return std::vector<std::vector<double>>();
+		}
+
+		std::vector<std::vector<double>> class_training_data = training_data_[class_label];
+		for (std::size_t i = 0; i < class_training_data.size(); ++i) {
+			class_training_data[i].push_back(class_label);
+		}
+		return class_training_data;
     }
 
-    const std::vector<std::vector<double>>& RealTimeMultiClassifier::get_class_feature_data(std::size_t class_label) const {
+    std::vector<std::vector<double>> RealTimeMultiClassifier::get_class_feature_data(std::size_t class_label) const {
         if (class_label >= class_count_) {
-            LOG(Warning) << "Invalid class label provided to RealTimeMultiClassifier::get_class_feature_data(). Class label set to 0.";
-            class_label = 0;
+            LOG(Warning) << "Invalid class label provided to RealTimeMultiClassifier::get_class_feature_data(). Returning empty vector.";
+            return std::vector<std::vector<double>>();
         }
-        return feature_data_[class_label];
+		if (feature_data_.empty() || feature_data_[class_label].empty()) {
+			LOG(Warning) << "No feature data found during call to RealTimeMultiClassifier::get_class_feature_data(). Returning empty vector.";
+			return std::vector<std::vector<double>>();
+		}
+
+		std::vector<std::vector<double>> class_feature_data = feature_data_[class_label];
+		for (std::size_t i = 0; i < class_feature_data.size(); ++i) {
+			class_feature_data[i].push_back(class_label);
+		}
+        return class_feature_data;
     }
 
     bool RealTimeMultiClassifier::is_trained() {
@@ -161,6 +196,20 @@ namespace meii {
     std::size_t RealTimeMultiClassifier::get_feature_dim() const {
         return sample_dim_;
     }
+
+	void RealTimeMultiClassifier::set_class_count(std::size_t class_count) {
+		class_count = class_count < 2 ? 2 : class_count;
+		if (class_count_ != class_count) {
+			class_count_ = class_count;
+			training_data_.resize(class_count);
+			feature_data_.resize(class_count);
+			w_.resize(class_count);
+			w_0_.resize(class_count);
+			y_.resize(class_count);
+			p_.resize(class_count);
+			trained_ = false;
+		}
+	}
 
     std::vector<double> RealTimeMultiClassifier::feature_extraction(const std::vector<std::vector<double>>& signal) const {
         if (signal.empty()) {

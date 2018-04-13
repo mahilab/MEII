@@ -9,7 +9,7 @@ option(EXAMPLES    "Turn ON to build example executable(s)."                    
 option(TESTS       "Turn ON to build test executable(s)"                                       OFF)
 
 set(QUANSER_ROOT "C:/Program Files/Quanser" CACHE FILEPATH "Absolute path to Quanser installation.")
-set(MEL_ROOT     "C:/Git/MEL"  CACHE FILEPATH "Absolute path to MEL.")
+set(MEL_ROOT     "C:/Git/MEL"               CACHE FILEPATH "Absolute path to MEL.")
 set(EIGEN_ROOT   "C:/dev/eigen"             CACHE FILEPATH "Absolute path to Eigen installation.")
 
 # enable C/C++
@@ -159,6 +159,9 @@ target_link_libraries(MEII ${LINK_LIBS})
 if(EMG_RT_CTRL)
     add_executable(emg_real_time_control src/emg_real_time_control.cpp)
     target_link_libraries(emg_real_time_control MEII)
+
+    add_executable(emg_real_time_control_no_robot src/emg_real_time_control_no_robot.cpp)
+    target_link_libraries(emg_real_time_control_no_robot MEII)
 endif()
 
 if(PHRI_LEARN)

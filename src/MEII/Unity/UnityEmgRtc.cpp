@@ -20,6 +20,7 @@ namespace meii {
         effort_max_(1.0),
         ms_scene_("melshare_scene"),
         ms_target_("melshare_target"),
+		ms_center_("melshare_center"),
         ms_effort_("melshare_effort")
     {
         viz_target_mapping_ = { { {3, 7}, {1, 5}, {1, 5}, {3, 7}, {2, 4, 8, 6}, {2, 4, 8, 6} }, { { 3, 7 },{ 5, 1 },{ 5, 1 },{ 3, 7 },{ 4, 2, 6, 8 },{ 4, 2, 6, 8 } } };
@@ -30,7 +31,7 @@ namespace meii {
         game.launch();
     }
 
-    void UnityEmgRtc::set_experiment_conditions(int hand, int& dof, int& num_classes, int& condition, bool& menu) {
+    void UnityEmgRtc::set_experiment_conditions(std::size_t hand, std::size_t& dof, std::size_t& num_classes, std::size_t& condition, bool& menu) {
         scene_num_ = ms_scene_.read_data();
         if (scene_num_.empty())
             return;
@@ -42,8 +43,8 @@ namespace meii {
         else if (scene_int_ > 0) {
             menu = false;
             hand_num_ = hand;
-            dof_ = (scene_int_ - 1) / 4;
-            condition_ = (scene_int_ - 1) % 4;
+            dof_ = (std::size_t)((unsigned)((scene_int_ - 1) / 4));
+            condition_ = (std::size_t)((unsigned)((scene_int_ - 1) % 4));
             if (dof_ < 4) {
                 num_classes_ = 2;
             }
@@ -57,8 +58,6 @@ namespace meii {
         variables_set_ = true;
     }
 
-
-
     void UnityEmgRtc::set_target(int target_label) {
         if (!variables_set_)
             return;
@@ -66,6 +65,15 @@ namespace meii {
         viz_target_num_ = compute_viz_target_num(target_label_);
         ms_target_.write_data({ (double)viz_target_num_ });
     }
+
+	void UnityEmgRtc::set_center(bool center_glow) {
+		if (center_glow) {
+			ms_center_.write_data({ 1.0 });
+		}
+		else {
+			ms_center_.write_data({ 0.0 });
+		}
+	}
 
     void UnityEmgRtc::set_effort(double effort) {
         effort = (saturate(effort, effort_min_, effort_max_) - effort_min_) / (effort_max_ - effort_min_);
@@ -77,15 +85,15 @@ namespace meii {
         effort_max_ = effort_max;
     }
 
-    int UnityEmgRtc::get_target_label() const {
+	int UnityEmgRtc::get_target_label() const {
         return target_label_;
     }
 
-    int UnityEmgRtc::get_viz_target_num() const {
+	int UnityEmgRtc::get_viz_target_num() const {
         return viz_target_num_;
     }
 
-    int UnityEmgRtc::compute_viz_target_num(int target_label) const {
+	int UnityEmgRtc::compute_viz_target_num(int target_label) const {
         if (target_label == 0)
             return 0;
         if (target_label < 0 || target_label > num_classes_)

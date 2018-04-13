@@ -32,7 +32,7 @@ namespace meii {
 
     public:
 
-        /// Constructor
+        /// Preferred constructor
         EmgDirClassifier(std::size_t class_count, std::size_t sample_dimension, mel::Time sample_period,
             bool RMS = true, bool MAV = true, bool WL = true, bool ZC = true, bool SSC = true, bool AR1 = true, bool AR2 = true, bool AR3 = true, bool AR4 = true,
             mel::Time classification_period = mel::milliseconds(200), mel::Time feature_period = mel::milliseconds(200), mel::Time classification_overlap = mel::milliseconds(199));

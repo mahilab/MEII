@@ -83,10 +83,10 @@ int main(int argc, char *argv[]) {
     Time mes_rest_capture_period = seconds(1);
     Time mes_active_capture_period = seconds(3);
     Time mes_active_period = milliseconds(200);
-    std::size_t mes_rest_capture_window_size = mes_rest_capture_period.as_seconds() / Ts.as_seconds();
-    std::size_t mes_active_capture_window_size = mes_active_capture_period.as_seconds() / Ts.as_seconds();
+    std::size_t mes_rest_capture_window_size = (std::size_t)((unsigned)(mes_rest_capture_period.as_seconds() / Ts.as_seconds()));
+    std::size_t mes_active_capture_window_size = (std::size_t)((unsigned)(mes_active_capture_period.as_seconds() / Ts.as_seconds()));
     mes.resize_buffer(std::max(mes_rest_capture_window_size, mes_active_capture_window_size));
-    std::size_t mes_active_window_size = mes_active_period.as_seconds() / Ts.as_seconds();
+    std::size_t mes_active_window_size = (std::size_t)((unsigned)(mes_active_period.as_seconds() / Ts.as_seconds()));
     bool active_detector_computed = false;
     std::size_t active_state = 0;
     std::vector<Key> active_keys = { Key::Num1, Key::Num2, Key::Num3, Key::Num4 };

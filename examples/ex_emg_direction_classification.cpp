@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		// train the active/rest classifiers
+		// train the direction classifier
 		if (Keyboard::is_key_pressed(Key::T)) {
 			if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 				//if (dir_classifier.train()) {

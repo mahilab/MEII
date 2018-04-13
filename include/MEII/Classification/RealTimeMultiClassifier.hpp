@@ -33,7 +33,7 @@ namespace meii {
 
     public:
 
-        /// Constructor
+		/// Preferred constructor
         RealTimeMultiClassifier(std::size_t class_count, std::size_t sample_dimension, mel::Time sample_period, mel::Time classification_period = mel::Time::Zero, mel::Time feature_period = mel::Time::Zero, mel::Time classification_overlap = mel::microseconds(std::numeric_limits<mel::int64>::max()));
 
         /// Update called every sample period, taking in new input sample. Must have already done training.
@@ -46,7 +46,7 @@ namespace meii {
         bool clear_training_data(std::size_t class_label);
 
         /// Use training data to compute linear classification model. Must have set training data for every class. Must be done before predictions can begin.
-        bool train();
+        bool train();		
 
         /// Provide the linear classification model without training data.
         bool set_model(const std::vector<std::vector<double>>& w, const std::vector<double>& w_0);
@@ -57,11 +57,14 @@ namespace meii {
         /// Get the vector of w with w_0 on the end used for computing predictions.
         void get_model(std::vector<std::vector<double>>& w, std::vector<double>& w_0);
 
-        /// Get the current training data that has been added for a specific class.
-        const std::vector<std::vector<double>>& get_class_training_data(std::size_t class_label) const;
+		/// Compute features from the existing training data and store them.
+		void compute_features();
 
-        /// Get the current feature data that has been added for all classes, with class labels at the end of each observation vector.
-        const std::vector<std::vector<double>>& get_class_feature_data(std::size_t class_label) const;
+        /// Get the current training data that has been added for a specific class.
+        std::vector<std::vector<double>> get_class_training_data(std::size_t class_label) const;
+
+        /// Get the current feature data that has been added for a specific class, with class labels at the end of each observation vector.
+        std::vector<std::vector<double>> get_class_feature_data(std::size_t class_label) const;
 
         /// Return whether or not the classifier has been trained.
         bool is_trained();
@@ -71,6 +74,9 @@ namespace meii {
 
         /// Return the size of the feature space
         virtual std::size_t get_feature_dim() const;
+
+		/// Sets the number of classes. Clears stored training data, feature data, and classification model if size does not match.
+		void set_class_count(std::size_t class_count);
 
     protected:
 
