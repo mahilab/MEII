@@ -10,7 +10,9 @@ namespace meii {
 
     Trajectory::Trajectory() :
         is_empty_(true),
-        path_dim_(0)
+        path_dim_(0),
+		interp_method_(Interp::Linear),
+		max_diff_({ mel::INF })
     {}
 
     Trajectory::Trajectory(std::size_t path_dim, const std::vector<WayPoint> &waypoints, Interp interp_method, const std::vector<double> &max_diff) :
@@ -60,9 +62,17 @@ namespace meii {
         }
     }
 
-    const WayPoint& Trajectory::operator[](std::size_t index) {
+    const WayPoint& Trajectory::operator[](std::size_t index) const {
         return waypoints_[index];
     }
+
+	const WayPoint& Trajectory::front() const {
+		return waypoints_.front();
+	}
+
+	const WayPoint& Trajectory::back() const {
+		return waypoints_.back();
+	}
 
     bool Trajectory::set_waypoints(std::size_t path_dim, const std::vector<WayPoint>& waypoints, Interp interp_method, const std::vector<double> &max_diff) {
         is_empty_ = false;
@@ -120,22 +130,24 @@ namespace meii {
         max_diff_.clear();
     }
 
-    bool Trajectory::push_back(WayPoint &waypoint) {        
+    bool Trajectory::push_back(const WayPoint &waypoint) {        
         if (is_empty_) {
             path_dim_ = waypoint.get_dim();
+			is_empty_ = false;
         }
-        waypoints_.push_back(waypoint);
-        if (!check_waypoints()) {
-            LOG(Warning) << "Waypoint not added.";
-            waypoints_.pop_back();
-            if (is_empty_) {
-                path_dim_ = 0;
-            }
-            return false;
+		else {
+			if (waypoint.get_dim() != path_dim_) {
+				LOG(Warning) << "Input waypoint given to Trajectory contains wrong dimension. Waypoint not added.";
+				return false;
+			}
+			if (waypoint.when() < waypoints_.back().when()) {
+				LOG(Warning) << "Input waypoint times must be monotonically increasing or not changing. Waypoint not added.";
+				return false;
+			}
         }
-        if (is_empty_) {
-            is_empty_ = false;
-        }
+		waypoints_.push_back(waypoint);
+		times_.push_back(waypoint.when());
+		return true;
     }
 
     bool Trajectory::check_max_diff() {
@@ -152,10 +164,6 @@ namespace meii {
     }
 
     bool Trajectory::check_waypoints() {
-        if (waypoints_.size() < 2) {
-            LOG(Warning) << "Input waypoints given to Trajectory must contain at least two waypoints.";
-            return false;
-        }
         Time t = waypoints_[0].when();
         for (std::size_t i = 0; i < waypoints_.size(); ++i) {
             if (waypoints_[i].get_dim() != path_dim_) {

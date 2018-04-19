@@ -157,11 +157,14 @@ target_link_libraries(MEII ${LINK_LIBS})
 #===============================================================================
 
 if(EMG_RT_CTRL)
-    add_executable(emg_real_time_control src/emg_real_time_control.cpp)
-    target_link_libraries(emg_real_time_control MEII)
+    #add_executable(emg_real_time_control src/emg_real_time_control.cpp)
+    #target_link_libraries(emg_real_time_control MEII)
 
-    add_executable(emg_real_time_control_no_robot src/emg_real_time_control_no_robot.cpp)
-    target_link_libraries(emg_real_time_control_no_robot MEII)
+    #add_executable(emg_real_time_control_no_robot src/emg_real_time_control_no_robot.cpp)
+    #target_link_libraries(emg_real_time_control_no_robot MEII)
+
+    add_executable(emg_real_time_control_no_hardware src/emg_real_time_control_no_hardware.cpp)
+    target_link_libraries(emg_real_time_control_no_hardware MEII)
 endif()
 
 if(PHRI_LEARN)

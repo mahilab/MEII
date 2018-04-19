@@ -3,6 +3,7 @@
 #include <MEII/SignalProcessing/SignalProcessingFunctions.hpp>
 #include <MEII/Classification/LinearDiscriminantAnalysis.hpp>
 #include <MEL/Logging/Log.hpp>
+#include <MEL/Logging/DataLogger.hpp>
 
 using namespace mel;
 
@@ -33,10 +34,10 @@ namespace meii {
         if (!sample_buffer_.full())
             return false;
 
-        x_ = feature_extraction(sample_buffer_.get_vector());
+        phi_ = feature_extraction(sample_buffer_.get_vector());
         y_1_ = w_0_;
         for (std::size_t i = 0; i < feature_dim_; ++i) {
-            y_1_ += w_[i] * x_[i];
+            y_1_ += w_[i] * phi_[i];
         }
         p_1_ = sigmoid(y_1_);
 
@@ -184,6 +185,128 @@ namespace meii {
         return sample_dim_;
     }
 
+	bool RealTimeClassifier::save(const std::string &filename, const std::string& directory, bool timestamp) {
+		return DataLogger::write_to_csv(make_datalog(), filename, directory, timestamp);
+	}
+
+	bool RealTimeClassifier::load(const std::string &filename, const std::string& directory) {
+		std::vector<Table> tables;
+		if (DataLogger::read_from_csv(tables, filename, directory)) {
+			if (tables.size() != 6) {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. Incorrect number of Tables.";
+				return false;
+			}
+
+			if (tables[0].name().compare("Parameters") == 0) {
+				sample_dim_ = (std::size_t)tables[0](0, 0);
+				Ts_ = seconds(tables[0](0, 1));
+				classification_window_size_ = (std::size_t)tables[0](0, 2);
+				feature_window_size_ = (std::size_t)tables[0](0, 3);
+				pred_counter_ = (std::size_t)tables[0](0, 4);
+				pred_spacing_ = (std::size_t)tables[0](0, 5);
+				trained_ = (bool)tables[0](0, 6);
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Parameters Table.";
+				return false;
+			}
+
+			if (tables[1].name().compare("Class0TrainingData") == 0) {
+				class_0_training_data_ = tables[1].values();
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Class0TrainingData Table.";
+				return false;
+			}
+
+			if (tables[2].name().compare("Class1TrainingData") == 0) {
+				class_1_training_data_ = tables[2].values();
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Class1TrainingData Table.";
+				return false;
+			}
+
+			if (tables[3].name().compare("Class0FeatureData") == 0) {
+				class_0_feature_data_ = tables[3].values();
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Class0FeatureData Table.";
+				return false;
+			}
+
+			if (tables[4].name().compare("Class1FeatureData") == 0) {
+				class_1_feature_data_ = tables[4].values();
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Class1FeatureData Table.";
+				return false;
+			}
+
+			if (tables[5].name().compare("Model") == 0) {
+				set_model(tables[5].get_col(0));
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Model Table.";
+				return false;
+			}
+		}
+		else {
+			return false;
+		}
+		return true;
+	}
+
+	std::vector<Table> RealTimeClassifier::make_datalog() const {
+		std::vector<Table> tables;
+
+		Table params("Parameters", { "sample_dim", "Ts", "classification_window_size", "pred_counter", "pred_spacing", "feature_dim", "trained" });
+		std::vector<double> params_values;
+		params_values.push_back((double)sample_dim_);
+		params_values.push_back(Ts_.as_seconds());
+		params_values.push_back((double)classification_window_size_);
+		params_values.push_back((double)feature_window_size_);
+		params_values.push_back((double)pred_counter_);
+		params_values.push_back((double)pred_spacing_);
+		params_values.push_back((double)trained_);
+		params.set_values({ params_values });
+		tables.push_back(params);
+
+		Table class_0_training_data("Class0TrainingData");
+		for (std::size_t i = 0; i < sample_dim_; ++i) {
+			class_0_training_data.push_back_col("x_" + stringify(i));
+		}
+		class_0_training_data.set_values(class_0_training_data_);
+		tables.push_back(class_0_training_data);
+
+		Table class_1_training_data("Class1TrainingData");
+		for (std::size_t i = 0; i < sample_dim_; ++i) {
+			class_1_training_data.push_back_col("x_" + stringify(i));
+		}
+		class_1_training_data.set_values(class_1_training_data_);
+		tables.push_back(class_1_training_data);
+
+		Table class_0_feature_data("Class0FeatureData");
+		for (std::size_t i = 0; i < sample_dim_; ++i) {
+			class_0_feature_data.push_back_col("phi_" + stringify(i));
+		}
+		class_0_feature_data.set_values(class_0_feature_data_);
+		tables.push_back(class_0_feature_data);
+
+		Table class_1_feature_data("Class1FeatureData");
+		for (std::size_t i = 0; i < sample_dim_; ++i) {
+			class_1_feature_data.push_back_col("phi_" + stringify(i));
+		}
+		class_1_feature_data.set_values(class_1_feature_data_);
+		tables.push_back(class_1_feature_data);
+
+		Table model("Model");
+		model.push_back_col("w", get_model());
+		tables.push_back(model);
+
+		return tables;
+	}
+
     std::vector<double> RealTimeClassifier::feature_extraction(const std::vector<std::vector<double>>& signal) const {
         if (signal.empty()) {
             LOG(Warning) << "Input given to RealTimeClassifier::feature_extraction() is empty. Returning empty vector.";
@@ -213,5 +336,7 @@ namespace meii {
         }
         return std::distance(votes.begin(), std::max_element(votes.begin(), votes.end()));
     }
+
+	
 
 } // namespace meii

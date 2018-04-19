@@ -5,6 +5,9 @@
 #include <MEL/Core/Timer.hpp>
 #include <MEII/EMG/EmgDataCapture.hpp>
 #include <MEL/Utility/RingBuffer.hpp>
+#include <MEII/Utility/VirtualInput.hpp>
+#include <MEL/Logging/DataLogger.hpp>
+#include <MEL/Logging/Log.hpp>
 
 
 using namespace mel;

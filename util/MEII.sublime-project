@@ -8,7 +8,7 @@
 			[
 				"source.cmake"
 			],
-			"shell_cmd": "cmake .. -G \"Visual Studio 15 2017 Win64\" -DPHRI_LEARN=ON -DEMG_RT_CTRL=OFF -DEXAMPLES=ON -DTESTS=ON",
+			"shell_cmd": "cmake .. -G \"Visual Studio 15 2017 Win64\" -DPHRI_LEARN=OFF -DEMG_RT_CTRL=ON -DEXAMPLES=ON -DTESTS=ON",
 			"working_dir": "$project_path/../build"
 		},
 		{

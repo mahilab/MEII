@@ -93,6 +93,22 @@ namespace meii {
         values_.resize(n_rows * n_cols);
     }
 
+	std::vector<double> Matrix::get_row(std::size_t row_idx) {
+		std::vector<double> row(n_cols_);
+		for (std::size_t i = 0; i < n_cols_; ++i) {
+			row[i] = values_[row_idx * n_cols_ + i];
+		}
+		return row;
+	}
+
+	std::vector<double> Matrix::get_col(std::size_t col_idx) {
+		std::vector<double> col(n_rows_);
+		for (std::size_t i = 0; i < n_rows_; ++i) {
+			col[i] = values_[i * n_cols_ + col_idx];
+		}
+		return col;
+	}
+
     void Matrix::clear() {
         n_rows_ = 0;
         n_cols_ = 0;
@@ -215,14 +231,7 @@ namespace meii {
         return result;
     }
 
-    //std::vector<T> get_row(std::size_t row_idx) {
-    //    std::vector<T> row(n_cols_);
-    //    for (std::size_t i = 0; i < n_cols_; ++i) {
-    //        row[i] = values_[row_idx * n_cols_ + i];
-    //    }
-    //    return row;
-    //}
-
+    
     std::ostream& operator<<(std::ostream& os, const Matrix& mat) {
         os << "[ ";
         for (std::size_t i = 0; i < mat.n_tot_; ++i) {

@@ -14,7 +14,7 @@ namespace meii {
 
         // distance of Wrist PS joint from horizontal, positive (right arm pronated)
         double ps_horz_pos = 90 * DEG2RAD;
-        double phi_0 = (q_d(1) - ps_horz_pos) * (q_d(1) - ps_horz_pos);
+        double phi_0 = -(q_d(1) - ps_horz_pos) * (q_d(1) - ps_horz_pos);
         return Matrix(1, 1, phi_0);
 
     }
@@ -24,14 +24,14 @@ namespace meii {
             LOG(Warning) << "Input vector q_d to phri::feature_jacobian() is not of expected size equal to number of MahiExoII anatomical joints. Returning empty vector.";
             return Matrix();
         }
-        Matrix jac(q_d.rows(), 1);
+        Matrix jac(1, q_d.rows());
         double ps_horz_pos = 90 * DEG2RAD;
-        for (std::size_t i = 0; i < jac.rows(); ++i) {
+        for (std::size_t i = 0; i < jac.cols(); ++i) {
             if (i == 1) {
-                jac(i, 0) = { 2.0 * (q_d(1) - ps_horz_pos) };
+                jac(0, i) = { -2.0 * (q_d(1) - ps_horz_pos) };
             }
             else {
-                jac(i, 0) = { 0.0 };
+                jac(0, i) = { 0.0 };
             }
         }
         return jac;
@@ -48,6 +48,7 @@ namespace meii {
         }
         Matrix jac = feature_jacobian(q_d);
         Matrix jac_t = jac.transpose();
+		Matrix mat = jac_t * theta;
         return jac_t * theta;
     }
 

@@ -9,7 +9,7 @@ namespace meii {
         path_dim_(0)
     {}
 
-    WayPoint::WayPoint(mel::Time time, std::vector<double> position) :
+    WayPoint::WayPoint(const mel::Time &time, const std::vector<double> &position) :
         time_(time),
         pos_(position),
         path_dim_(position.size())
@@ -22,6 +22,13 @@ namespace meii {
     const std::vector<double>& WayPoint::get_pos() const {
         return pos_;
     }
+
+	std::vector<double> WayPoint::get_point() const {
+		std::vector<double> point(path_dim_ + 1);
+		point[0] = time_.as_seconds();
+		std::copy(pos_.begin(), pos_.end(), point.begin() + 1);
+		return point;
+	}
 
     const double& WayPoint::operator[](std::size_t index) const {
         return pos_[index];

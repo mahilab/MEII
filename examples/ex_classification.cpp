@@ -10,6 +10,7 @@
 #include <MEII/Classification/RealTimeClassifier.hpp>
 #include <MEII/Classification/RealTimeMultiClassifier.hpp>
 #include <MEII/Classification/EnsembleRTClassifier.hpp>
+#include <MEL/Logging/DataLogger.hpp>
 #include <chrono>
 #include <random>
 
@@ -44,6 +45,7 @@ int main(int argc, char *argv[]) {
    
     // initialize testing conditions
     bool auto_train = true;
+	bool load_classifier = false;
     std::size_t training_data_size = 50;
     Time Ts = milliseconds(1); // sample period
     std::size_t sample_dim = 3; // size of each sample
@@ -87,8 +89,13 @@ int main(int argc, char *argv[]) {
         std::size_t num_classes = 2; // default classifier is binary
         std::vector<std::vector<double>> b = { { 0.2, -0.7, 1.2 },{ -3.2, -5.2, 4.7 } }; // signal offsets depending on true label
         RealTimeClassifier rt_classifier(sample_dim, Ts);
-        class_trained = std::vector<bool>(num_classes, false);
+		bool save_data = false;
+		std::string filename = "ex_classification_b.csv";
        
+		if (load_classifier) {
+			rt_classifier.load(filename, ".");
+		}
+
         if (auto_train) {           
 
             // add training data
@@ -113,6 +120,7 @@ int main(int argc, char *argv[]) {
             }
 
             print("Press 'Escape' to exit.");
+			print("Press 'Enter' to save classifier and exit.");
         }
         else {
             // promt the user for input
@@ -121,6 +129,7 @@ int main(int argc, char *argv[]) {
             print("Class labels are from 0 to 1.");
             print("Press 'T' to train classifier and begin real-time classification.");
             print("Press 'Escape' to exit.");
+			print("Press 'Enter' to save classifier and exit.");
         }
 
         while (!stop) {
@@ -182,6 +191,12 @@ int main(int argc, char *argv[]) {
             ms_true_label.write_data({ (double)((signed)true_label) });
             ms_pred_label.write_data({ (double)((signed)pred_label) });
 
+			// check for save and exit key
+			if (Keyboard::is_key_pressed(Key::Enter)) {
+				save_data = true;
+				stop = true;
+			}
+
             // check for exit key
             if (Keyboard::is_key_pressed(Key::Escape)) {
                 stop = true;
@@ -190,7 +205,12 @@ int main(int argc, char *argv[]) {
             // wait for remainder of sample period
             timer.wait();
 
-        } // end while loop       
+        } // end while loop      
+
+		if (save_data) {			
+			LOG(Info) << "Saving binary RealTimeClassifier to " << filename;
+			rt_classifier.save(filename, ".", false);
+		}
     }
 
     if (result.count("multi") > 0) {
@@ -198,7 +218,9 @@ int main(int argc, char *argv[]) {
         // initialize classifier
         std::size_t num_classes = 4;
         std::vector<std::vector<double>> b = { { 0.2, -0.7, 1.2 }, { -3.2, -5.2, 4.7 }, { 1.4, -0.0, -3.9 },{ -1.4, 2.0, -0.8 } }; // signal offsets depending on true label
-        RealTimeMultiClassifier rt_classifier(num_classes, sample_dim, Ts);       
+        RealTimeMultiClassifier rt_classifier(num_classes, sample_dim, Ts);
+		bool save_data = false;
+		std::string filename = "ex_classification_m.csv";
 
         if (auto_train) {
 
@@ -224,6 +246,7 @@ int main(int argc, char *argv[]) {
             }
 
             print("Press 'Escape' to exit.");
+			print("Press 'Enter' to save classifier and exit.");
         }
         else {
             // promt the user for input
@@ -232,6 +255,7 @@ int main(int argc, char *argv[]) {
             print("Class labels are from 0 to 3.");
             print("Press 'T' to train classifier and begin real-time classification.");
             print("Press 'Escape' to exit.");
+			print("Press 'Enter' to save classifier and exit.");
         }
 
         while (!stop) {
@@ -302,6 +326,12 @@ int main(int argc, char *argv[]) {
             ms_true_label.write_data({ (double)((signed)true_label) });
             ms_pred_label.write_data({ (double)((signed)pred_label) });
 
+			// check for save and exit key
+			if (Keyboard::is_key_pressed(Key::Enter)) {
+				save_data = true;
+				stop = true;
+			}
+
             // check for exit key
             if (Keyboard::is_key_pressed(Key::Escape)) {
                 stop = true;
@@ -310,7 +340,12 @@ int main(int argc, char *argv[]) {
             // wait for remainder of sample period
             timer.wait();
 
-        } // end while loop       
+        } // end while loop  
+
+		if (save_data) {
+			LOG(Info) << "Saving RealTimeMultiClassifier to " << filename;
+			rt_classifier.save(filename, ".", false);
+		}
     }
 
     if (result.count("ensemble") > 0) {
@@ -318,12 +353,14 @@ int main(int argc, char *argv[]) {
         // initialize classifier
         std::size_t num_classes = 2; // default classifier is binary
         std::vector<std::vector<double>> b = { { 0.2, -0.7, 1.2 },{ -3.2, -5.2, 4.7 } }; // signal offsets depending on true label
-        std::size_t ens_size = 5;
+        std::size_t ens_size = 2;
         EnsembleRTClassifier rt_classifier(sample_dim, Ts, ens_size);
-
+		
         // initialize data container
         int number_keypress = 0;
         std::size_t selected_classifier = 0;
+		bool save_data = false;
+		std::string filename = "ex_classification_m.csv";
 
         if (auto_train) {
 
@@ -351,6 +388,7 @@ int main(int argc, char *argv[]) {
             }
 
             print("Press 'Escape' to exit.");
+			print("Press 'Enter' to save classifier and exit.");
         }       
         else {
             // promt the user for input
@@ -361,7 +399,8 @@ int main(int argc, char *argv[]) {
             print("Press 'C + class label #' to clear training data.");
             print("Class labels are from 0 to 1.");
             print("Press 'T' to train classifier and begin real-time classification.");
-            print("Press 'Escape' to exit.");
+            print("Press 'Escape' to exit without saving.");
+			print("Press 'Enter' to save classifier and exit.");
         }
 
         while (!stop) {
@@ -435,6 +474,12 @@ int main(int argc, char *argv[]) {
             ms_true_label.write_data({ (double)((signed)true_label) });
             ms_pred_label.write_data({ (double)((signed)pred_label) });
 
+			// check for save and exit key
+			if (Keyboard::is_key_pressed(Key::Enter)) {
+				save_data = true;
+				stop = true;
+			}
+
             // check for exit key
             if (Keyboard::is_key_pressed(Key::Escape)) {
                 stop = true;
@@ -443,7 +488,12 @@ int main(int argc, char *argv[]) {
             // wait for remainder of sample period
             timer.wait();
 
-        } // end while loop       
+        } // end while loop 
+
+		if (save_data) {
+			LOG(Info) << "Saving EnsembleRTClassifier to " << filename;
+			rt_classifier.save(filename, ".", false);
+		}
     }
 
     disable_realtime();
