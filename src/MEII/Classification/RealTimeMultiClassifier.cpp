@@ -163,7 +163,7 @@ namespace meii {
 
 		std::vector<std::vector<double>> class_training_data = training_data_[class_label];
 		for (std::size_t i = 0; i < class_training_data.size(); ++i) {
-			class_training_data[i].push_back(class_label);
+			class_training_data[i].push_back(class_label+1);
 		}
 		return class_training_data;
     }
@@ -180,7 +180,7 @@ namespace meii {
 
 		std::vector<std::vector<double>> class_feature_data = feature_data_[class_label];
 		for (std::size_t i = 0; i < class_feature_data.size(); ++i) {
-			class_feature_data[i].push_back(class_label);
+			class_feature_data[i].push_back(class_label+1);
 		}
         return class_feature_data;
     }
