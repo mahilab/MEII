@@ -33,7 +33,7 @@ namespace meii {
     public:
         /// Constructor
         WayPoint();
-        WayPoint(mel::Time time, std::vector<double> position);
+        WayPoint(const mel::Time &time, const std::vector<double> &position);
 
         /// Destructor
         ~WayPoint() {};
@@ -41,6 +41,8 @@ namespace meii {
         const mel::Time &when() const;
 
         const std::vector<double> &get_pos() const;
+
+		std::vector<double> get_point() const;
 
         /// Read access to position
         const double &operator[](std::size_t index) const;

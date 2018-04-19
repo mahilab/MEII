@@ -71,6 +71,12 @@ namespace meii {
         /// Change the number of EmgActiveClassifiers that compose the ensemble classifier, reinitializing the entire vector
         void resize(std::size_t classifier_count);
 
+		bool save(const std::string &filename = "ensemble_real_time_classifier", const std::string& directory = ".", bool timestamp = true);
+
+		bool load(const std::string &filename = "", const std::string& directory = ".");
+
+		std::vector<mel::Table> make_datalog() const;
+
     protected:
 
         /// Constructor for classifier_ptrs_ and classifiers_
@@ -79,6 +85,8 @@ namespace meii {
         /// Method of converting the predictions of the individual classifiers into a single prediction.
         virtual std::size_t ensemble_classification_heuristic(const std::vector<std::size_t>& pred_classes) const;
 
+
+		
 
     protected:
 

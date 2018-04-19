@@ -63,7 +63,13 @@ namespace meii {
             at_time(mel::Time &instant, Interp interp_method = Interp::Linear) const;
 
         /// Index-based read access to waypoints
-        const WayPoint &operator[](std::size_t index);
+        const WayPoint &operator[](std::size_t index) const;
+
+		/// Return the first waypoint
+		const WayPoint &front() const; 
+
+		/// Return the last waypoint
+		const WayPoint &back() const;
 
         /// Sets the waypoints that make the trajectory
         bool set_waypoints(std::size_t path_dim, const std::vector<WayPoint> &waypoints,
@@ -89,7 +95,7 @@ namespace meii {
         void clear();
 
         /// Adds a single waypoint to the end of the list
-        bool push_back(WayPoint &waypoint);
+        bool push_back(const WayPoint &waypoint);
 
     private:
         bool check_max_diff();

@@ -20,6 +20,7 @@
 
 #include <MEL/Core/Time.hpp>
 #include <MEL/Utility/RingBuffer.hpp>
+#include <MEL/Logging/Table.hpp>
 #include <vector>
 #include <limits>
 
@@ -78,6 +79,12 @@ namespace meii {
 		/// Sets the number of classes. Clears stored training data, feature data, and classification model if size does not match.
 		void set_class_count(std::size_t class_count);
 
+		bool save(const std::string &filename = "real_time_multi_classifier", const std::string& directory = ".", bool timestamp = true);
+
+		bool load(const std::string &filename = "", const std::string& directory = ".");
+
+		std::vector<mel::Table> make_datalog() const;
+
     protected:
 
         /// Convert window of observations into feature vector for classification.
@@ -113,7 +120,7 @@ namespace meii {
         std::size_t feature_dim_; ///< dimension of the feature space
         std::vector<std::vector<double>> w_; ///< classification weighting coefficients
         std::vector<double> w_0_; ///< classification intercept
-        std::vector<double> x_; ///< classification input
+        std::vector<double> phi_; ///< classification input
         std::vector<double> y_; ///< classification output
         std::vector<double> p_; ///< class posterior probabilities
         std::size_t pred_class_; ///< class prediction

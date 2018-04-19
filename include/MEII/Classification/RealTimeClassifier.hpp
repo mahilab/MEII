@@ -20,6 +20,7 @@
 
 #include <MEL/Core/Time.hpp>
 #include <MEL/Utility/RingBuffer.hpp>
+#include <MEL/Logging/Table.hpp>
 #include <vector>
 #include <limits>
 
@@ -73,7 +74,11 @@ namespace meii {
         /// Return the size of the feature space
         virtual std::size_t get_feature_dim() const;
 
+		bool save(const std::string &filename = "real_time_classifier", const std::string& directory = ".", bool timestamp = true);
 
+		bool load(const std::string &filename = "", const std::string& directory = ".");
+
+		std::vector<mel::Table> make_datalog() const;
 
     protected:
 
@@ -89,10 +94,12 @@ namespace meii {
         /// Apply the majority vote rule to a vector of class labels
         std::size_t majority_vote(const std::vector<std::size_t>& labels) const;
 
+		
+
 
     private:
 
-        const std::size_t sample_dim_; ///< size of sample vector
+        std::size_t sample_dim_; ///< size of sample vector
 
         mel::Time Ts_; ///< sample period    
         std::size_t classification_window_size_; ///< number of samples on which to perform classification
@@ -113,7 +120,7 @@ namespace meii {
         std::size_t feature_dim_; ///< dimension of the feature space
         std::vector<double> w_; ///< classification weighting coefficients
         double w_0_; ///< classification intercept
-        std::vector<double> x_; ///< classification input
+        std::vector<double> phi_; ///< classification input
         double y_1_; ///< classification output
         double p_1_; ///< class 1 posterior probability
         std::size_t pred_class_; ///< class prediction

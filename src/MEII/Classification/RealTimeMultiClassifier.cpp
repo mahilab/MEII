@@ -42,12 +42,12 @@ namespace meii {
         if (!sample_buffer_.full())
             return false;
 
-        x_ = feature_extraction(sample_buffer_.get_vector());
+        phi_ = feature_extraction(sample_buffer_.get_vector());
 
         y_ = w_0_;
         for (std::size_t i = 0; i < class_count_; ++i) {
             for (std::size_t j = 0; j < feature_dim_; ++j) {
-                y_[i] += w_[i][j] * x_[j];
+                y_[i] += w_[i][j] * phi_[j];
             }
         }
 
@@ -209,6 +209,78 @@ namespace meii {
 			p_.resize(class_count);
 			trained_ = false;
 		}
+	}
+
+	bool RealTimeMultiClassifier::save(const std::string &filename, const std::string& directory, bool timestamp) {
+		return DataLogger::write_to_csv(make_datalog(), filename, directory, timestamp);
+	}
+
+	bool RealTimeMultiClassifier::load(const std::string &filename, const std::string& directory) {
+		std::vector<Table> tables;
+		if (DataLogger::read_from_csv(tables, filename, directory)) {
+			if (tables.size() != 6) {
+				LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::load() are invalid. Incorrect number of Tables.";
+				return false;
+			}
+
+			if (tables[0].name().compare("Parameters") == 0) {
+				class_count_ = (std::size_t)tables[0](0, 0);
+				sample_dim_ = (std::size_t)tables[0](0, 1);
+				Ts_ = seconds(tables[0](0, 2));
+				classification_window_size_ = (std::size_t)tables[0](0, 3);
+				feature_window_size_ = (std::size_t)tables[0](0, 4);
+				pred_counter_ = (std::size_t)tables[0](0, 5);
+				pred_spacing_ = (std::size_t)tables[0](0, 6);
+				trained_ = (bool)tables[0](0, 7);
+			}
+			else {
+				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Parameters Table.";
+				return false;
+			}
+
+			
+		}
+		else {
+			return false;
+		}
+		return true;
+	}
+
+	std::vector<Table> RealTimeMultiClassifier::make_datalog() const {
+		std::vector<Table> tables;
+
+		Table params("Parameters", { "sample_dim", "Ts", "classification_window_size", "pred_counter", "pred_spacing", "feature_dim", "trained" });
+		std::vector<double> params_values;
+		params_values.push_back((double)class_count_);
+		params_values.push_back((double)sample_dim_);
+		params_values.push_back(Ts_.as_seconds());
+		params_values.push_back((double)classification_window_size_);
+		params_values.push_back((double)feature_window_size_);
+		params_values.push_back((double)pred_counter_);
+		params_values.push_back((double)pred_spacing_);
+		params_values.push_back((double)trained_);
+		params.set_values({ params_values });
+		tables.push_back(params);
+
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			Table table("Class" + stringify(i) + "TrainingData");
+			for (std::size_t j = 0; j < sample_dim_; ++j) {
+				table.push_back_col("x_" + stringify(j));
+			}
+			table.set_values(training_data_[i]);
+			tables.push_back(table);
+		}
+
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			Table table("Class" + stringify(i) + "FeatureData");
+			for (std::size_t j = 0; j < sample_dim_; ++j) {
+				table.push_back_col("phi_" + stringify(j));
+			}
+			table.set_values(feature_data_[i]);
+			tables.push_back(table);
+		}
+
+		return tables;
 	}
 
     std::vector<double> RealTimeMultiClassifier::feature_extraction(const std::vector<std::vector<double>>& signal) const {

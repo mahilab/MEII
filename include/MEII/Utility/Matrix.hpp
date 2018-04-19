@@ -32,9 +32,6 @@ namespace meii {
         Matrix(std::size_t n_rows, std::size_t n_cols, double value = 0.0);
         Matrix(std::vector<double> vec);
 
-        /// Destructor
-        ~Matrix() {};
-
         /// Read access in 2D
         const double& operator()(std::size_t row_idx, std::size_t col_idx) const;
 
@@ -65,6 +62,12 @@ namespace meii {
         /// Resizes the Matrix and clears it's values
         void resize(std::size_t n_rows_n_cols);
         void resize(std::size_t n_rows, std::size_t n_cols);
+
+		/// Return as a vector a single row of data
+		std::vector<double> get_row(std::size_t row_idx);
+
+		/// Return as a vector a single column of data
+		std::vector<double> get_col(std::size_t col_idx);
 
         /// Clears all the values in the Matrix
         void clear();
@@ -111,13 +114,7 @@ namespace meii {
         /// Overload the << stream operator with a Matrix as the rhs argument
         friend std::ostream& operator<<(std::ostream& os, const Matrix& mat);
 
-        //std::vector<T> get_row(std::size_t row_idx) {
-        //    std::vector<T> row(n_cols_);
-        //    for (std::size_t i = 0; i < n_cols_; ++i) {
-        //        row[i] = values_[row_idx * n_cols_ + i];
-        //    }
-        //    return row;
-        //}
+		
     
 
     private:

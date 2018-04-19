@@ -6,99 +6,173 @@ using namespace mel;
 
 namespace meii {
 
-    DynamicMotionPrimitive::DynamicMotionPrimitive(mel::Time &sample_period, WayPoint &start, WayPoint &goal, Matrix &K, Matrix &D, double tau, Matrix(*nonlin_function)(const Matrix&, const Matrix&), std::vector<double> &theta, std::vector<double> &goal_tol) :
+	DynamicMotionPrimitive::DynamicMotionPrimitive(const Time &sample_period, const WayPoint &start, const WayPoint &goal, Matrix(*nonlin_function)(const Matrix&, const Matrix&), const std::vector<double> &theta, Matrix K , Matrix D, double gamma) :
         Ts_(sample_period),
         q_0_(start),
         g_(goal),
-        K_(K),
-        D_(D),
-        tau_(tau),
         nonlin_function_(nonlin_function),
-        theta_(theta),
-        s_(1.0),
-        goal_tol_(goal_tol),
-        path_dim_(start.get_dim()),
-        integrator_(path_dim_, Integrator(0.0, Integrator::Technique::Trapezoidal))
+		gamma_(gamma),
+        s_(1.0),	
+        path_dim_(start.get_dim()),	
+		current_time_idx_(0),
+        integrator_(2 * path_dim_, Integrator(0.0, Integrator::Technique::Trapezoidal)),
+		q_0_mat_(q_0_.get_pos()),
+		g_mat_(g_.get_pos()),
+		q_mat_(q_0_.get_pos()),
+		q_dot_mat_(path_dim_, 1, 0.0),
+		q_ddot_mat_(path_dim_, 1, 0.0),
+		theta_mat_(theta)
     {
         if (!check_param_dim()) {
             LOG(Warning) << "Path dimensions of input parameters to DynamicMotionPrimitive are inconsistent. Parameters not set.";
             clear();
             return;
         }
-        
-        //path_size_ = (std::size_t)((unsigned)(std::ceil((g_.when().as_seconds() - q_0_.when().as_seconds()) / Ts_.as_seconds()))) + 1;
-        //print(std::ceil((q_0_.when().as_seconds() - g_.when().as_seconds()) / Ts_.as_seconds()));
-        //t_ = linspace(q_0_.when().as_seconds(), g_.when().as_seconds(), path_size_);
-        //print(t_);
-        //q_ = q_0_.get_pos();
-        std::vector<double> new_q(path_dim_);
-        for (std::size_t i = 0; i < path_dim_; ++i) {
-            integrator_[i].set_init(q_0_[i]);
-            
-        }
 
-        step();
+		if (g_.when() <= q_0_.when()) {
+			LOG(Warning) << "Goal WayPoint must be at a time after start WayPoint. Parameters not set.";
+			clear();
+			return;
+		}
 
+		set_timing_parameters();
+
+		// if K_ and D_ empty use defaults
+		K_.resize(path_dim_);
+		D_.resize(path_dim_);
+		for (std::size_t i = 0; i < path_dim_; ++i) {
+			K_(i, i) = 25.0 * 25.0 / 4.0;
+			D_(i, i) = 25.0;
+		}
+
+		generate_trajectory();      
     }
 
-    Trajectory DynamicMotionPrimitive::trajectory() {
+    const Trajectory& DynamicMotionPrimitive::trajectory() {
         return trajectory_;
     }
 
-    void DynamicMotionPrimitive::update(std::vector<double> theta) {
-
+	const Trajectory& DynamicMotionPrimitive::update(const std::vector<double> &theta) {
+		theta_mat_ = Matrix(theta);
+		generate_trajectory();	
+		return trajectory_;
     }
 
     void DynamicMotionPrimitive::clear() {
+		Ts_ = Time::Zero;
         q_0_.clear();
         g_.clear();
         K_.clear();
         D_.clear();
+		gamma_ = double();
         tau_ = double();
         s_ = double();
         path_dim_ = 0;
+		path_size_ = 0;
         integrator_.clear();
+		q_0_mat_.clear();
+		g_mat_.clear();
+		q_mat_.clear();
+		q_dot_mat_.clear();
+		q_ddot_mat_.clear();
+		theta_mat_.clear();
+		trajectory_.clear();
     }
+
+	bool DynamicMotionPrimitive::set_start(const WayPoint &start)  {
+		if (g_.when() <= start.when()) {
+			LOG(Warning) << "Goal WayPoint must be at a time after start WayPoint. Parameters not set.";
+			return false;
+		}
+		if (start.get_dim() != path_dim_) {
+			LOG(Warning) << "Path dimensions of input parameters to DynamicMotionPrimitive::set_start() are inconsistent. Parameters not set.";
+			return false;
+		}
+		q_0_ = start;
+		q_0_mat_ = Matrix(q_0_.get_pos());
+		set_timing_parameters();
+		generate_trajectory();
+	}
+
+	bool DynamicMotionPrimitive::set_goal(const WayPoint &goal) {
+		if (goal.when() <= q_0_.when()) {
+			LOG(Warning) << "Goal WayPoint must be at a time after start WayPoint. Parameters not set.";
+			return false;
+		}
+		if (goal.get_dim() != path_dim_) {
+			LOG(Warning) << "Path dimensions of input parameters to DynamicMotionPrimitive::set_goal() are inconsistent. Parameters not set.";
+			return false;
+		}
+		g_ = goal;
+		g_mat_ = Matrix(g_.get_pos());
+		set_timing_parameters();
+		generate_trajectory();
+	}
 
     bool DynamicMotionPrimitive::check_param_dim() {
         if (g_.get_dim() != path_dim_) {
             return false;
         }
-        if (K_.rows() != path_dim_ || K_.cols() != path_dim_) {
+        if (!K_.empty() && (K_.rows() != path_dim_ || K_.cols() != path_dim_)) {
             return false;
         }
-        if (D_.rows() != path_dim_ || D_.cols() != path_dim_) {
+        if (!D_.empty() && (D_.rows() != path_dim_ || D_.cols() != path_dim_)) {
             return false;
         }
-        if (goal_tol_.size() != path_dim_) {
-            if (goal_tol_.size() == 1) {
-                goal_tol_ = std::vector<double>(path_dim_, goal_tol_[0]);
-            }
-            else {
-                LOG(Warning) << "Input goal_tol given to DynamicMotionPrimitive constructor must either be of size 1 or of size path_dim.";
-                return false;
-            }
-        }
+		if ((!K_.empty() && D_.empty()) || (K_.empty() && !D_.empty()) ) {
+			return false;
+		}
+		return true;
     }
 
+	void DynamicMotionPrimitive::set_timing_parameters() {
+		tau_ = g_.when().as_seconds() - q_0_.when().as_seconds();
+		if (tau_ != (int)(tau_ / Ts_.as_seconds()) * Ts_.as_seconds()) {
+			tau_ = (int)(tau_ / Ts_.as_seconds()) * Ts_.as_seconds();
+			g_.set_time(q_0_.when() + seconds(tau_));
+			LOG(Warning) << "Trajectory duration not evenly divisible by sample period. Shortening trajectory duration.";
+		}
+		path_size_ = (std::size_t)((unsigned)std::floor(tau_ / Ts_.as_seconds())) + 1;
+		times_ = linspace(q_0_.when().as_seconds(), g_.when().as_seconds(), path_size_);
+	}
+
+	void DynamicMotionPrimitive::generate_trajectory() {
+		// reset
+		trajectory_.clear();
+		current_time_idx_ = 0;
+		for (std::size_t i = 0; i < integrator_.size(); ++i) {
+			integrator_[i].reset();
+		}
+
+		// initial conditions
+		q_mat_ = Matrix(q_0_.get_pos());
+		q_dot_mat_ = Matrix(path_dim_, 1, 0.0);
+		for (std::size_t i = 0; i < path_dim_; ++i) {
+			integrator_[i].set_init(q_0_[i]);
+		}
+		for (std::size_t i = path_dim_; i < 2 * path_dim_; ++i) {
+			integrator_[i].set_init(0.0);
+		}
+
+		// forward integration of states
+		for (std::size_t i = 0; i < path_size_; ++i) {
+			step();
+		}
+	}
+
     void DynamicMotionPrimitive::step() {
-        Matrix mat(path_dim_, 1);
-        G_ = Matrix(g_.get_pos());
-        Q_0_ = Matrix(q_0_.get_pos());
-        Q_ = Matrix(q_0_.get_pos());
-        Q_dot_ = Matrix(path_dim_, 1, 0.0);
-        Matrix theta_mat = Matrix(theta_);
-        mat = (K_ * (G_ - Q_) - D_ * Q_dot_ * tau_ - K_ * (G_ - Q_0_) * s_);// +K_ * nonlin_function_(Q_, theta_mat) * s_) * (1 / (tau_ * tau_));
-        //std::vector<double> vec(path_dim_);
-        //for (std::size_t i = 0; i < path_dim_; ++i) {
-        //    vec[i] = g_[i] - q_[i];
-        //}
-        //print(g_.get_pos());
-        //print(q_);
-        //print(vec);
-        //vec = K_ * vec;
-        //print(vec);
-        std::cout << mat << std::endl;
+		s_ = std::exp(-gamma_ * (times_[current_time_idx_] - times_[0]) / tau_);
+		q_ddot_mat_ = (K_ * (g_mat_ - q_mat_) - D_ * q_dot_mat_ * tau_ - K_ * (g_mat_ - q_0_mat_) * s_ + K_ * nonlin_function_(q_mat_, theta_mat_) * s_) * (1 / (tau_ * tau_));	
+		for (std::size_t i = 0; i < path_dim_; ++i) {
+			q_mat_(i) = integrator_[i].update(q_dot_mat_(i), seconds(times_[current_time_idx_]));
+		}
+		for (std::size_t i = 0; i < path_dim_; ++i) {
+
+			q_dot_mat_(i) = integrator_[i + path_dim_].update(q_ddot_mat_(i), seconds(times_[current_time_idx_]));
+		}
+		trajectory_.push_back(WayPoint(seconds(times_[current_time_idx_]), q_mat_.get_col(0)));
+		current_time_idx_++;
+		
     }
 
 }
