@@ -23,23 +23,23 @@ namespace meii {
         times_(waypoints_.size()),
         max_diff_(max_diff)
     {
-        if (!check_max_diff()) {
-            LOG(Warning) << "Clearing Trajectory.";
-            clear();
-            return;
-        }
-        if (!check_waypoints()) {
-            LOG(Warning) << "Clearing Trajectory.";
-            clear();
-            return;
-        }
+        //if (!check_max_diff()) {
+        //    LOG(Warning) << "Clearing Trajectory.";
+        //    clear();
+        //    return;
+        //}
+        //if (!check_waypoints()) {
+        //    LOG(Warning) << "Clearing Trajectory.";
+        //    clear();
+        //    return;
+        //}
 
         for (std::size_t i = 0; i < waypoints_.size(); ++i) {
             times_[i] = waypoints_[i].when();
         }
     }
 
-    std::vector<double> Trajectory::at_time(Time &instant, Interp interp_method) const {
+    std::vector<double> Trajectory::at_time(const Time &instant, Interp interp_method) const {
         if (empty()) {
             LOG(Warning) << "Attempted to access an empty trajectory at a certain time. Returning empty vector.";
             return std::vector<double>();
@@ -62,9 +62,35 @@ namespace meii {
         }
     }
 
-    const WayPoint& Trajectory::operator[](std::size_t index) const {
+    const WayPoint &Trajectory::operator[](std::size_t index) const {
+		if (index >= waypoints_.size()) {
+			LOG(Warning) << "Index for Trajectory outside of range. Returning last WayPoint.";
+			return waypoints_.back();
+		}
         return waypoints_[index];
     }
+
+	bool Trajectory::add_waypoint(std::size_t index, const WayPoint &waypoint) {
+		if (index >= waypoints_.size()) {
+			LOG(Warning) << "Index for Trajectory outside of range. WayPoint not added.";
+			return false;
+		}
+		//if (!is_empty_) {
+		//	if (waypoint.get_dim() != path_dim_) {
+		//		LOG(Warning) << "Input waypoint given to Trajectory contains wrong dimension. Waypoint not added.";
+		//		return false;
+		//	}
+		//	if (index > 1 && waypoint.when() < waypoints_[index-1].when()) {
+		//		LOG(Warning) << "Input waypoint times must be monotonically increasing or not changing. Waypoint not added.";
+		//		return false;
+		//	}
+		//}
+		is_empty_ = false;
+		path_dim_ = waypoint.get_dim();
+		waypoints_[index] = waypoint;
+		times_[index] = waypoint.when();
+		return true;
+	}
 
 	const WayPoint& Trajectory::front() const {
 		return waypoints_.front();
@@ -75,21 +101,21 @@ namespace meii {
 	}
 
     bool Trajectory::set_waypoints(std::size_t path_dim, const std::vector<WayPoint>& waypoints, Interp interp_method, const std::vector<double> &max_diff) {
-        is_empty_ = false;
+        is_empty_ = waypoints.empty();
         path_dim_ = path_dim;
         waypoints_ = waypoints;
         interp_method_ = interp_method;
         max_diff_ = max_diff;
-        if (!check_max_diff()) {
-            LOG(Warning) << "Clearing Trajectory.";
-            clear();
-            return false;
-        } 
-        if (!check_waypoints()) {
-            LOG(Warning) << "Clearing Trajectory.";
-            clear();
-            return false;
-        }
+        //if (!check_max_diff()) {
+        //    LOG(Warning) << "Clearing Trajectory.";
+        //    clear();
+        //    return false;
+        //} 
+        //if (!check_waypoints()) {
+        //    LOG(Warning) << "Clearing Trajectory.";
+        //    clear();
+        //    return false;
+        //}
         times_.resize(waypoints_.size());
         for (std::size_t i = 0; i < waypoints_.size(); ++i) {
             times_[i] = waypoints_[i].when();
@@ -101,13 +127,14 @@ namespace meii {
         interp_method_ = interp_method;
     }
 
-    void Trajectory::set_max_diff(std::vector<double> &max_diff) {
-        std::vector<double> old_max_diff = max_diff_;
+    void Trajectory::set_max_diff(const std::vector<double> &max_diff) {
         max_diff_ = max_diff;
-        if (!check_max_diff()) {
-            LOG(Warning) << "Parameter max_diff not changed.";
-            max_diff_ = old_max_diff;
-        }
+		//if (!is_empty_) {
+		//	if (!check_max_diff()) {
+		//		LOG(Warning) << "Parameter max_diff not changed.";
+		//		max_diff_ = old_max_diff;
+		//	}
+		//}
     }
 
     bool Trajectory::empty() const {
@@ -115,8 +142,15 @@ namespace meii {
     }
 
     std::size_t Trajectory::size() const {
-        return times_.size();
+        return waypoints_.size();
     }
+
+	void Trajectory::resize(std::size_t new_size) {
+		if (waypoints_.size() != new_size) {
+			waypoints_.resize(new_size);
+			times_.resize(new_size);
+		}
+	}
 
     std::size_t Trajectory::get_dim() const {
         return path_dim_;
@@ -127,43 +161,65 @@ namespace meii {
         path_dim_ = 0;
         waypoints_.clear();
         times_.clear();
-        max_diff_.clear();
     }
 
     bool Trajectory::push_back(const WayPoint &waypoint) {        
         if (is_empty_) {
             path_dim_ = waypoint.get_dim();
+			//if (!check_max_diff()) {
+			//	LOG(Warning) << "Parameter max_diff reset to default.";
+			//	max_diff_ = { mel::INF };
+			//	check_max_diff();
+			//}
 			is_empty_ = false;
         }
 		else {
-			if (waypoint.get_dim() != path_dim_) {
-				LOG(Warning) << "Input waypoint given to Trajectory contains wrong dimension. Waypoint not added.";
-				return false;
-			}
-			if (waypoint.when() < waypoints_.back().when()) {
-				LOG(Warning) << "Input waypoint times must be monotonically increasing or not changing. Waypoint not added.";
-				return false;
-			}
+			//if (waypoint.get_dim() != path_dim_) {
+			//	LOG(Warning) << "Input waypoint given to Trajectory contains wrong dimension. Waypoint not added.";
+			//	return false;
+			//}
+			//if (waypoint.when() < waypoints_.back().when()) {
+			//	LOG(Warning) << "Input waypoint times must be monotonically increasing or not changing. Waypoint not added.";
+			//	return false;
+			//}
         }
 		waypoints_.push_back(waypoint);
 		times_.push_back(waypoint.when());
 		return true;
     }
 
-    bool Trajectory::check_max_diff() {
+	bool Trajectory::validate() const {
+		bool valid = true;
+		if (!check_max_diff()) {
+			valid = false;
+		}
+		if (!check_waypoints()) {
+			valid = false;
+		}
+		return valid;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const Trajectory& trajectory) {
+		for (std::size_t i = 0; i < trajectory.size(); ++i) {
+			os << trajectory[i];
+		}
+		return os;
+	}
+
+    bool Trajectory::check_max_diff() const {
         if (max_diff_.size() != path_dim_) {
             if (max_diff_.size() == 1) {
-                max_diff_ = std::vector<double>(path_dim_, max_diff_[0]);
+                //max_diff_ = std::vector<double>(path_dim_, max_diff_[0]);
             }
             else {
-                LOG(Warning) << "Input max_diff given to Trajectory constructor must either be of size 1 or of size path_dim.";
+                LOG(Warning) << "Input max_diff given to Trajectory must either be of size 1 or of size path_dim.";
                 return false;
             }
         }
         return true;
     }
 
-    bool Trajectory::check_waypoints() {
+    bool Trajectory::check_waypoints() const {
         Time t = waypoints_[0].when();
         for (std::size_t i = 0; i < waypoints_.size(); ++i) {
             if (waypoints_[i].get_dim() != path_dim_) {
@@ -178,7 +234,7 @@ namespace meii {
         }
 
         if (!is_path_smooth()) {
-            LOG(Warning) << "Trajectory path does not satisfy required smoothness set by max_diff.";
+            
             return false;
         }
         return true;
@@ -190,15 +246,23 @@ namespace meii {
             return false;
         }
         bool is_smooth = true;
+		std::size_t dim = 0;
+		std::size_t time_idx = 0;
         for (std::size_t i = 0; i < waypoints_.size() - 1; ++i) {
             if (waypoints_[i + 1].when() != waypoints_[i].when()) {
                 for (std::size_t j = 0; j < path_dim_; ++j) {
-                    if (std::abs(waypoints_[i + 1][j] - waypoints_[i][j]) / (waypoints_[i + 1].when().as_seconds() - waypoints_[i].when().as_seconds()) > max_diff_[j]) {
+					double max_diff_j = j >= max_diff_.size() ? max_diff_.back() : max_diff_[j];
+                    if (std::abs(waypoints_[i + 1][j] - waypoints_[i][j]) / (waypoints_[i + 1].when().as_seconds() - waypoints_[i].when().as_seconds()) > max_diff_j) {
                         is_smooth = false;
+						dim = j;
+						time_idx = i;
                     }
                 }
             }
         }
+		if (!is_smooth) {
+			LOG(Warning) << "Trajectory path does not satisfy required smoothness set by max_diff for dimension " << dim << " between times " << waypoints_[time_idx].when() << " and " <<  waypoints_[time_idx + 1].when();
+		}
         return is_smooth;
     }
 

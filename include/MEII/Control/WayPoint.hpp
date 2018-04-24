@@ -35,9 +35,6 @@ namespace meii {
         WayPoint();
         WayPoint(const mel::Time &time, const std::vector<double> &position);
 
-        /// Destructor
-        ~WayPoint() {};
-
         const mel::Time &when() const;
 
         const std::vector<double> &get_pos() const;
@@ -52,7 +49,7 @@ namespace meii {
 
         bool empty() const;
 
-        void set_time(const mel::Time &time);
+        WayPoint set_time(const mel::Time &time);
 
         /// Applies resize() to the position vector, changing its dimension and
         /// clearing the contents
@@ -60,12 +57,15 @@ namespace meii {
 
         /// Overwrites the position vector associated with this point, resizing the
         /// vector to match the size of the input
-        void set_pos(const std::vector<double> &pos);
+        WayPoint set_pos(const std::vector<double> &pos);
 
         /// Returns the path dimension
         std::size_t get_dim() const;
 
         void clear();
+
+		/// Overload the << stream operator with a WayPoint as the rhs argument
+		friend std::ostream& operator<<(std::ostream& os, const WayPoint& waypoint);
 
     private:
         mel::Time time_;

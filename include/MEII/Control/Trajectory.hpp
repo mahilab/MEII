@@ -54,16 +54,16 @@ namespace meii {
             Interp interp_method = Interp::Linear,
             const std::vector<double> &max_diff = { mel::INF });
 
-        /// Destructor
-        ~Trajectory() {};
-
         /// Returns a position along the trajectory at the specific instant in time
         /// using one of the available interpolation methods
-        virtual std::vector<double>
-            at_time(mel::Time &instant, Interp interp_method = Interp::Linear) const;
+        std::vector<double>
+            at_time(const mel::Time &instant, Interp interp_method = Interp::Linear) const;
 
         /// Index-based read access to waypoints
         const WayPoint &operator[](std::size_t index) const;
+
+		/// Index-based write access to waypoints
+		bool add_waypoint(std::size_t index, const WayPoint &waypoint);
 
 		/// Return the first waypoint
 		const WayPoint &front() const; 
@@ -80,13 +80,16 @@ namespace meii {
         void set_interp_method(Interp interp_method);
 
         /// Sets the maximum allowable time derivative on the trajectory
-        void set_max_diff(std::vector<double> &max_diff);
+        void set_max_diff(const std::vector<double> &max_diff);
 
         /// Returns whether or not the trajectory is empty, having no points
         bool empty() const;
 
-        /// Return the length of the trajectory, meaning the number of Points stored
+        /// Return the length of the trajectory, meaning the number of Points that can be stored
         std::size_t size() const;
+
+		/// Changes the length of the trajectory, meaning the number of Points that can be stored
+		void resize(std::size_t new_size);
 
         /// Returns the path dimension
         std::size_t get_dim() const;
@@ -97,10 +100,16 @@ namespace meii {
         /// Adds a single waypoint to the end of the list
         bool push_back(const WayPoint &waypoint);
 
-    private:
-        bool check_max_diff();
+		/// Validate that the trajectory has correct dimensions, smoothness, and time properties
+		bool validate() const;
 
-        bool check_waypoints();
+		/// Overload the << stream operator with a Trajectory as the rhs argument
+		friend std::ostream& operator<<(std::ostream& os, const Trajectory& trajectory);
+
+    private:
+        bool check_max_diff() const;
+
+        bool check_waypoints() const;
 
         /// Checks if current trajectory satisfies smoothness criterion based on
         /// max_diff
@@ -123,7 +132,6 @@ namespace meii {
 
         std::vector<double> max_diff_;
 
-        // std::vector<std::vector<double>> paths_;
     };
 
 } // namespace meii

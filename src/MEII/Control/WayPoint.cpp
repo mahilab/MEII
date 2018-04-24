@@ -42,8 +42,9 @@ namespace meii {
         return pos_.empty();
     }
 
-    void WayPoint::set_time(const mel::Time& time) {
+    WayPoint WayPoint::set_time(const mel::Time& time) {
         time_ = time;
+		return *this;
     }
 
     void WayPoint::resize(std::size_t path_dim) {
@@ -51,9 +52,10 @@ namespace meii {
         pos_.resize(path_dim);
     }
 
-    void WayPoint::set_pos(const std::vector<double>& pos) {
+    WayPoint WayPoint::set_pos(const std::vector<double>& pos) {
         pos_ = pos;
         path_dim_ = pos.size();
+		return *this;
     }
 
     std::size_t WayPoint::get_dim() const {
@@ -65,5 +67,9 @@ namespace meii {
         time_ = Time::Zero;
         pos_.clear();
     }
+
+	std::ostream& operator<<(std::ostream& os, const WayPoint& waypoint) {
+		return os << waypoint.when() << "\t" << waypoint.get_pos() << std::endl;
+	}
 
 } // namespace meii

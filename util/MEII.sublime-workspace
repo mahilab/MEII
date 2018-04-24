@@ -4,8 +4,8 @@
 		"selected_items":
 		[
 			[
-				"Eig",
-				"EIGEN_ROOT"
+				"MEII",
+				"MEII_SOURCE_FILES"
 			],
 			[
 				"eMG",
@@ -200,15 +200,6 @@
 			"settings":
 			{
 				"buffer_size": 5845,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "/C/Git/MEII/src/emg_real_time_control.cpp",
-			"settings":
-			{
-				"buffer_size": 7739,
 				"line_ending": "Windows"
 			}
 		},
@@ -218,6 +209,14 @@
 			{
 				"buffer_size": 783,
 				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Git/MEII/bin/Release/MEL.log",
+			"settings":
+			{
+				"buffer_size": 185012,
 				"line_ending": "Unix"
 			}
 		}
@@ -228,374 +227,6 @@
 		[
 			[
 				[
-					"Anaconda Python Builder",
-					""
-				],
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					"Syntax Check"
-				]
-			],
-			[
-				"Anaconda Python Builder",
-				""
-			]
-		],
-		[
-			[
-				[
-					"Anaconda Python Builder",
-					""
-				],
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				],
-				[
-					"PuTTY",
-					""
-				],
-				[
-					"Visual Studio",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					"Syntax Check"
-				]
-			],
-			[
-				"Anaconda Python Builder",
-				""
-			]
-		],
-		[
-			[
-				[
-					"Anaconda Python Builder",
-					""
-				],
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					"Syntax Check"
-				]
-			],
-			[
-				"CMake (Clean)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"Anaconda Python Builder",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					""
-				],
-				[
-					"Packages/Python/Python.sublime-build",
-					"Syntax Check"
-				]
-			],
-			[
-				"Packages/Python/Python.sublime-build",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Make)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Make)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"Make (Linux)",
-					""
-				],
-				[
-					"Make (Windows)",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				]
-			],
-			[
-				"CMake (Windows MSVC)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				]
-			],
-			[
-				"CMake (Windows MSVC)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				],
-				[
-					"PuTTY",
-					""
-				],
-				[
-					"Visual Studio",
-					""
-				]
-			],
-			[
-				"CMake (Windows MSVC)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				],
-				[
-					"Visual Studio",
-					""
-				]
-			],
-			[
-				"CMake (Windows MSVC)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Linux Ninja)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"CMake (Windows Ninja)",
-					""
-				],
-				[
-					"MELScope",
-					""
-				],
-				[
-					"Ninja (Linux)",
-					""
-				],
-				[
-					"Ninja (Windows)",
-					""
-				],
-				[
-					"Visual Studio",
-					""
-				],
-				[
-					"Packages/C++/C++ Single File.sublime-build",
-					""
-				],
-				[
-					"Packages/C++/C++ Single File.sublime-build",
-					"Run"
-				]
-			],
-			[
-				"CMake (Windows MSVC)",
-				""
-			]
-		],
-		[
-			[
-				[
 					"CMake (Clean)",
 					""
 				],
@@ -625,38 +256,6 @@
 				],
 				[
 					"Packages/C++/C++ Single File.sublime-build",
-					"Run"
-				]
-			],
-			[
-				"CMake (Clean)",
-				""
-			]
-		],
-		[
-			[
-				[
-					"CMake (Clean)",
-					""
-				],
-				[
-					"CMake (Windows MSVC)",
-					""
-				],
-				[
-					"Packages/C++/C++ Single File.sublime-build",
-					""
-				],
-				[
-					"Packages/C++/C++ Single File.sublime-build",
-					"Run"
-				],
-				[
-					"Packages/C++11/C++11.sublime-build",
-					""
-				],
-				[
-					"Packages/C++11/C++11.sublime-build",
 					"Run"
 				]
 			],
@@ -669,7 +268,7 @@
 	"build_varint": "",
 	"command_palette":
 	{
-		"height": 264.0,
+		"height": 354.0,
 		"last_filter": "install",
 		"selected_items":
 		[
@@ -694,7 +293,7 @@
 				"Package Control: Install Package"
 			]
 		],
-		"width": 480.0
+		"width": 528.0
 	},
 	"console":
 	{
@@ -715,32 +314,38 @@
 	"expanded_folders":
 	[
 		"/C/Git/MEII",
+		"/C/Git/MEII/bin",
+		"/C/Git/MEII/bin/Release",
 		"/C/Git/MEII/src",
+		"/C/Git/MEII/src/MEII",
+		"/C/Git/MEII/src/MEII/EmgRealTimeControl",
 		"/C/Git/MEII/util"
 	],
 	"file_history":
 	[
-		"/C/Git/MEII/include/MEII/EmgRealTimeControl/EmgRealTimeControlNoHardware.hpp",
-		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControlNoHardware.cpp",
-		"/C/Git/MEII/src/MEII/emg_real_time_control_no_hardware.cpp",
-		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControl.cpp",
-		"/C/Git/MEII/src/MEII/Utility/VirtualInput.cpp",
-		"/C/Git/MEII/include/MEII/Utility/VirtualInput.hpp",
-		"/C/Git/MEII/examples/ex_emg_triggered_direction_classification.cpp",
-		"/C/Git/MEII/examples/CMakeLists.txt",
-		"/C/Git/MEII/examples/ex_emg_active_classification_unity.cpp",
-		"/C/Users/cgm4/Documents/GitHub/MEII/CMakeLists.txt",
-		"/C/Users/cgm4/Documents/GitHub/MEII/util/MEII.sublime-project",
-		"/C/Users/cgm4/Documents/GitHub/MEII/util/clean.py",
-		"/C/Users/cgm4/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
-		"/C/Users/cgm4/AppData/Roaming/Sublime Text 3/Packages/User/Anaconda.sublime-settings",
-		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/Exo.cpp",
+		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControlNoRobot.cpp",
+		"/C/Git/MEII/include/MEII/EmgRealTimeControl/EmgRealTimeContolNoRobot.hpp",
+		"/C/Git/MEII/src/emg_real_time_control_no_robot.cpp",
+		"/C/Users/Ted/Desktop/gamemanagerbackup.txt",
+		"/C/Users/Ted/Desktop/targetringscriptbackup.txt",
+		"/C/Users/Ted/GitHub/MEII/examples/CMakeLists.txt",
+		"/C/Users/Ted/GitHub/MEII/CMakeLists.txt",
+		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA.py",
+		"/C/Users/Ted/GitHub/MEII/include/MEII/Utility/LoggingUtil.hpp",
+		"/C/Users/Ted/GitHub/MEII/src/MEII/Utility/LoggingUtil.cpp",
+		"/C/Users/Ted/GitHub/MEII/examples/ex_dynamic_motion_primitive.cpp",
+		"/C/Users/Ted/GitHub/MEII/examples/ex_dynamic_motions_primitive.cpp",
+		"/C/Users/Ted/GitHub/MEII/include/MEII/Control/WayPoint.hpp",
+		"/C/Users/Ted/GitHub/MEII/src/MEII/Control/WayPoint.cpp",
+		"/C/Users/Ted/GitHub/MEII/examples/ex_mes_array.cpp",
+		"/C/Users/Ted/GitHub/MEL/CMakeLists.txt",
+		"/C/Users/Ted/GitHub/MEII/examples/ex_myoelectric_signal.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/Control/Trajectory.hpp",
+		"/C/Users/Ted/GitHub/MEII/util/clean.py",
+		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/Exo.cpp",
 		"/C/Users/Ted/Box Sync/OpenSim_Modeling/MAHI_EXO_II_only/MATLAB/out.log",
 		"/C/Users/Ted/Box Sync/OpenSim_Modeling/MAHI_EXO_II_only/MATLAB/err.log",
 		"/C/Users/Ted/GitHub/MEII/tools/MEII.sublime-project",
-		"/C/Users/Ted/GitHub/MEII/examples/CMakeLists.txt",
-		"/C/Users/Ted/GitHub/MEII/CMakeLists.txt",
 		"/C/Users/Ted/GitHub/MEII/src/Utility/Matrix.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/Utility/Matrix.cpp",
 		"/C/Users/Ted/GitHub/MEII/examples/ex_matrix.cpp",
@@ -775,7 +380,6 @@
 		"/C/Users/Ted/GitHub/MEII/include/EMG/EmgFeatures.hpp",
 		"/C/Users/Ted/GitHub/MEII/src/Testing/test_classification.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/SignalProcessing/SignalProcessingFunctions.hpp",
-		"/C/Users/Ted/GitHub/MEL/CMakeLists.txt",
 		"/C/Users/Ted/GitHub/MEII/include/Classification/LinearDiscriminantAnalysis.hpp",
 		"/C/Users/Ted/GitHub/MEII/include/EMG/EmgDataCapture.hpp",
 		"/C/Users/Ted/GitHub/MEII/src/EMG/EmgDataCapture.cpp",
@@ -822,7 +426,6 @@
 		"/C/Users/Ted/GitHub/MEL/examples/ex_filter.cpp",
 		"/C/Users/Ted/Box Sync/EMG_Exo/Exo_Run_Files/Exo_Kinematics/phi_d_qp.txt",
 		"/C/Users/Ted/GitHub/MEL/include/MEL/Logging/DataLog.hpp",
-		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA.py",
 		"/C/Users/Ted/Box Sync/EMG_Exo/EmgRTControl/Mapping_offline/muscle_mapping_classification_all_features.py",
 		"/C/Users/Ted/Box Sync/EMG_Exo/EmgRTControl/Mapping_offline/muscle_mapping_classification_feature_select.py",
 		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA_offline.py",
@@ -851,7 +454,7 @@
 	],
 	"find":
 	{
-		"height": 39.0
+		"height": 25.0
 	},
 	"find_in_files":
 	{
@@ -865,8 +468,6 @@
 		"case_sensitive": false,
 		"find_history":
 		[
-			"read_csv",
-			"EmgRTControl"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -884,7 +485,7 @@
 	"groups":
 	[
 		{
-			"selected": 0,
+			"selected": 2,
 			"sheets":
 			[
 				{
@@ -900,8 +501,8 @@
 						"selection":
 						[
 							[
-								1030,
-								1030
+								5379,
+								5379
 							]
 						],
 						"settings":
@@ -912,12 +513,27 @@
 							{
 								"close":
 								{
+									"1":
+									[
+										1239,
+										1240
+									]
 								},
 								"icon":
 								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/round_bracket.png",
+										"region.yellowish"
+									]
 								},
 								"open":
 								{
+									"1":
+									[
+										1184,
+										1185
+									]
 								},
 								"unmatched":
 								{
@@ -925,46 +541,6 @@
 							},
 							"bracket_highlighter.clone_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
 								"bh_curly",
 								"bh_curly_center",
 								"bh_curly_open",
@@ -975,11 +551,51 @@
 								"bh_c_define_open",
 								"bh_c_define_close",
 								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
 								"bh_regex",
 								"bh_regex_center",
 								"bh_regex_open",
 								"bh_regex_close",
-								"bh_regex_content"
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
 							],
 							"bracket_highlighter.locations":
 							{
@@ -998,46 +614,6 @@
 							},
 							"bracket_highlighter.regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
 								"bh_curly",
 								"bh_curly_center",
 								"bh_curly_open",
@@ -1048,244 +624,66 @@
 								"bh_c_define_open",
 								"bh_c_define_close",
 								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
 								"bh_regex",
 								"bh_regex_center",
 								"bh_regex_open",
 								"bh_regex_close",
-								"bh_regex_content"
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
 							],
 							"git_gutter_is_enabled": true,
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
 							"syntax": "Packages/CMake/CMake.sublime-syntax",
 							"tab_size": 4,
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 2160.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 0,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
 					"buffer": 1,
-					"file": "/C/Git/MEII/src/emg_real_time_control.cpp",
-					"semi_transient": true,
-					"settings":
-					{
-						"buffer_size": 7739,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								640,
-								640
-							]
-						],
-						"settings":
-						{
-							"SL.108.region_keys":
-							[
-							],
-							"bracket_highlighter.busy": false,
-							"bracket_highlighter.clone": -1,
-							"bracket_highlighter.clone_locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										639,
-										640
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/curly_bracket.png",
-										"region.purplish"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										603,
-										604
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.clone_regions":
-							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content"
-							],
-							"bracket_highlighter.locations":
-							{
-								"close":
-								{
-									"1":
-									[
-										639,
-										640
-									]
-								},
-								"icon":
-								{
-									"1":
-									[
-										"Packages/BracketHighlighter/icons/curly_bracket.png",
-										"region.purplish"
-									]
-								},
-								"open":
-								{
-									"1":
-									[
-										603,
-										604
-									]
-								},
-								"unmatched":
-								{
-								}
-							},
-							"bracket_highlighter.regions":
-							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
-								"bh_curly",
-								"bh_curly_center",
-								"bh_curly_open",
-								"bh_curly_close",
-								"bh_curly_content",
-								"bh_c_define",
-								"bh_c_define_center",
-								"bh_c_define_open",
-								"bh_c_define_close",
-								"bh_c_define_content",
-								"bh_regex",
-								"bh_regex_center",
-								"bh_regex_open",
-								"bh_regex_close",
-								"bh_regex_content"
-							],
-							"git_gutter_is_enabled": true,
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
-							"syntax": "Packages/C++11/C++11.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 2,
 					"file": "MEII.sublime-project",
 					"semi_transient": false,
 					"settings":
@@ -1297,8 +695,8 @@
 						"selection":
 						[
 							[
-								247,
-								247
+								497,
+								497
 							]
 						],
 						"settings":
@@ -1337,46 +735,6 @@
 							},
 							"bracket_highlighter.clone_regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
 								"bh_curly",
 								"bh_curly_center",
 								"bh_curly_open",
@@ -1387,11 +745,51 @@
 								"bh_c_define_open",
 								"bh_c_define_close",
 								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
 								"bh_regex",
 								"bh_regex_center",
 								"bh_regex_open",
 								"bh_regex_close",
-								"bh_regex_content"
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
 							],
 							"bracket_highlighter.locations":
 							{
@@ -1399,24 +797,24 @@
 								{
 									"1":
 									[
-										272,
-										273
+										669,
+										670
 									]
 								},
 								"icon":
 								{
 									"1":
 									[
-										"Packages/BracketHighlighter/icons/double_quote.png",
-										"region.greenish"
+										"Packages/BracketHighlighter/icons/curly_bracket.png",
+										"region.purplish"
 									]
 								},
 								"open":
 								{
 									"1":
 									[
-										169,
-										170
+										496,
+										497
 									]
 								},
 								"unmatched":
@@ -1425,46 +823,6 @@
 							},
 							"bracket_highlighter.regions":
 							[
-								"bh_double_quote",
-								"bh_double_quote_center",
-								"bh_double_quote_open",
-								"bh_double_quote_close",
-								"bh_double_quote_content",
-								"bh_unmatched",
-								"bh_unmatched_center",
-								"bh_unmatched_open",
-								"bh_unmatched_close",
-								"bh_unmatched_content",
-								"bh_round",
-								"bh_round_center",
-								"bh_round_open",
-								"bh_round_close",
-								"bh_round_content",
-								"bh_default",
-								"bh_default_center",
-								"bh_default_open",
-								"bh_default_close",
-								"bh_default_content",
-								"bh_tag",
-								"bh_tag_center",
-								"bh_tag_open",
-								"bh_tag_close",
-								"bh_tag_content",
-								"bh_square",
-								"bh_square_center",
-								"bh_square_open",
-								"bh_square_close",
-								"bh_square_content",
-								"bh_angle",
-								"bh_angle_center",
-								"bh_angle_open",
-								"bh_angle_close",
-								"bh_angle_content",
-								"bh_single_quote",
-								"bh_single_quote_center",
-								"bh_single_quote_open",
-								"bh_single_quote_close",
-								"bh_single_quote_content",
 								"bh_curly",
 								"bh_curly_center",
 								"bh_curly_open",
@@ -1475,16 +833,53 @@
 								"bh_c_define_open",
 								"bh_c_define_close",
 								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
 								"bh_regex",
 								"bh_regex_center",
 								"bh_regex_open",
 								"bh_regex_close",
-								"bh_regex_content"
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
 							],
 							"git_gutter_is_enabled": true,
-							"incomplete_sync": null,
-							"remote_loading": false,
-							"synced": false,
 							"syntax": "Packages/zzz A File Icon zzz/aliases/JSON (Sublime).sublime-syntax",
 							"translate_tabs_to_spaces": false
 						},
@@ -1492,7 +887,184 @@
 						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 2,
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "/C/Git/MEII/bin/Release/MEL.log",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 185012,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.clone": -1,
+							"bracket_highlighter.clone_locations":
+							{
+								"close":
+								{
+								},
+								"icon":
+								{
+								},
+								"open":
+								{
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.clone_regions":
+							[
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
+							],
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+								},
+								"icon":
+								{
+								},
+								"open":
+								{
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content"
+							],
+							"git_gutter_is_enabled": true,
+							"syntax": "Packages/zzz A File Icon zzz/aliases/Plain Text (Log).sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 32310.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
 					"type": "text"
 				}
 			]
@@ -1500,7 +1072,7 @@
 	],
 	"incremental_find":
 	{
-		"height": 23.0
+		"height": 25.0
 	},
 	"input":
 	{
@@ -1533,23 +1105,11 @@
 	{
 		"height": 0.0
 	},
-	"output.SublimeLinter Messages":
-	{
-		"height": 132.0
-	},
 	"output.exec":
 	{
-		"height": 212.0
+		"height": 120.0
 	},
 	"output.find_results":
-	{
-		"height": 0.0
-	},
-	"output.mdpopups":
-	{
-		"height": 0.0
-	},
-	"output.sftp":
 	{
 		"height": 0.0
 	},
@@ -1557,7 +1117,7 @@
 	"project": "MEII.sublime-project",
 	"replace":
 	{
-		"height": 42.0
+		"height": 46.0
 	},
 	"save_all_on_build": true,
 	"select_file":

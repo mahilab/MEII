@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.7)
 #===============================================================================
 # USER OPTIONS
 #===============================================================================
+option(OSIM        "Turn ON to build OpenSim related executable(s)."                           OFF)
 option(PHRI_LEARN  "Turn ON to build Phyical Human-Robot Interaction Learning executable(s)."  OFF)
 option(EMG_RT_CTRL "Turn ON to build EMG Real-Time Control executable(s)."                     OFF)
 option(EXAMPLES    "Turn ON to build example executable(s)."                                   OFF)
@@ -93,6 +94,11 @@ file(GLOB SRC_PHRI_LEARNING
     "${CMAKE_SOURCE_DIR}/include/MEII/PhriLearning/*.hpp"
 )
 
+file(GLOB SRC_OSIM
+    "${CMAKE_SOURCE_DIR}/src/MEII/OpenSim/*.cpp"
+    "${CMAKE_SOURCE_DIR}/include/MEII/OpenSim/*.hpp"
+)
+
 # MEII expansion library source files
 set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
@@ -112,6 +118,10 @@ if (PHRI_LEARN)
     list(APPEND MEII_SOURCE_FILES ${SRC_PHRI_LEARNING})
 endif()
 
+if (OSIM)
+    list(APPEND MEII_SOURCE_FILES ${SRC_OSIM})
+endif()
+
 # create filters for Visual Studio
 source_group("MahiExoII" FILES ${SRC_MAHI_EXO_II})
 source_group("Control" FILES ${SRC_CONTROL})
@@ -122,6 +132,7 @@ source_group("Unity" FILES ${SRC_UNITY})
 source_group("Utility" FILES ${SRC_UTILITY})
 source_group("EmgRealTimeControl" FILES ${SRC_EMG_REAL_TIME_CONTROL})
 source_group("PhriLearning" FILES ${SRC_PHRI_LEARNING})
+source_group("OpenSim" FILES ${SRC_OSIM})
 
 #===============================================================================
 # CREATE MEII LIBRARY
@@ -155,6 +166,16 @@ target_link_libraries(MEII ${LINK_LIBS})
 #===============================================================================
 # CREATE EXECUTABLES
 #===============================================================================
+
+
+
+if (OSIM)   
+    add_executable(osim_data_collection src/osim_data_collection.cpp)
+    target_link_libraries(osim_data_collection MEII)
+
+    add_executable(osim_emg_data_collection src/osim_emg_data_collection.cpp)
+    target_link_libraries(osim_emg_data_collection MEII)
+endif()
 
 if(EMG_RT_CTRL)
     #add_executable(emg_real_time_control src/emg_real_time_control.cpp)

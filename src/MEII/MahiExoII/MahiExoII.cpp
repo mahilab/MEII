@@ -420,11 +420,11 @@ namespace meii {
 
         if (spec_norm_prev_ != 0) {
             if (std::abs(spec_norm - spec_norm_prev_) > 100) {
-                std::cout << std::setprecision(12);
-                std::cout << q_par_prev_.transpose() << std::endl;
-                std::cout << q_par_.transpose() << std::endl;
-                std::cout << qp_.transpose() << std::endl;
-                std::cout << jac_fk_ << std::endl;
+                //std::cout << std::setprecision(12);
+                //std::cout << q_par_prev_.transpose() << std::endl;
+                //std::cout << q_par_.transpose() << std::endl;
+                //std::cout << qp_.transpose() << std::endl;
+                //std::cout << jac_fk_ << std::endl;
                 //mel::print(lambda_abs);
                 //error_code_ = -2;
             }

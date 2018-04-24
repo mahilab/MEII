@@ -98,6 +98,8 @@ int main(int argc, char *argv[]) {
 	MelShare ms_directory("file_path");
 	MelShare ms_filename("file_name");
 	MelShare ms_lda_training_flag("lda_training_flag");
+	//MelShare ms_numfeats("num_feats");
+	MelShare ms_numelec("num_elec");
    
 
     // create data log for EMG data
@@ -115,10 +117,11 @@ int main(int argc, char *argv[]) {
     mes.resize_buffer(mes_active_capture_window_size);
     std::size_t mes_active_window_size = (std::size_t)((unsigned)(mes_active_period.as_seconds() / Ts.as_seconds()));
     std::size_t pred_label = 0;
-	std::string directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\bin\\Release";
+	std::string directory_ = "C:\\Git\\MEII\\bin\\Release";
 	std::string filename_ = "S00_EFE_training_data";
-	std::string program_directory_ = "C:\\Users\\Ted\\GitHub\\MEII\\python";
+	std::string program_directory_ = "C:\\Git\\MEII\\python";
 	std::vector<double> lda_training_complete(1, 0.0);
+	std::vector<double> emg_channel_vec(1, emg_channel_count);
 	std::vector<std::vector<double>> training_data;
 	bool python_return = false;
 	std::vector<std::vector<double>> weights;
@@ -209,9 +212,9 @@ int main(int argc, char *argv[]) {
 				//if (dir_classifier.train()) {
 				//	LOG(Info) << "Trained new active/rest classifier based on given data.";
 				//}
-				dir_classifier.train();
+				dir_classifier.compute_features();
 
-				print(dir_classifier.get_class_feature_data(0));
+				//print(dir_classifier.get_class_feature_data(0));
 
 				for (std::size_t i = 0; i < num_classes; ++i) {
 					training_data = dir_classifier.get_class_feature_data(i);
@@ -224,12 +227,13 @@ int main(int argc, char *argv[]) {
 
 
 				// send file location to python over melshare
+				ms_numelec.write_data(emg_channel_vec);
 				ms_directory.write_message(directory_);
 				ms_filename.write_message(filename_);
 
 				// open LDA script in Python
 				std::string system_command;
-				system_command = "start " + program_directory_ + "\\" + "EMG_FS_LDA.py &";
+				system_command = "start " + program_directory_ + "\\" + "EMG_FS_LDA_ex.py &";
 				system(system_command.c_str());
 
 				// wait for python to return results
@@ -242,17 +246,21 @@ int main(int argc, char *argv[]) {
 			if (!python_return) {
 				python_return = true;
 
-				read_csv("S00_EFE_emg_dir_classifier.csv", directory_, weights);
-				print(weights);
-				//for (std::size_t m = 0; m < weights.size(); ++m){
-				//	for (std::size_t n = 0; n, weights[0].size()-1; ++n) {
-				//		lda_coeffs[m][n] = weights[m][n];
-				//	}
-				//	lda_intercept[m] = weights[m][weights[0].size()];
-				//}
+				read_csv("S00_EFE_emg_dir_classifier", directory_, weights);
+				print(lda_coeffs.size());
+				for (std::size_t m = 0; m < weights.size(); ++m){
+					for (std::size_t n = 0; n < weights[0].size()-2; ++n) {
+						print("meow");
+						lda_coeffs[m][n] = weights[m][n];
+					}
+					lda_intercept[m] = weights[m][weights[0].size()];
+				}
+				print(lda_coeffs);
+				print(lda_intercept);
 
-				//	dir_classifier.set_model(lda_coeffs,lda_intercept);
+					dir_classifier.set_model(lda_coeffs,lda_intercept);
 			}
+			print("Python completed");
 		}
 
         // write to MelShares
