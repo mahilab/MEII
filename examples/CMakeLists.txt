@@ -38,6 +38,9 @@ target_link_libraries(ex_mes_array MEII)
 add_executable(ex_pos_control_nathan ex_pos_control_nathan.cpp)
 target_link_libraries(ex_pos_control_nathan MEII)
 
+add_executable(ex_pos_control_nathan_rob ex_pos_control_nathan_rob.cpp)
+target_link_libraries(ex_pos_control_nathan_rob MEII)
+
 if(PHRI_LEARN)
 	add_executable(ex_dynamic_motion_primitive ex_dynamic_motion_primitive.cpp)
 	target_link_libraries(ex_dynamic_motion_primitive MEII)
