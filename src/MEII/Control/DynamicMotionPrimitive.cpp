@@ -1,4 +1,4 @@
-#include <MEII/PhriLearning/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Math/Functions.hpp>
 

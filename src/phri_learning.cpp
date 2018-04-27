@@ -12,7 +12,7 @@
 #include <vector>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/PhriLearning/PhriFeatures.hpp>
-#include <MEII/PhriLearning/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
 
 using namespace mel;

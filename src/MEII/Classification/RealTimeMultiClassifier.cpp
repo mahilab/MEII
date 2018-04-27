@@ -227,32 +227,11 @@ namespace meii {
 	bool RealTimeMultiClassifier::load(const std::string &filename, const std::string& directory) {
 		std::vector<Table> tables;
 		if (DataLogger::read_from_csv(tables, filename, directory)) {
-			if (tables.size() != 6) {
-				LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::load() are invalid. Incorrect number of Tables.";
-				return false;
-			}
-
-			if (tables[0].name().compare("Parameters") == 0) {
-				class_count_ = (std::size_t)tables[0](0, 0);
-				sample_dim_ = (std::size_t)tables[0](0, 1);
-				Ts_ = seconds(tables[0](0, 2));
-				classification_window_size_ = (std::size_t)tables[0](0, 3);
-				feature_window_size_ = (std::size_t)tables[0](0, 4);
-				pred_counter_ = (std::size_t)tables[0](0, 5);
-				pred_spacing_ = (std::size_t)tables[0](0, 6);
-				trained_ = (bool)tables[0](0, 7);
-			}
-			else {
-				LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Parameters Table.";
-				return false;
-			}
-
-			
+			return read_datalog(tables);
 		}
 		else {
 			return false;
 		}
-		return true;
 	}
 
 	std::vector<Table> RealTimeMultiClassifier::make_datalog() const {
@@ -300,6 +279,48 @@ namespace meii {
 		tables.push_back(model);
 
 		return tables;
+	}
+
+	bool RealTimeMultiClassifier::read_datalog(const std::vector<mel::Table> &tables) {
+		if (tables.empty()) {
+			LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::load() are invalid. Incorrect number of Tables.";
+			return false;
+		}
+
+		if (tables[0].name().compare("Parameters") == 0) {
+			class_count_ = (std::size_t)tables[0](0, 0);
+			sample_dim_ = (std::size_t)tables[0](0, 1);
+			Ts_ = seconds(tables[0](0, 2));
+			classification_window_size_ = (std::size_t)tables[0](0, 3);
+			feature_window_size_ = (std::size_t)tables[0](0, 4);
+			pred_spacing_ = (std::size_t)tables[0](0, 6);
+			trained_ = (bool)tables[0](0, 7);
+		}
+		else {
+			LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Parameters Table.";
+			return false;
+		}
+
+		if (tables.size() != 2 * class_count_ + 2) {
+			LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. Incorrect number of Tables.";
+			return false;
+		}
+
+		set_class_count(class_count_);
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			training_data_[i] = tables[i + 1].values();
+		}
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			feature_data_[i] = tables[i + class_count_ + 1].values();
+		}
+
+		w_ = tables[1 + 2 * class_count_].values();
+		for (std::size_t i = 0; i < w_.size(); ++i) {
+			w_0_[i] = w_[i].back();
+			w_[i].pop_back();
+		}
+
+		return true;
 	}
 
     std::vector<double> RealTimeMultiClassifier::feature_extraction(const std::vector<std::vector<double>>& signal) const {

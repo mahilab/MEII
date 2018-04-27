@@ -28,7 +28,7 @@ namespace meii {
 
     bool bin_linear_discriminant_model(const std::vector<std::vector<double>>& class_0_data, const std::vector<std::vector<double>>& class_1_data, std::vector<double>& w, double& w_0, double max_reg = 0.0);
 
-    bool multi_linear_discriminant_model(const std::vector<std::vector<std::vector<double>>>& all_class_data, std::vector<std::vector<double>>& w, std::vector<double>& w_0, double max_reg = 0.0);
+    bool multi_linear_discriminant_model(const std::vector<std::vector<std::vector<double>>>& all_class_data, std::vector<std::vector<double>>& w, std::vector<double>& w_0, double r_min = 0.1);
 
 } // namespace meii
 

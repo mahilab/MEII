@@ -10,7 +10,7 @@
 #include <MEL/Utility/Console.hpp>
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
-#include <MEII/PhriLearning/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <MEII/Utility/logging_util.hpp>

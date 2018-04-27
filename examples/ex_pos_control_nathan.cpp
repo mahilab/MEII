@@ -10,7 +10,7 @@
 #include <MEL/Utility/Console.hpp>
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
-#include <MEII/PhriLearning/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <vector>
@@ -322,8 +322,7 @@ int main(int argc, char *argv[]) {
 
 
 			case 1: // go to extreme position
-				if (traj_type=="linear")
-				{
+				if (traj_type=="linear") {
 					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 				}
 				else if (traj_type == "dmp")

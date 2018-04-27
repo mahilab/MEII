@@ -10,7 +10,7 @@
 #include <MEL/Utility/Console.hpp>
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
-#include <MEII/PhriLearning/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <MEII/Utility/logging_util.hpp>
@@ -377,6 +377,13 @@ int main(int argc, char *argv[]) {
 				LOG(Warning) << "Active detector could not be loaded.";
 			}
 		}
+		if (is_testing(condition_index)) {
+			if (!dir_classifier.load(file_prefix + "_" + "emg_directional_classifier", output_path)) {
+				stop = true;
+				save_data = false;
+				LOG(Warning) << "Directional classifier could not be loaded.";
+			}
+		}
 		
 		// enable DAQ and exo
 		q8.enable();
@@ -533,16 +540,13 @@ int main(int argc, char *argv[]) {
 						print("Press 'Escape' to exit.");
 					}
 					else if (is_blind(condition_index)) {
-						state = 7;
-						LOG(Info) << "Calibration of active/rest classifier.";
-						print("Press 'A + 0' to add 'rest' state training data to all classifiers.");
-						print("Press 'C + 0' to clear 'rest' state training data from all classifiers.");
-						print("Press 'A + target #' to add 'active' state training data for one classifier.");
-						print("Press 'C + target #' to clear 'active' state training data for one classifier.");
-						print("Number of 'active' state classifiers is:");
+						state = 8;
+						LOG(Info) << "Training of direcitonal classifier.";
+						print("Press target number key to enable triggered data capture for that target.");
+						print("Number of possible targets is:");
 						print(num_classes);
-						print("Press 'T' to train classifier and begin real-time classification.");
-						print("Press 'Enter' to finish save active/rest classifier.");
+						print("Press 'T' to train direction classifier and begin real-time classification.");
+						print("Press 'Enter' to finish and save directional classifier.");
 						print("Press 'Escape' to exit.");
 					}
 					else if (is_full(condition_index)) {

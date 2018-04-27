@@ -85,6 +85,8 @@ namespace meii {
 
 		std::vector<mel::Table> make_datalog() const;
 
+		bool read_datalog(const std::vector<mel::Table> &tables);
+
     protected:
 
         /// Convert window of observations into feature vector for classification.
