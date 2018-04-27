@@ -1,0 +1,61 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  curve_names: ['ms_ref[0]', 'ms_ref[1]', 'ms_ref[2]', 'ms_ref[3]', 'ms_ref[4]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: ms_ref
+  settings: null
+  size: 5
+  type: melshare
+GRID_COLS: 3
+GRID_ROWS: 2
+SCOPES:
+- filter:
+    ms_ref: [true, false, false, false, false]
+  index: 0
+  legend: false
+  mode: Plot
+  title: Elbow F/E
+  yrange: [-1.8, 0.4]
+- filter:
+    ms_ref: [false, true, false, false, false]
+  index: 1
+  legend: false
+  mode: Plot
+  title: Wrist P/S
+  yrange: [-1.0, 1.0]
+- filter:
+    ms_ref: [false, false, true, false, false]
+  index: 2
+  legend: false
+  mode: Plot
+  title: Wrist F/E
+  yrange: [-1.0, 1.0]
+- filter:
+    ms_ref: [false, false, false, true, false]
+  index: 3
+  legend: false
+  mode: Plot
+  title: Wrist R/U
+  yrange: [-1.0, 1.0]
+- filter:
+    ms_ref: [false, false, false, false, true]
+  index: 4
+  legend: false
+  mode: Plot
+  title: Other?
+  yrange: [-1.0, 1.0]
+- filter:
+    ms_ref: [false, false, false, false, false]
+  index: 5
+  legend: false
+  mode: Plot
+  title: N/A
+  yrange: [-1.0, 1.0]
+THEME: Dark
