@@ -153,7 +153,6 @@ int main(int argc, char *argv[]) {
 		robot_log.set_record_format(DataFormat::Default, 12);
 		bool save_data = false;
 
-
 		// prompt user for input to select which DoF
 		print("Press number key for selecting single DoF trajectory.");
 		print("1 = Elbow Flexion/Extension");
@@ -178,6 +177,33 @@ int main(int argc, char *argv[]) {
 					}
 					keypress_refract_clock.restart();
 				}
+			}
+
+			// check for exit key
+			if (Keyboard::is_key_pressed(Key::Escape)) {
+				stop = true;
+				save_data = false;
+			}
+
+			// wait for remainder of sample period
+			timer.wait();
+		}
+
+		// prompt user for input to select which trajectory
+		print("Press 'L' for a linear trajectory, or 'D' for a dmp trajectory.");
+		std::string traj_type;
+		bool traj_selected = false;
+		while (!traj_selected && !stop) {
+
+			if (Keyboard::is_key_pressed(Key::D)) {
+				traj_selected = true;
+				traj_type = "dmp";
+			}
+
+			// check for exit key
+			if (Keyboard::is_key_pressed(Key::L)) {
+				traj_selected = true;
+				traj_type = "linear";
 			}
 
 			// check for exit key
@@ -215,6 +241,11 @@ int main(int argc, char *argv[]) {
 		DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, extreme_points[0].set_time(dmp_duration));
 		dmp.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
+		// for linear travel
+		WayPoint initial_waypoint;
+		std::vector<WayPoint> waypoints(2);
+		Trajectory ref_traj;
+
 		if (!dmp.trajectory().validate()) {
 			LOG(Warning) << "DMP trajectory invalid.";
 			return 0;
@@ -251,8 +282,8 @@ int main(int argc, char *argv[]) {
 		/*meii.set_rps_control_mode(0);*/
 
 		// prompt user for input
-		/*print("Press 'Escape' to exit the program.");
-		print("Press 'Enter' to exit the program and save data.");*/
+		print("Press 'Escape' to exit the program.");
+		print("Press 'Enter' to exit the program and save data.");
 
 		// start loop
 		LOG(Info) << "Robot Backdrivable.";
@@ -263,91 +294,157 @@ int main(int argc, char *argv[]) {
 			// begin switch state
 			switch (state) {
 			case 0: // backdrive
+				
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() >= backdrive_time) {
-					/*meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());*/
+
+					// linear
+					if (traj_type == "linear")
+					{
+						waypoints[0] = neutral_point.set_time(Time::Zero);
+						waypoints[1] = extreme_points[current_extreme_idx].set_time(dmp_duration);
+						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+					}
+
+					// dmp
+					if (traj_type == "dmp")
+					{
+						dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+					}
+
+					ref_traj_clock.restart();
 					state = 1;
 					LOG(Info) << "Initializing RPS Mechanism.";
 					state_clock.restart();
 				}
 				break;
 
-			case 1: // initialize rps at neutral position                
-				dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
-				if (!dmp.trajectory().validate()) {
-					LOG(Warning) << "DMP trajectory invalid.";
-					stop = true;
+
+			case 1: // go to extreme position
+				if (traj_type=="linear")
+				{
+					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 				}
-				state = 2;
-				ref_traj_clock.restart();
-				state_clock.restart();
+				else if (traj_type == "dmp")
+				{
+					ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
+				}
+
+				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
+
+					if (traj_type == "linear")
+					{
+						ref = ref_traj.back().get_pos();
+					}
+					else if (traj_type == "dmp")
+					{
+						ref = dmp.trajectory().back().get_pos();
+					}
+					
+
+					if (!dmp.trajectory().validate()) {
+						LOG(Warning) << "DMP trajectory invalid.";
+						stop = true;
+					}
+
+					state = 2;
+					state_clock.restart();
+				}
 				break;
 
 			case 2: // wait at extreme position
 
 				// update reference from trajectory
 
-				if (ref_traj_clock.get_elapsed_time() > wait_at_extreme_time) {
-					dmp.set_endpoints(extreme_points[current_extreme_idx].set_time(Time::Zero), neutral_point.set_time(dmp_duration));
-					state = 3;
-					ref = dmp.trajectory().back().get_pos();
-					LOG(Info) << "Waiting at neutral position.";
-					state_clock.restart();
-				}
+				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
 
-				break;
-
-			case 3: // go to extreme position
-
-				// update reference from trajectory
-				ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
-
-				if (ref_traj_clock.get_elapsed_time() > dmp.trajectory().back().when()) {
-					
-					if (!dmp.trajectory().validate()) {
-						LOG(Warning) << "DMP trajectory invalid.";
-						stop = true;
+					// linear
+					if (traj_type == "linear")
+					{
+						waypoints[0] = extreme_points[current_extreme_idx].set_time(Time::Zero);
+						waypoints[1] = neutral_point.set_time(dmp_duration);
+						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 					}
-					state = 4;
-					ref = dmp.trajectory().back().get_pos();
+
+					// dmp
+					if (traj_type == "dmp")
+					{
+						dmp.set_endpoints(extreme_points[current_extreme_idx].set_time(Time::Zero), neutral_point.set_time(dmp_duration));
+					}
+
+					current_extreme_idx++;
+					state = 3;
+					
 					LOG(Info) << "Waiting at neutral position.";
 					state_clock.restart();
 					ref_traj_clock.restart();
 				}
-
 				break;
 
+			case 3: // go to neutral position
 
-			
-
-			case 4: // go to neutral position
-
-				// update reference from trajectory
-				ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
-
-				if (ref_traj_clock.get_elapsed_time() > dmp.trajectory().back().when()) {
-					state = 5;
-					ref = dmp.trajectory().back().get_pos();
-					LOG(Info) << "Waiting at neutral position.";
-					state_clock.restart();
+				if (traj_type == "linear")
+				{
+					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
+				}
+				else if (traj_type == "dmp")
+				{
+					ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
 				}
 
+				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
+
+					if (traj_type == "linear")
+					{
+						ref = ref_traj.back().get_pos();
+					}
+					else if (traj_type == "dmp")
+					{
+						ref = dmp.trajectory().back().get_pos();
+					}
+
+					if (!dmp.trajectory().validate()) {
+						LOG(Warning) << "DMP trajectory invalid.";
+						stop = true;
+					}
+
+					state = 4;
+					state_clock.restart();
+				}
 				break;
-			
 
-			case 5: // go to neutral position
+			case 4: // wait at neutral position
 
-					// update reference from trajectory
-				ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
+				// check if wait time has passed
+				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
 
-				if (ref_traj_clock.get_elapsed_time() > dmp.trajectory().back().when()) {
-					state = 1;
-					ref = dmp.trajectory().back().get_pos();
+					if (current_extreme_idx == 1) {
+						
+						// linear
+						if (traj_type == "linear")
+						{
+							waypoints[0] = neutral_point.set_time(Time::Zero);
+							waypoints[1] = extreme_points[current_extreme_idx].set_time(dmp_duration);
+							ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+						}
+
+						// dmp
+						else if (traj_type == "dmp")
+						{
+							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+						}
+
+						state = 1;
+					}
+					else {
+						current_extreme_idx--;
+						state = 5;
+					}
 					LOG(Info) << "Waiting at neutral position.";
 					state_clock.restart();
+					ref_traj_clock.restart();
 				}
-
 				break;
 		}
 
@@ -392,7 +489,7 @@ int main(int argc, char *argv[]) {
 			/*if (!q8.watchdog.kick() || meii.any_limit_exceeded())
 				stop = true;*/
 
-			// wait for remainder of sample period
+			
 
 			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
 			for (std::size_t i = 0; i < 5; ++i) {
@@ -400,6 +497,8 @@ int main(int argc, char *argv[]) {
 			}
 
 			robot_log.buffer(robot_log_row);
+
+			// wait for remainder of sample period
 			timer.wait();
 		}
 
