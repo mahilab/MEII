@@ -4,10 +4,12 @@
 import os
 import shutil
 
-keep = []
+keep = ['bin/Release/myo32.dll',
+        'bin/Release/myo64.dll']
 
 folders = ['build',
            'bin',
+           'bin/Release',
            'lib']
 
 files = []

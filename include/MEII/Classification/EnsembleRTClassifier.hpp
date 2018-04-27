@@ -77,6 +77,8 @@ namespace meii {
 
 		std::vector<mel::Table> make_datalog() const;
 
+		bool read_datalog(const std::vector<mel::Table> &tables);
+
     protected:
 
         /// Constructor for classifier_ptrs_ and classifiers_

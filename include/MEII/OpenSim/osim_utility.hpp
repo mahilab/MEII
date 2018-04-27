@@ -28,12 +28,15 @@ namespace meii {
 		/// Constructor
 		MeiiOsimMotTable(const std::string &name = "MeiiOsimMot");
 
+		bool set_coordinate_defaults(const std::string &coordinate_name, double default_value);
+
 		friend bool write_meii_to_osim_mot(MeiiOsimMotTable data, const std::string &filename, const std::string& directory, bool timestamp);
 
 	private:
 
 		std::vector<std::string> coordinate_list_; ///< vector of coordinate names in the MEII OpenSim model
 		std::vector<double> coordinate_defaults_; ///< vector of default values used for the coordinates in the MEII OpenSim model
+		std::map<std::string, std::size_t> coordinate_map_;
 
 	};
 

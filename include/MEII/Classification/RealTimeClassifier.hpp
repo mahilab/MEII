@@ -80,6 +80,8 @@ namespace meii {
 
 		std::vector<mel::Table> make_datalog() const;
 
+		bool read_datalog(const std::vector<mel::Table> &tables);
+
     protected:
 
         /// Convert window of observations into feature vector for classification.
@@ -117,7 +119,7 @@ namespace meii {
         std::vector<std::vector<double>> class_0_feature_data_; ///< feature data computed from training data for class 0, a vector of feature vectors that each have size defined by feature_extraction()
         std::vector<std::vector<double>> class_1_feature_data_; ///< feature data computed from training data for class 1, a vector of feature vectors that each have size defined by feature_extraction()
 
-        std::size_t feature_dim_; ///< dimension of the feature space
+        //std::size_t feature_dim_; ///< dimension of the feature space
         std::vector<double> w_; ///< classification weighting coefficients
         double w_0_; ///< classification intercept
         std::vector<double> phi_; ///< classification input

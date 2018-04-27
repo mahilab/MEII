@@ -317,7 +317,7 @@ int main(int argc, char *argv[]) {
 				if (Keyboard::is_key_pressed(Key::T)) {
 					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 						if (dir_classifier.train()) {
-							LOG(Info) << "Trained new active/rest classifier based on given data.";
+							LOG(Info) << "Trained new directional classifier based on given data.";
 						}
 						dir_classifier.train();
 						keypress_refract_clock.restart();

@@ -1,0 +1,49 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  - [177, 89, 40]
+  - [166, 206, 227]
+  - [251, 154, 153]
+  curve_names: ['ms_emg[0]', 'ms_emg[1]', 'ms_emg[2]', 'ms_emg[3]', 'ms_emg[4]', 'ms_emg[5]',
+    'ms_emg[6]', 'ms_emg[7]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: ms_emg
+  settings: null
+  size: 8
+  type: melshare
+- curve_colors:
+  - [31, 120, 180]
+  curve_names: ['ms_pred[0]']
+  curve_styles: [Solid]
+  curve_widths: [2.0]
+  mode: Read Only
+  name: ms_pred
+  settings: null
+  size: 1
+  type: melshare
+GRID_COLS: 2
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    ms_emg: [true, true, true, true, true, true, true, true]
+    ms_pred: [false]
+  index: 0
+  legend: false
+  mode: Plot
+  title: Scope0
+  yrange: [-1.0, 1.0]
+- filter:
+    ms_emg: [false, false, false, false, false, false, false, false]
+    ms_pred: [true]
+  index: 1
+  legend: false
+  mode: Plot
+  title: Scope1
+  yrange: [-1.0, 1.0]
+THEME: Dark

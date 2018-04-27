@@ -6,12 +6,14 @@ cmake_minimum_required(VERSION 3.7)
 option(OSIM        "Turn ON to build OpenSim related executable(s)."                           OFF)
 option(PHRI_LEARN  "Turn ON to build Phyical Human-Robot Interaction Learning executable(s)."  OFF)
 option(EMG_RT_CTRL "Turn ON to build EMG Real-Time Control executable(s)."                     OFF)
+option(MYO         "Turn ON to build Thalmic Labs Myo Armband."                                OFF)
 option(EXAMPLES    "Turn ON to build example executable(s)."                                   OFF)
 option(TESTS       "Turn ON to build test executable(s)"                                       OFF)
 
-set(QUANSER_ROOT "C:/Program Files/Quanser" CACHE FILEPATH "Absolute path to Quanser installation.")
-set(MEL_ROOT     "C:/Git/MEL"               CACHE FILEPATH "Absolute path to MEL.")
-set(EIGEN_ROOT   "C:/dev/eigen"             CACHE FILEPATH "Absolute path to Eigen installation.")
+set(QUANSER_ROOT "C:/Program Files/Quanser"     CACHE FILEPATH "Absolute path to Quanser installation.")
+set(MEL_ROOT     "C:/Git/MEL"                   CACHE FILEPATH "Absolute path to MEL.")
+set(EIGEN_ROOT   "C:/dev/eigen"                 CACHE FILEPATH "Absolute path to Eigen installation.")
+set(MYO_ROOT     "C:/dev/myo-sdk-win-0.9.0"     CACHE FILEPATH "Absolute path to Myo SDK.")
 
 # enable C/C++
 enable_language(C)
@@ -41,6 +43,9 @@ set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} /MP") # MULTICORE BUILDS
 
 # MEL Lib and Eigen Lib
 set(INCLUDE_DIRS include ${MEL_ROOT}/include ${EIGEN_ROOT})
+if (MYO)
+    list(APPEND INCLUDE_DIRS ${MYO_ROOT}/include)
+endif()
 
 # include directories
 include_directories(${INCLUDE_DIRS})
@@ -147,7 +152,12 @@ add_library(MEII STATIC ${MEII_SOURCE_FILES})
 
 set(LINK_LIBS "")
 link_directories("${MEL_ROOT}/lib/windows/release")
-link_directories("${QUANSER_ROOT}/QUARC/lib/win64")
+if (CMAKE_SIZEOF_VOID_P EQUAL 8) # 64-bit
+    link_directories("${QUANSER_ROOT}/QUARC/lib/win64")
+else() # 32-bit
+    link_directories("${QUANSER_ROOT}/QUARC/lib/windows")
+endif()
+
 list(APPEND LINK_LIBS
     MEL
     ws2_32
@@ -160,6 +170,15 @@ list(APPEND LINK_LIBS
     quanser_common
     bufferoverflowU
     legacy_stdio_definitions)
+
+if (MYO)
+    link_directories("${MYO_ROOT}/lib")
+    if (CMAKE_SIZEOF_VOID_P EQUAL 8) # 64-bit
+        list(APPEND LINK_LIBS myo64)
+    else() # 32-bit
+        list(APPEND LINK_LIBS myo32)
+    endif()
+endif()
 
 target_link_libraries(MEII ${LINK_LIBS})
 
