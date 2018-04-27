@@ -39,20 +39,7 @@ int main(int argc, char *argv[]) {
 
 	auto result = options.parse(argc, argv);
 
-	//keys.reserve(result.size());
-	//auto x = result[0].as<String>();
-	//print(x);
-
-	//for (auto kv : result) {
-	//	print(kv.first);
-	//}
-
-	//if (result.count("int"))
-	//	print(result["int"].as<int>());
-
-	//if (result.count("single"))
-	//	print(result["single"].as<String>());
-
+	// if -h, print the help option
 	if (result.count("help") > 0) {
 		print(options.help());
 		return 0;
@@ -67,48 +54,8 @@ int main(int argc, char *argv[]) {
 	// register ctrl-c handler
 	register_ctrl_handler(handler);
 
-
-	// construct Q8 USB and configure
-	/*Q8Usb q8;
-	q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
-	if (!q8.identify(7)) {
-		LOG(Error) << "Incorrect DAQ";
-		return 0;
-	}*/
-	Time Ts = milliseconds(1); // sample period for DAQ
-
-	// create MahiExoII and bind Q8 channels to it
-	/*std::vector<Amplifier> amplifiers;
-	std::vector<double> amp_gains;
-	for (uint32 i = 0; i < 2; ++i) {
-		amplifiers.push_back(
-			Amplifier("meii_amp_" + std::to_string(i),
-				Low,
-				q8.digital_output[i + 1],
-				1.8,
-				q8.analog_output[i + 1])
-		);
-	}
-	for (uint32 i = 2; i < 5; ++i) {
-		amplifiers.push_back(
-			Amplifier("meii_amp_" + std::to_string(i),
-				Low,
-				q8.digital_output[i + 1],
-				0.184,
-				q8.analog_output[i + 1])
-		);
-	}
-	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);
-	MahiExoII meii(config);*/
-
-	// calibrate - manually zero the encoders (right arm supinated)
-	//if (result.count("calibrate") > 0) {
-	//	meii.calibrate(stop);
-	//	LOG(Info) << "MAHI Exo-II encoders calibrated.";
-	//	return 0;
-	//}
+	// sample period for DAQ
+	Time Ts = milliseconds(1); 
 
 	// make MelShares
 	MelShare ms_pos("ms_pos");
@@ -135,6 +82,7 @@ int main(int argc, char *argv[]) {
 		Clock keypress_refract_clock;
 		Time keypress_refract_time = seconds(0.5);
 
+		// define DOFs
 		enum DoF {
 			ElbowFE, // ElbowFE = 0 by default
 			WristPS, // WristPS = 1
@@ -153,70 +101,7 @@ int main(int argc, char *argv[]) {
 		robot_log.set_record_format(DataFormat::Default, 12);
 		bool save_data = false;
 
-		// prompt user for input to select which DoF
-		print("Press number key for selecting single DoF trajectory.");
-		print("1 = Elbow Flexion/Extension");
-		print("2 = Wrist Pronation/Supination");
-		print("3 = Wrist Flexion/Extension");
-		print("4 = Wrist Radial/Ulnar Deviation");
-		print("Press 'Escape' to exit the program.");
-		int number_keypress;
-		bool dof_selected = false;
-		//bool save_data = true;
-		DoF dof = ElbowFE; // default
-		while (!dof_selected && !stop) {
-
-			// check for number keypress
-			number_keypress = Keyboard::is_any_num_key_pressed();
-			if (number_keypress >= 0) {
-				if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-					if (number_keypress > 0 && number_keypress <= 4) {
-						dof = (DoF)(number_keypress - 1);
-						dof_selected = true;
-						LOG(Info) << dof_str[dof] << " selected.";
-					}
-					keypress_refract_clock.restart();
-				}
-			}
-
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::Escape)) {
-				stop = true;
-				save_data = false;
-			}
-
-			// wait for remainder of sample period
-			timer.wait();
-		}
-
-		// prompt user for input to select which trajectory
-		print("Press 'L' for a linear trajectory, or 'D' for a dmp trajectory.");
-		std::string traj_type;
-		bool traj_selected = false;
-		while (!traj_selected && !stop) {
-
-			if (Keyboard::is_key_pressed(Key::D)) {
-				traj_selected = true;
-				traj_type = "dmp";
-			}
-
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::L)) {
-				traj_selected = true;
-				traj_type = "linear";
-			}
-
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::Escape)) {
-				stop = true;
-				save_data = false;
-			}
-
-			// wait for remainder of sample period
-			timer.wait();
-		}
-
-		// setup trajectory
+		// setup trajectories
 		std::size_t num_full_cycles = 2;
 		std::size_t current_cycle = 0;
 		std::vector<WayPoint> neutral_point_set = {
@@ -232,26 +117,31 @@ int main(int argc, char *argv[]) {
 		{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 0.09 }) }
 		};
 		std::vector<Time> dmp_durations = { seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0) };
-		WayPoint neutral_point = neutral_point_set[dof];
-		std::vector<WayPoint> extreme_points = extreme_points_set[dof];
-		Time dmp_duration = dmp_durations[dof];
 		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
 		Time dmp_Ts = milliseconds(50);
-		DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, extreme_points[0].set_time(dmp_duration));
+
+		// default dmp traj
+		DynamicMotionPrimitive dmp(dmp_Ts, neutral_point_set[0], extreme_points_set[0][0].set_time(dmp_durations[0]));
 		dmp.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
-		// for linear travel
+		// Initializing variables for linear travel
 		WayPoint initial_waypoint;
 		std::vector<WayPoint> waypoints(2);
 		Trajectory ref_traj;
-
-		if (!dmp.trajectory().validate()) {
-			LOG(Warning) << "DMP trajectory invalid.";
-			return 0;
-		}
 		WayPoint current_wp;
 		WayPoint next_wp;
+
+
+		// Initializing variables for dmp
+		DoF dof = ElbowFE; // default
+		WayPoint neutral_point;
+		std::vector<WayPoint> extreme_points;
+		Time dmp_duration;
+		bool dof_selected = false;
+		bool traj_selected = false;
+
+		std::string traj_type;
 		std::size_t current_extreme_idx = 0;
 
 		// construct clocks for waiting and trajectory
@@ -266,24 +156,18 @@ int main(int argc, char *argv[]) {
 
 
 		// create data containers
-		/*std::vector<double> rj_positions(meii.N_rj_);
-		std::vector<double> rj_velocities(meii.N_rj_);
-		std::vector<double> aj_positions(meii.N_aj_);
-		std::vector<double> aj_velocities(meii.N_aj_);
-		std::vector<double> command_torques(meii.N_aj_, 0.0);
-		std::vector<double> rps_command_torques(meii.N_qs_, 0.0);*/
 		std::vector<double> ref = { -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 };
-
-		// enable DAQ and exo
-		/*q8.enable();
-		meii.enable();*/
-
-		// initialize controller
-		/*meii.set_rps_control_mode(0);*/
 
 		// prompt user for input
 		print("Press 'Escape' to exit the program.");
 		print("Press 'Enter' to exit the program and save data.");
+
+		print("Press number key for selecting single DoF trajectory.");
+		print("1 = Elbow Flexion/Extension");
+		print("2 = Wrist Pronation/Supination");
+		print("3 = Wrist Flexion/Extension");
+		print("4 = Wrist Radial/Ulnar Deviation");
+		print("Press 'Escape' to exit the program.");
 
 		// start loop
 		LOG(Info) << "Robot Backdrivable.";
@@ -294,35 +178,92 @@ int main(int argc, char *argv[]) {
 			// begin switch state
 			switch (state) {
 			case 0: // backdrive
-				
+
+				int number_keypress;
+				//bool save_data = true;
+				if (!dof_selected) {
+
+					// check for number keypress
+					number_keypress = Keyboard::is_any_num_key_pressed();
+					if (number_keypress >= 0) {
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+							if (number_keypress > 0 && number_keypress <= 4) {
+								dof = (DoF)(number_keypress - 1);
+								dof_selected = true;
+								LOG(Info) << dof_str[dof] << " selected.";
+							}
+							keypress_refract_clock.restart();
+							print("Press 'L' for a linear trajectory, or 'D' for a dmp trajectory.");
+						}
+					}
+				}
+
+				// depending on DOF, create the start and end points of trajectories
+				neutral_point = neutral_point_set[dof];
+				extreme_points = extreme_points_set[dof];
+				dmp_duration = dmp_durations[dof];
+
+				// prompt user for input to select which trajectory
+				if (dof_selected && !traj_selected) {
+
+					// press D for dmp trajectory
+					if (Keyboard::is_key_pressed(Key::D)) {
+						traj_selected = true;
+						traj_type = "dmp";
+					}
+
+					// press L for dmp trajectory
+					if (Keyboard::is_key_pressed(Key::L)) {
+						traj_selected = true;
+						traj_type = "linear";
+					}
+
+					// check for exit key
+					if (Keyboard::is_key_pressed(Key::Escape)) {
+						stop = true;
+						save_data = false;
+					}
+				}
+
+				// Make sure trajectory is valid
+				if (!dmp.trajectory().validate()) {
+					LOG(Warning) << "DMP trajectory invalid.";
+					return 0;
+				}
 
 				// check for wait period to end
-				if (state_clock.get_elapsed_time() >= backdrive_time) {
+				if (traj_selected) {
 
-					// linear
+					dof_selected = false;
+					traj_selected = false;
+
+					// generate new trajectories
 					if (traj_type == "linear")
 					{
 						waypoints[0] = neutral_point.set_time(Time::Zero);
 						waypoints[1] = extreme_points[current_extreme_idx].set_time(dmp_duration);
 						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 					}
-
-					// dmp
-					if (traj_type == "dmp")
+					else if (traj_type == "dmp")
 					{
 						dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
 					}
 
 					ref_traj_clock.restart();
 					state = 1;
-					LOG(Info) << "Initializing RPS Mechanism.";
+					LOG(Info) << "Going to Extreme position";
 					state_clock.restart();
 				}
 				break;
 
 
 			case 1: // go to extreme position
-				if (traj_type=="linear") {
+
+
+				// move along reference trajectory for either linear or dmp
+				if (traj_type=="linear")
+				{
+
 					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 				}
 				else if (traj_type == "dmp")
@@ -331,7 +272,8 @@ int main(int argc, char *argv[]) {
 				}
 
 				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
-
+					
+					// set the ref to the last point of the trajectory
 					if (traj_type == "linear")
 					{
 						ref = ref_traj.back().get_pos();
@@ -348,6 +290,7 @@ int main(int argc, char *argv[]) {
 					}
 
 					state = 2;
+					LOG(Info) << "Waiting at extreme position";
 					state_clock.restart();
 				}
 				break;
@@ -358,7 +301,7 @@ int main(int argc, char *argv[]) {
 
 				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
 
-					// linear
+					// generate new trajectories
 					if (traj_type == "linear")
 					{
 						waypoints[0] = extreme_points[current_extreme_idx].set_time(Time::Zero);
@@ -366,16 +309,24 @@ int main(int argc, char *argv[]) {
 						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 					}
 
-					// dmp
-					if (traj_type == "dmp")
+					else if (traj_type == "dmp")
 					{
 						dmp.set_endpoints(extreme_points[current_extreme_idx].set_time(Time::Zero), neutral_point.set_time(dmp_duration));
 					}
 
-					current_extreme_idx++;
+					// change which extreme position will be visited next
+					if (current_extreme_idx == 0)
+					{
+						current_extreme_idx++;
+					}
+					else
+					{
+						current_extreme_idx--;
+					}
+					
 					state = 3;
 					
-					LOG(Info) << "Waiting at neutral position.";
+					LOG(Info) << "Going to neutral position.";
 					state_clock.restart();
 					ref_traj_clock.restart();
 				}
@@ -383,6 +334,7 @@ int main(int argc, char *argv[]) {
 
 			case 3: // go to neutral position
 
+				// move along reference trajectory for either linear or dmp
 				if (traj_type == "linear")
 				{
 					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
@@ -394,6 +346,7 @@ int main(int argc, char *argv[]) {
 
 				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
 
+					// set the ref to the last point of the trajectory
 					if (traj_type == "linear")
 					{
 						ref = ref_traj.back().get_pos();
@@ -408,6 +361,8 @@ int main(int argc, char *argv[]) {
 						stop = true;
 					}
 
+					LOG(Info) << "Waiting at neutral position.";
+
 					state = 4;
 					state_clock.restart();
 				}
@@ -418,29 +373,39 @@ int main(int argc, char *argv[]) {
 				// check if wait time has passed
 				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
 
+					// if only the first extreme has been visited
 					if (current_extreme_idx == 1) {
-						
-						// linear
+
+						// generate new trajectories
 						if (traj_type == "linear")
 						{
 							waypoints[0] = neutral_point.set_time(Time::Zero);
 							waypoints[1] = extreme_points[current_extreme_idx].set_time(dmp_duration);
 							ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 						}
-
-						// dmp
 						else if (traj_type == "dmp")
 						{
 							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
 						}
 
 						state = 1;
+						LOG(Info) << "Going to extreme position.";
 					}
+
+					// if both extrema have been visited, prompt for next trajectory
 					else {
-						current_extreme_idx--;
-						state = 5;
+						state = 0;
+
+						LOG(Info) << "Waiting at neutral position for user input.";
+
+						print("Press number key for selecting single DoF trajectory.");
+						print("1 = Elbow Flexion/Extension");
+						print("2 = Wrist Pronation/Supination");
+						print("3 = Wrist Flexion/Extension");
+						print("4 = Wrist Radial/Ulnar Deviation");
+						print("Press 'Escape' to exit the program.");
 					}
-					LOG(Info) << "Waiting at neutral position.";
+
 					state_clock.restart();
 					ref_traj_clock.restart();
 				}
@@ -448,29 +413,8 @@ int main(int argc, char *argv[]) {
 		}
 
 
-			// write to MelShares
-			/*ms_pos.write_data(aj_positions);
-			ms_vel.write_data(aj_velocities);
-			ms_trq.write_data(command_torques);
-			ms_ref.write_data(ref);*/
-
-			// write to MelShares
+			// write ref to MelShares
 			ms_ref.write_data(ref);
-
-			// write to data log
-			/*meii_mot_log_row[0] = timer.get_elapsed_time().as_seconds();
-			for (std::size_t i = 0; i < meii.N_rj_; ++i) {
-				meii_mot_log_row[i + 1] = meii[i].get_position();
-			}
-			meii_mot_log.push_back_row(meii_mot_log_row);
-			meii_sto_log_row[0] = timer.get_elapsed_time().as_seconds();
-			for (std::size_t i = 0; i < meii.N_rj_; ++i) {
-				meii_sto_log_row[i + 1] = meii[i].get_torque();
-			}
-			meii_sto_log.push_back_row(meii_sto_log_row);*/
-
-			// update all DAQ output channels
-			/*q8.update_output();*/
 
 			// check for save key
 			if (Keyboard::is_key_pressed(Key::Enter)) {
@@ -484,26 +428,18 @@ int main(int argc, char *argv[]) {
 				save_data = false;
 			}
 
-			// kick watchdog
-			/*if (!q8.watchdog.kick() || meii.any_limit_exceeded())
-				stop = true;*/
-
-			
-
+			// store the time and ref data to log to a csv
 			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
 			for (std::size_t i = 0; i < 5; ++i) {
 				robot_log_row[i+1] = ref[i];
 			}
-
 			robot_log.buffer(robot_log_row);
 
 			// wait for remainder of sample period
 			timer.wait();
 		}
 
-		/*meii.disable();
-		q8.disable();*/
-
+		// save the data if the user wants
 		if (save_data) {
 			print("Do you want to save the robot data log? (Y/N)");
 			Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
