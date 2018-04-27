@@ -35,6 +35,9 @@ target_link_libraries(ex_myoelectric_signal MEII)
 add_executable(ex_mes_array ex_mes_array.cpp)
 target_link_libraries(ex_mes_array MEII)
 
+add_executable(ex_pos_control_nathan ex_pos_control_nathan.cpp)
+target_link_libraries(ex_pos_control_nathan MEII)
+
 if(PHRI_LEARN)
 	add_executable(ex_dynamic_motion_primitive ex_dynamic_motion_primitive.cpp)
 	target_link_libraries(ex_dynamic_motion_primitive MEII)
