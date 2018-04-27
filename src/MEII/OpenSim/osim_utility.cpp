@@ -36,13 +36,13 @@ namespace meii {
 			for (std::size_t i = 0; i < data.col_count() - 1; i++) {
 				oss << data.get_col_name(i) << "\t";
 			}
-			oss << data.get_col_name(data.col_count() - 1) << std::endl;
+			oss << data.get_col_name(data.col_count() - 1) << "\r\n";
 			oss << std::endl;
 			for (std::size_t i = 0; i < data.row_count(); i++) {
 				for (size_t j = 0; j < data.col_count() - 1; ++j) {
 					oss << data(i, j) << "\t";
 				}
-				oss << data(i, data.col_count() - 1) << std::endl;
+				oss << data(i, data.col_count() - 1) << "\r\n";
 			}
 		}
 		file.write(oss.str());
@@ -78,12 +78,12 @@ namespace meii {
 			in_degrees_str = in_degrees_vals[0];
 		}
 		std::ostringstream oss;
-		oss << "Results" << std::endl;
-		oss << "version" << "=" << "1" << std::endl;
-		oss << "nRows" << "=" << table.row_count() << std::endl;
-		oss << "nColumns" << "=" << table.col_count() << std::endl;
-		oss << "inDegrees" << "=" << in_degrees_str << std::endl;
-		oss << "endheader" << std::endl;
+		oss << "Results" << "\r\n";
+		oss << "version" << "=" << "1" << "\r\n";
+		oss << "nRows" << "=" << table.row_count() << "\r\n";
+		oss << "nColumns" << "=" << table.col_count() << "\r\n";
+		oss << "inDegrees" << "=" << in_degrees_str << "\r\n";
+		oss << "endheader" << "\r\n";
 		return oss.str();
 	}
 
@@ -115,13 +115,13 @@ namespace meii {
 			for (std::size_t i = 0; i < data.col_count() - 1; i++) {
 				oss << data.get_col_name(i) << "\t";
 			}
-			oss << data.get_col_name(data.col_count() - 1) << std::endl;
-			oss << std::endl;
+			oss << data.get_col_name(data.col_count() - 1) << "\r\n";
+			oss << "\r\n";
 			for (std::size_t i = 0; i < data.row_count(); i++) {
 				for (size_t j = 0; j < data.col_count() - 1; ++j) {
 					oss << data(i, j) << "\t";
 				}
-				oss << data(i, data.col_count() - 1) << std::endl;
+				oss << data(i, data.col_count() - 1) << "\r\n";
 			}
 		}
 		file.write(oss.str());
@@ -145,12 +145,12 @@ namespace meii {
 			in_degrees_str = in_degrees_vals[0];
 		}
 		std::ostringstream oss;
-		oss << "controls" << std::endl;
-		oss << "version" << "=" << "1" << std::endl;
-		oss << "nRows" << "=" << table.row_count() << std::endl;
-		oss << "nColumns" << "=" << table.col_count() << std::endl;
-		oss << "inDegrees" << "=" << in_degrees_str << std::endl;
-		oss << "endheader" << std::endl;
+		oss << "controls" << "\r\n";
+		oss << "version" << "=" << "1" << "\r\n";
+		oss << "nRows" << "=" << table.row_count() << "\r\n";
+		oss << "nColumns" << "=" << table.col_count() << "\r\n";
+		oss << "inDegrees" << "=" << in_degrees_str << "\r\n";
+		oss << "endheader" << "\r\n";
 		return oss.str();
 	}
 
@@ -163,9 +163,23 @@ namespace meii {
 			"exo_wrist_rail_1_translation_x","exo_wrist_rail_2_translation_x","exo_wrist_rail_3_translation_x",
 			"exo_wrist_ring_rotation_x","exo_wrist_ring_rotation_y","exo_wrist_ring_rotation_z",
 			"exo_handle_translation_x" }),
-		coordinate_defaults_({ 0.0, -0.178, 0.22, 0.29153, -12.0, 0.0, 0.0, 0.0, -23.298353937957266, -23.298353937957266, -23.298353937957266, 0.1305, 0.1305, 0.1305, -0.381533904858006, -0.164299800232324, 23.297806897499196, 0.022225 })
+		coordinate_defaults_({ 0.0, -0.178, 0.22, 0.29153, 0.0, 0.0, 0.0, 0.0, -23.298353937957266, -23.298353937957266, -23.298353937957266, 0.1305, 0.1305, 0.1305, -0.381533904858006, -0.164299800232324, 23.297806897499196, 0.04445 })
 	{
 		set_col_names({ "time", coordinate_list_[5], coordinate_list_[7], coordinate_list_[11], coordinate_list_[12], coordinate_list_[13] });
+		for (std::size_t i = 0; i < coordinate_list_.size(); ++i) {
+			coordinate_map_.insert(std::pair<std::string, std::size_t>(coordinate_list_[i], i));
+		}
+	}
+
+	bool MeiiOsimMotTable::set_coordinate_defaults(const std::string &coordinate_name, double default_value) {
+		if (coordinate_map_.find(coordinate_name) == coordinate_map_.end()) {
+			LOG(Warning) << "Could not find MEII coordinate name given to set coordinate default value. Value not set.";
+			return false;
+		}
+		std::size_t index = std::distance(coordinate_map_.begin(), coordinate_map_.find(coordinate_name));
+		coordinate_defaults_[index] = default_value;
+		LOG(Info) << "Coordinate " << coordinate_list_[index] << " default value set to " << coordinate_defaults_[index];
+		return true;
 	}
 
 	MeiiOsimStoTable::MeiiOsimStoTable(const std::string &name) :

@@ -36,7 +36,7 @@ namespace meii {
 
 
 
-    bool bin_linear_discriminant_model(const std::vector<std::vector<double>>& class_0_data, const std::vector<std::vector<double>>& class_1_data, std::vector<double>& w, double& w_0) {
+    bool bin_linear_discriminant_model(const std::vector<std::vector<double>>& class_0_data, const std::vector<std::vector<double>>& class_1_data, std::vector<double>& w, double& w_0, double max_reg) {
 
         // data dimension
         std::size_t N_0 = class_0_data.size();
@@ -62,39 +62,90 @@ namespace meii {
             return false;
         }
 
-        Eigen::MatrixXd sample_cov = Eigen::MatrixXd::Zero(D, D);
-        Eigen::MatrixXd sample_cov_inv(D, D);
-        Eigen::VectorXd w_eig(D);
-        Eigen::VectorXd w_0_eig(1);
-        w = std::vector<double>(D);
+		// compute individual class sample means and covariance matrices
+		std::vector<double> class_0_sample_mean;
+		std::vector<std::vector<double>> class_0_sample_cov;	
+		gauss_mlt_params(class_0_data, class_0_sample_mean, class_0_sample_cov);
+		std::vector<double> class_1_sample_mean;
+		std::vector<std::vector<double>> class_1_sample_cov;
+		gauss_mlt_params(class_1_data, class_1_sample_mean, class_1_sample_cov);
+		
+		// compute the weighted single covariance matrix
+		double n_0 = (double)N_0;
+		double n_1 = (double)N_1;
+		std::vector<std::vector<double>> sample_cov(D, std::vector<double>(D, 0.0));
+		for (std::size_t i = 0; i < D; i++) {
+			for (std::size_t j = 0; j < D; j++) {
+				sample_cov[i][j] += (n_0 / (n_0 + n_1)) * class_0_sample_cov[i][j] + (n_1 / (n_0 + n_1)) * class_1_sample_cov[i][j];
+			}
+		}
 
-        std::vector<double> class_0_sample_mean;
-        std::vector<std::vector<double>> class_0_sample_cov;
-        gauss_mlt_params(class_0_data, class_0_sample_mean, class_0_sample_cov);
-        Eigen::VectorXd class_0_sample_mean_eig = copy_stdvec_to_eigvec(class_0_sample_mean);
-        Eigen::MatrixXd class_0_sample_cov_eig = copy_stdvecvec_to_eigmat(class_0_sample_cov);
 
-        std::vector<double> class_1_sample_mean;
-        std::vector<std::vector<double>> class_1_sample_cov;
-        gauss_mlt_params(class_1_data, class_1_sample_mean, class_1_sample_cov);
-        Eigen::VectorXd class_1_sample_mean_eig = copy_stdvec_to_eigvec(class_1_sample_mean);
-        Eigen::MatrixXd class_1_sample_cov_eig = copy_stdvecvec_to_eigmat(class_1_sample_cov);
+        //Eigen::MatrixXd sample_cov = Eigen::MatrixXd::Zero(D, D);
+        //Eigen::MatrixXd sample_cov_inv(D, D);
+        //Eigen::VectorXd w_eig(D);
+        //Eigen::VectorXd w_0_eig(1);
+        //w = std::vector<double>(D);
 
-        double n_0 = (double)N_0;
-        double n_1 = (double)N_1;
+        //std::vector<double> class_0_sample_mean;
+        //std::vector<std::vector<double>> class_0_sample_cov;
+        //gauss_mlt_params(class_0_data, class_0_sample_mean, class_0_sample_cov);
+        //Eigen::VectorXd class_0_sample_mean_eig = copy_stdvec_to_eigvec(class_0_sample_mean);
+        //Eigen::MatrixXd class_0_sample_cov_eig = copy_stdvecvec_to_eigmat(class_0_sample_cov);
 
-        sample_cov = (n_0 / (n_0 + n_1)) * class_0_sample_cov_eig + (n_1 / (n_0 + n_1)) * class_1_sample_cov_eig;
-        if (sample_cov.fullPivLu().isInvertible())
+        //std::vector<double> class_1_sample_mean;
+        //std::vector<std::vector<double>> class_1_sample_cov;
+        //gauss_mlt_params(class_1_data, class_1_sample_mean, class_1_sample_cov);
+        //Eigen::VectorXd class_1_sample_mean_eig = copy_stdvec_to_eigvec(class_1_sample_mean);
+        //Eigen::MatrixXd class_1_sample_cov_eig = copy_stdvecvec_to_eigmat(class_1_sample_cov);
+
+        
+
+        //sample_cov = (n_0 / (n_0 + n_1)) * class_0_sample_cov_eig + (n_1 / (n_0 + n_1)) * class_1_sample_cov_eig;
+        /*if (sample_cov.fullPivLu().isInvertible())
             sample_cov_inv = sample_cov.fullPivLu().inverse();
         else {
             LOG(Error) << "Sample covariance matrix cannot be inverted.";
+			std::cout << sample_cov;
             return false;
-        }
+        }*/
+
+
+		// convert to Eigen types for computing linear model
+		Eigen::VectorXd class_0_sample_mean_eig = copy_stdvec_to_eigvec(class_0_sample_mean);
+		Eigen::VectorXd class_1_sample_mean_eig = copy_stdvec_to_eigvec(class_1_sample_mean);
+		Eigen::MatrixXd sample_cov_eig = copy_stdvecvec_to_eigmat(sample_cov);
+		Eigen::VectorXd w_eig(D);
+		Eigen::VectorXd w_0_eig(1);	
+
+		// apply regularization if needed
+		double reg_increment = 0.00001;
+		std::size_t max_reg_count = (std::size_t)((unsigned)(std::abs(max_reg) / reg_increment));
+		std::size_t reg_count = 0;
+		if (!sample_cov_eig.fullPivLu().isInvertible()) {
+			if (max_reg_count > 0) {
+				LOG(Warning) << "Sample covariance matrix cannot be inverted. Applying regularization.";
+				while (!sample_cov_eig.fullPivLu().isInvertible() && reg_count < max_reg_count) {
+					for (std::size_t i = 0; i < D; ++i) {
+						sample_cov_eig(i, i) += reg_increment;
+					}
+					reg_count++;
+				}
+			}
+			if (reg_count == max_reg_count) {
+				LOG(Warning) << "Sample covariance matrix cannot be inverted. Printing covariance matrix and aborting model computation.";
+				std::cout << sample_cov_eig << std::endl << std::endl;
+				return false;
+			}
+		}
+		Eigen::MatrixXd sample_cov_inv_eig = sample_cov_eig.fullPivLu().inverse();
 
         // compute linear model
-        w_eig = sample_cov_inv * (class_1_sample_mean_eig - class_0_sample_mean_eig);
-        w_0_eig = -0.5 * class_1_sample_mean_eig.transpose() * sample_cov_inv * class_1_sample_mean_eig + 0.5 * class_0_sample_mean_eig.transpose() * sample_cov_inv * class_0_sample_mean_eig;
-        w = copy_eigvec_to_stdvec(w_eig);
+        w_eig = sample_cov_inv_eig * (class_1_sample_mean_eig - class_0_sample_mean_eig);
+        w_0_eig = -0.5 * class_1_sample_mean_eig.transpose() * sample_cov_inv_eig * class_1_sample_mean_eig + 0.5 * class_0_sample_mean_eig.transpose() * sample_cov_inv_eig * class_0_sample_mean_eig;
+		
+		// convert back from eigen types
+		w = copy_eigvec_to_stdvec(w_eig);
         w_0 = w_0_eig[0];
 
         return true;
@@ -149,13 +200,8 @@ namespace meii {
         Eigen::MatrixXd sample_cov_eig;
         Eigen::VectorXd w_row_eig;
         Eigen::VectorXd w_0_eig(K);
-        Eigen::VectorXd w_0_intermediate_eig;
+        //Eigen::VectorXd w_0_intermediate_eig;
         sample_cov_eig = copy_stdvecvec_to_eigmat(sample_cov);      
-        //if (!sample_cov_eig.fullPivLu().isInvertible()) {
-        //    LOG(Warning) << "Sample covariance matrix cannot be inverted. Model computation aborted.";
-        //    std::cout << sample_cov_eig << std::endl << std::endl;
-        //    return false;
-        //}
         double reg_increment = 0.00001;
         std::size_t max_reg_count = (std::size_t)((unsigned)(std::abs(max_reg) / reg_increment));
         std::size_t reg_count = 0;
@@ -179,8 +225,9 @@ namespace meii {
         for (std::size_t k = 0; k < K; ++k) {
             sample_mean_eig = copy_stdvec_to_eigvec(sample_means[k]);
             w_row_eig = sample_cov_eig.fullPivLu().solve(sample_mean_eig);
-            w_0_intermediate_eig = sample_cov_eig.fullPivLu().solve(sample_mean_eig);
-            w_0_eig[k] = -0.5 * sample_mean_eig.dot(w_0_intermediate_eig);
+            //w_0_intermediate_eig = sample_cov_eig.fullPivLu().solve(sample_mean_eig);
+            //w_0_eig[k] = -0.5 * sample_mean_eig.dot(w_0_intermediate_eig);
+			w_0_eig[k] = -0.5 * sample_mean_eig.dot(w_row_eig);
             w[k] = copy_eigvec_to_stdvec(w_row_eig);
         }
         w_0 = copy_eigvec_to_stdvec(w_0_eig);

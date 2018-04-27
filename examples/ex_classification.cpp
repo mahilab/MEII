@@ -44,8 +44,8 @@ int main(int argc, char *argv[]) {
     register_ctrl_handler(handler); 
    
     // initialize testing conditions
-    bool auto_train = true;
-	bool load_classifier = false;
+    bool auto_train = false;
+	bool load_classifier = true;
     std::size_t training_data_size = 50;
     Time Ts = milliseconds(1); // sample period
     std::size_t sample_dim = 3; // size of each sample
@@ -222,6 +222,10 @@ int main(int argc, char *argv[]) {
 		bool save_data = false;
 		std::string filename = "ex_classification_m.csv";
 
+		if (load_classifier) {
+			rt_classifier.load(filename, ".");
+		}
+
         if (auto_train) {
 
             // add training data
@@ -360,7 +364,11 @@ int main(int argc, char *argv[]) {
         int number_keypress = 0;
         std::size_t selected_classifier = 0;
 		bool save_data = false;
-		std::string filename = "ex_classification_m.csv";
+		std::string filename = "ex_classification_e.csv";
+
+		if (load_classifier) {
+			rt_classifier.load(filename, ".");
+		}
 
         if (auto_train) {
 

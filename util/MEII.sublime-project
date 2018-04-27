@@ -8,7 +8,7 @@
 			[
 				"source.cmake"
 			],
-			"shell_cmd": "cmake .. -G \"Visual Studio 15 2017 Win64\" -DOSIM=ON -DPHRI_LEARN=ON -DEMG_RT_CTRL=OFF -DEXAMPLES=ON -DTESTS=ON",
+			"shell_cmd": "cmake .. -G \"Visual Studio 15 2017 Win64\" -DOSIM=ON -DPHRI_LEARN=ON -DEMG_RT_CTRL=OFF -DMYO=ON -DEXAMPLES=ON -DTESTS=ON",
 			"working_dir": "$project_path/../build"
 		},
 		{
@@ -21,7 +21,7 @@
 			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
 			"name": "Anaconda Python Builder",
 			"selector": "source.python",
-			"shell_cmd": "\"python\" -u \"$file\""
+			"shell_cmd": "\"C:\\dev\\python27\" -u \"$file\""
 		}
 	],
 	"folders":
@@ -30,7 +30,8 @@
 			"path": "../"
 		}
 	],
-	"settings": {
+	"settings":
+	{
 		"python_interpreter": "C:\\dev\\python27"
 	}
 }

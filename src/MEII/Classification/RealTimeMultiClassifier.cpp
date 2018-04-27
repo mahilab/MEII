@@ -22,7 +22,7 @@ namespace meii {
         sample_buffer_(feature_window_size_),
         training_data_(class_count_),
         feature_data_(class_count_),
-        feature_dim_(get_feature_dim()),
+        //feature_dim_(get_feature_dim()),
         w_(class_count_),
         w_0_(class_count_),
         y_(class_count_),
@@ -46,7 +46,7 @@ namespace meii {
 
         y_ = w_0_;
         for (std::size_t i = 0; i < class_count_; ++i) {
-            for (std::size_t j = 0; j < feature_dim_; ++j) {
+            for (std::size_t j = 0; j < get_feature_dim(); ++j) {
                 y_[i] += w_[i][j] * phi_[j];
             }
         }
@@ -83,32 +83,40 @@ namespace meii {
     }
 
     bool RealTimeMultiClassifier::train() {
-        for (std::size_t i = 0; i < class_count_; ++i) {
-            if (training_data_[i].empty()) {
-                LOG(Warning) << "Must collect training data for all classes before calling RealTimeMultiClassifier::train(). Training was aborted.";
-                return trained_ = false;
-            }
-        }
+        //for (std::size_t i = 0; i < class_count_; ++i) {
+        //    if (training_data_[i].empty()) {
+        //        LOG(Warning) << "Must collect training data for all classes before calling RealTimeMultiClassifier::train(). Training was aborted.";
+        //        return trained_ = false;
+        //    }
+        //}
 
-        std::vector<std::vector<std::vector<double>>> binned_data;
-        for (std::size_t i = 0; i < class_count_; ++i) {
-            binned_data = bin_signal(training_data_[i], feature_window_size_);
-            feature_data_[i].resize(binned_data.size());
-            for (std::size_t j = 0; j < binned_data.size(); ++j) {
-                feature_data_[i][j] = feature_extraction(binned_data[j]);
-            }
-        }
-        if (!multi_linear_discriminant_model(feature_data_, w_, w_0_, 1.0))
-            return trained_ = false;
+        //std::vector<std::vector<std::vector<double>>> binned_data;
+        //for (std::size_t i = 0; i < class_count_; ++i) {
+        //    binned_data = bin_signal(training_data_[i], feature_window_size_);
+        //    feature_data_[i].resize(binned_data.size());
+        //    for (std::size_t j = 0; j < binned_data.size(); ++j) {
+        //        feature_data_[i][j] = feature_extraction(binned_data[j]);
+        //    }
+        //}
+
+		if (!compute_features()) {
+			return trained_ = false;
+		}
+
+		if (!multi_linear_discriminant_model(feature_data_, w_, w_0_, 1.0)) {
+			return trained_ = false;
+		}
 
         return trained_ = true;
     }
 
-	void RealTimeMultiClassifier::compute_features() {
+	bool RealTimeMultiClassifier::compute_features() {
+		bool all_classes_have_features = true;
 		std::vector<std::vector<std::vector<double>>> binned_data;
 		for (std::size_t i = 0; i < class_count_; ++i) {
 			if (training_data_[i].size() < feature_window_size_) {
 				LOG(Warning) << "Not enough training data was provided for class " << i << " when calling RealTimeMultiClassifier::compute_features().";
+				all_classes_have_features = false;
 			}
 			else {
 				binned_data = bin_signal(training_data_[i], feature_window_size_);
@@ -118,6 +126,7 @@ namespace meii {
 				}
 			}
 		}
+		return all_classes_have_features;
 	}
 
     bool RealTimeMultiClassifier::set_model(const std::vector<std::vector<double>>& w, const std::vector<double>& w_0) {
@@ -130,7 +139,7 @@ namespace meii {
             return trained_ = false;
         }
         for (std::size_t i = 0; i < class_count_; ++i) {
-            if (w[i].size() != feature_dim_) {
+            if (w[i].size() != get_feature_dim()) {
                 LOG(Warning) << "Classification model inner dimension size must match the size of the sample dimension. Model not set.";
                 return trained_ = false;
             }
@@ -249,15 +258,15 @@ namespace meii {
 	std::vector<Table> RealTimeMultiClassifier::make_datalog() const {
 		std::vector<Table> tables;
 
-		Table params("Parameters", { "sample_dim", "Ts", "classification_window_size", "pred_counter", "pred_spacing", "feature_dim", "trained" });
+		Table params("Parameters", { "class_count", "sample_dim", "Ts", "classification_window_size", "feature_window_size", "pred_spacing", "feature_dim", "trained" });
 		std::vector<double> params_values;
 		params_values.push_back((double)class_count_);
 		params_values.push_back((double)sample_dim_);
 		params_values.push_back(Ts_.as_seconds());
 		params_values.push_back((double)classification_window_size_);
 		params_values.push_back((double)feature_window_size_);
-		params_values.push_back((double)pred_counter_);
 		params_values.push_back((double)pred_spacing_);
+		params_values.push_back((double)get_feature_dim());
 		params_values.push_back((double)trained_);
 		params.set_values({ params_values });
 		tables.push_back(params);
@@ -273,12 +282,22 @@ namespace meii {
 
 		for (std::size_t i = 0; i < class_count_; ++i) {
 			Table table("Class" + stringify(i) + "FeatureData");
-			for (std::size_t j = 0; j < sample_dim_; ++j) {
+			for (std::size_t j = 0; j < get_feature_dim(); ++j) {
 				table.push_back_col("phi_" + stringify(j));
 			}
 			table.set_values(feature_data_[i]);
 			tables.push_back(table);
 		}
+
+		Table model("Model");
+		for (std::size_t j = 0; j < get_feature_dim(); ++j) {
+			model.push_back_col("w_" + stringify(j));
+		}
+		for (std::size_t i = 0; i < class_count_; ++i) {
+			model.push_back_row(w_[i]);
+		}
+		model.push_back_col("intercept", w_0_);
+		tables.push_back(model);
 
 		return tables;
 	}

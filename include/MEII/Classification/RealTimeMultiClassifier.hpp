@@ -59,7 +59,7 @@ namespace meii {
         void get_model(std::vector<std::vector<double>>& w, std::vector<double>& w_0);
 
 		/// Compute features from the existing training data and store them.
-		void compute_features();
+		bool compute_features();
 
         /// Get the current training data that has been added for a specific class.
         std::vector<std::vector<double>> get_class_training_data(std::size_t class_label) const;
@@ -117,7 +117,7 @@ namespace meii {
         std::vector<std::vector<std::vector<double>>> training_data_; ///< training data for all classes
         std::vector<std::vector<std::vector<double>>> feature_data_; ///< feature data computed from training data for all classes
 
-        std::size_t feature_dim_; ///< dimension of the feature space
+        //std::size_t feature_dim_; ///< dimension of the feature space
         std::vector<std::vector<double>> w_; ///< classification weighting coefficients
         std::vector<double> w_0_; ///< classification intercept
         std::vector<double> phi_; ///< classification input

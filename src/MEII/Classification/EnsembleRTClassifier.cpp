@@ -116,35 +116,17 @@ namespace meii {
 	bool EnsembleRTClassifier::load(const std::string &filename, const std::string& directory) {
 		std::vector<Table> tables;
 		if (DataLogger::read_from_csv(tables, filename, directory)) {
-			if (tables.size() != 6) {
-				LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. Incorrect number of Tables.";
-				return false;
-			}
-
-			if (tables[0].name().compare("Parameters") == 0) {
-				classifier_count_ = (std::size_t)tables[0](0, 0);
-				sample_dim_ = (std::size_t)tables[0](0, 1);
-				Ts_ = seconds(tables[0](0, 2));
-				classification_period_ = seconds(tables[0](0, 3));
-				feature_period_ = seconds(tables[0](0, 4));
-				classification_overlap_ = seconds(tables[0](0, 5));
-				trained_ = (bool)tables[0](0, 6);
-			}
-			else {
-				LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. No Parameters Table.";
-				return false;
-			}
+			return read_datalog(tables);
 		}
 		else {
 			return false;
 		}
-		return true;
 	}
 
 	std::vector<Table> EnsembleRTClassifier::make_datalog() const {
 		std::vector<Table> tables;
-
-		Table params("Parameters", { "classifier_count", "sample_dim", "Ts", "classification_period", "feature_period_", "classification_overlap_", "trained" });
+		
+		Table params("Parameters", { "classifier_count", "sample_dim", "Ts", "classification_period", "feature_period", "classification_overlap", "trained" });
 		std::vector<double> params_values;
 		params_values.push_back((double)classifier_count_);
 		params_values.push_back((double)sample_dim_);
@@ -157,10 +139,46 @@ namespace meii {
 		tables.push_back(params);
 
 		for (std::size_t i = 0; i < classifier_count_; ++i) {
-			std::vector<Table> single_classifier = classifiers_[i].make_datalog();
+			std::vector<Table> single_classifier = classifier_ptrs_[i]->make_datalog();
 			tables.insert(tables.end(), single_classifier.begin(), single_classifier.end());
 		}
 		return tables;
+	}
+
+	bool EnsembleRTClassifier::read_datalog(const std::vector<mel::Table> &tables) {
+		if (tables.empty()) {
+			LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. Incorrect number of Tables.";
+			return false;
+		}
+
+		if (tables[0].name().compare("Parameters") == 0) {
+			classifier_count_ = (std::size_t)tables[0](0, 0);
+			sample_dim_ = (std::size_t)tables[0](0, 1);
+			Ts_ = seconds(tables[0](0, 2));
+			classification_period_ = seconds(tables[0](0, 3));
+			feature_period_ = seconds(tables[0](0, 4));
+			classification_overlap_ = seconds(tables[0](0, 5));
+			trained_ = (bool)tables[0](0, 6);
+		}
+		else {
+			LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. No Parameters Table.";
+			return false;
+		}
+
+		if (tables.size() != 6 * classifier_count_ + 1) {
+			LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. Incorrect number of Tables.";
+			return false;
+		}
+		std::vector<Table> single_classifier(6);
+		resize(classifier_count_);
+		for (std::size_t i = 0; i < classifier_count_; ++i) {
+			std::copy(tables.begin() + 1 + 6 * i, tables.begin() + 1 + 6 * (i + 1), single_classifier.begin());
+			if (!classifier_ptrs_[i]->read_datalog(single_classifier)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
     void EnsembleRTClassifier::construct_classifiers() {
