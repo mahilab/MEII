@@ -55,11 +55,20 @@ namespace meii {
         /// Get latest prediction of the class label since calling update. If classifier not trained, return invalid label = class_count.
         std::size_t get_class() const;
 
+		/// Get latest features computed from the sample buffer since calling update.
+		const std::vector<double> &get_features() const;
+
+		/// Get latest model output computed from the sample buffer since calling update.
+		const std::vector<double> &get_model_output() const;
+
+		/// Get latest class posterior probabilities computed from the sample buffer since calling update.
+		const std::vector<double> &get_class_posteriors() const;
+
         /// Get the vector of w with w_0 on the end used for computing predictions.
         void get_model(std::vector<std::vector<double>>& w, std::vector<double>& w_0);
 
 		/// Compute features from the existing training data and store them.
-		bool compute_features();
+		bool compute_training_features();
 
         /// Get the current training data that has been added for a specific class.
         std::vector<std::vector<double>> get_class_training_data(std::size_t class_label) const;
@@ -76,8 +85,14 @@ namespace meii {
         /// Return the size of the feature space
         virtual std::size_t get_feature_dim() const;
 
+		/// Return the number of classes
+		std::size_t get_class_count() const;
+
 		/// Sets the number of classes. Clears stored training data, feature data, and classification model if size does not match.
 		void set_class_count(std::size_t class_count);
+
+		/// Clears data stored in the classification buffer and sample buffer.
+		void clear_buffers();
 
 		bool save(const std::string &filename = "real_time_multi_classifier", const std::string& directory = ".", bool timestamp = true);
 

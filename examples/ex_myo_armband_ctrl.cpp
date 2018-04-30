@@ -36,25 +36,6 @@ bool is_single_dof(std::size_t dof_index) {
 	return dof_index < 4;
 }
 
-bool is_calibration(std::size_t condition_index) {
-	return condition_index == 0;
-}
-
-bool is_training(std::size_t condition_index) {
-	return condition_index == 1;
-}
-
-bool is_testing(std::size_t condition_index) {
-	return condition_index == 2 || condition_index == 3;
-}
-
-bool is_blind(std::size_t condition_index) {
-	return condition_index == 2;
-}
-
-bool is_full(std::size_t condition_index) {
-	return condition_index == 3;
-}
 
 int main(int argc, char *argv[]) {
 
@@ -141,6 +122,7 @@ int main(int argc, char *argv[]) {
 	std::size_t selected_dir = 0;
 	std::size_t pred_class = 0;
 	std::size_t pred_dir = 0;
+	std::size_t true_class = 0;
 	bool save_active_detector = false;
 	bool save_dir_classifier = false;
 	bool RMS = true;
@@ -185,6 +167,7 @@ int main(int argc, char *argv[]) {
 	MelShare ms_emg("ms_emg");
 	MelShare ms_pred("ms_pred");		
 
+	// construct enums for selecting dof and experiment conditions
 	enum DoF {
 		ElbowFE, // ElbowFE = 0 by default
 		WristPS, // WristPS = 1
@@ -193,6 +176,15 @@ int main(int argc, char *argv[]) {
 		LastDoF
 	};
 	std::vector<std::string> dof_str = { "ElbowFE", "WristPS", "WristFE", "WristRU" };
+
+	enum Condition {
+		Calibration, // Calibration = 0 by default
+		Training, // Training = 1
+		BlindTesting, // BlindTesting = 2
+		FullTesting, // FullTesting = 3
+		LastCondition
+	};
+	std::vector<std::string> cond_str = { "Calibration", "Training", "BlindTesting", "FullTesting" };
 
 	// create robot anatomical joint space ranges
 	std::vector<std::vector<double>> setpoint_rad_ranges = { { -90 * DEG2RAD, 0 * DEG2RAD },
@@ -219,18 +211,20 @@ int main(int argc, char *argv[]) {
 		{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD,-15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD,-15 * DEG2RAD, 0.09 }) }
 	};
 	WayPoint final_point(Time::Zero, { -15 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 0.12 });
-	std::vector<Time> dmp_durations = { seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0) };
-	std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
-	Time time_to_start = seconds(3.0);
+	std::vector<Time> dmp_durations = { seconds(3.0), seconds(3.0), seconds(2.0), seconds(2.0), seconds(3.0), seconds(2.0) };
+	std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 45 * mel::DEG2RAD, 45 * mel::DEG2RAD, 0.1 };
+	Time time_to_start = seconds(2.0);
 	Time dmp_Ts = milliseconds(50);
-	std::size_t current_extreme_idx = 0;
 
 	// construct data logs
 	MeiiTable meii_std_log;
 	std::vector<double> meii_std_log_row(meii_std_log.col_count());
 	EmgTable emg_std_log("EmgTable", emg_channel_numbers, true, true, true, true);
 	std::vector<double> emg_std_log_row(emg_std_log.col_count());
+	Table testing_results_log;
+	std::vector<double> testing_results_log_row;
 	bool save_data = true;
+	bool save_testing_results = false;
 
 	// file management
 	std::string file_prefix;
@@ -249,9 +243,10 @@ int main(int argc, char *argv[]) {
 
 	// set up state machine
 	std::size_t state = 0;
-	Time backdrive_time = seconds(3);
-	Time wait_at_neutral_time = seconds(1);
-	Time wait_at_extreme_time = seconds(1);
+	Time backdrive_time = seconds(1);
+	Time wait_at_neutral_time = seconds(0.2);
+	Time wait_at_extreme_time = seconds(0.2);
+	bool full_testing_first_cycle = true;
 
 	// create data containers
 	std::vector<double> rj_positions(meii.N_rj_);
@@ -303,7 +298,7 @@ int main(int argc, char *argv[]) {
 							second_dof = (DoF)(dof_index * 2 - 7);
 							num_classes = 4;
 							LOG(Info) << dof_str[first_dof] << " and " << dof_str[second_dof] << " selected.";
-							file_prefix = dof_str[first_dof] + " and " + dof_str[second_dof];
+							file_prefix = dof_str[first_dof] + "_and_" + dof_str[second_dof];
 						}
 						
 					}					
@@ -334,7 +329,7 @@ int main(int argc, char *argv[]) {
 		if (!dmp.trajectory().validate()) {
 			LOG(Warning) << "DMP trajectory invalid.";
 			return 0;
-		}
+		}		
 
 		// prompt user for input to select which condition
 		print("Press number key for selecting experimental condition.");
@@ -344,7 +339,8 @@ int main(int argc, char *argv[]) {
 		print("4 = Testing of directional classifier with robot motion");
 		print("Press 'Escape' to exit the program.");
 		bool condition_selected = false;
-		std::size_t condition_index = 0; // default
+		//std::size_t condition_index = 0; // default
+		Condition cond = Calibration; // default
 		while (!condition_selected && !stop) {
 
 			// check for number keypress
@@ -352,7 +348,8 @@ int main(int argc, char *argv[]) {
 			if (number_keypress >= 0) {
 				if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 					if (number_keypress > 0 && number_keypress <= 4) {
-						condition_index = number_keypress - 1;
+						cond = (Condition)(number_keypress - 1);
+						LOG(Info) << cond_str[cond] << " selected.";
 						condition_selected = true;
 					}
 					keypress_refract_clock.restart();
@@ -369,21 +366,45 @@ int main(int argc, char *argv[]) {
 			timer.wait();
 		}
 
-		// set parameters based on selected condition
-		if (!is_calibration(condition_index)) {
+		// load classifiers based on selected condition
+		if (cond != Calibration) {
 			if (!active_detector.load(file_prefix + "_" + "emg_active_detector", output_path)) {
 				stop = true;
 				save_data = false;
 				LOG(Warning) << "Active detector could not be loaded.";
 			}
 		}
-		if (is_testing(condition_index)) {
+		if (cond != Calibration && cond != Training) {
 			if (!dir_classifier.load(file_prefix + "_" + "emg_directional_classifier", output_path)) {
 				stop = true;
 				save_data = false;
 				LOG(Warning) << "Directional classifier could not be loaded.";
 			}
 		}
+
+		// set logging parameters based on selected dof and condition
+		if (cond == BlindTesting) {
+			testing_results_log.rename("BlindTestingResults");
+		}
+		else if (cond == FullTesting) {
+			testing_results_log.rename("FullTestingResults");
+		}
+		if (cond == BlindTesting || cond == FullTesting) {
+			testing_results_log.push_back_col("time");
+			for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
+				testing_results_log.push_back_col("phi_" + stringify(i));
+			}
+			for (std::size_t i = 0; i < num_classes; ++i) {
+				testing_results_log.push_back_col("y_" + stringify(i));
+			}
+			for (std::size_t i = 0; i < num_classes; ++i) {
+				testing_results_log.push_back_col("p_" + stringify(i));
+			}
+			testing_results_log.push_back_col("true_label");
+			testing_results_log.push_back_col("pred_label");
+			testing_results_log_row.resize(testing_results_log.col_count());
+		}
+
 		
 		// enable DAQ and exo
 		q8.enable();
@@ -516,7 +537,7 @@ int main(int argc, char *argv[]) {
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() > wait_at_neutral_time) {
-					if (is_calibration(condition_index)) {
+					if (cond == Calibration) {
 						state = 7;
 						LOG(Info) << "Calibration of active/rest classifier.";
 						print("Press 'A + 0' to add 'rest' state training data to all classifiers.");
@@ -529,7 +550,7 @@ int main(int argc, char *argv[]) {
 						print("Press 'Enter' to finish and save active/rest classifier.");
 						print("Press 'Escape' to exit.");
 					}
-					else if (is_training(condition_index)) {
+					else if (cond == Training) {
 						state = 8;
 						LOG(Info) << "Training of direcitonal classifier.";
 						print("Press target number key to enable triggered data capture for that target.");
@@ -539,31 +560,31 @@ int main(int argc, char *argv[]) {
 						print("Press 'Enter' to finish and save directional classifier.");
 						print("Press 'Escape' to exit.");
 					}
-					else if (is_blind(condition_index)) {
-						state = 8;
-						LOG(Info) << "Training of direcitonal classifier.";
-						print("Press target number key to enable triggered data capture for that target.");
+					else if (cond == BlindTesting) {
+						state = 9;
+						LOG(Info) << "Blind testing of direcitonal classifier.";
+						print("Press target number key to enable triggered predictions for that target.");
 						print("Number of possible targets is:");
 						print(num_classes);
-						print("Press 'T' to train direction classifier and begin real-time classification.");
-						print("Press 'Enter' to finish and save directional classifier.");
+						print("Press 'Enter' to finish and save testing results.");
 						print("Press 'Escape' to exit.");
 					}
-					else if (is_full(condition_index)) {
-						state = 7;
-						LOG(Info) << "Calibration of active/rest classifier.";
-						print("Press 'A + 0' to add 'rest' state training data to all classifiers.");
-						print("Press 'C + 0' to clear 'rest' state training data from all classifiers.");
-						print("Press 'A + target #' to add 'active' state training data for one classifier.");
-						print("Press 'C + target #' to clear 'active' state training data for one classifier.");
-						print("Number of 'active' state classifiers is:");
-						print(num_classes);
-						print("Press 'T' to train classifier and begin real-time classification.");
-						print("Press 'Enter' to finish save active/rest classifier.");
-						print("Press 'Escape' to exit.");
-					}
-
-					
+					else if (cond == FullTesting) {
+						state = 9;
+						if (full_testing_first_cycle) {
+							LOG(Info) << "Blind testing of direcitonal classifier with robot motion.";
+							print("Press target number key to enable triggered predictions for that target.");
+							print("Number of possible targets is:");
+							print(num_classes);
+							print("Press 'Enter' to finish and save testing results.");
+							print("Press 'Escape' to exit.");
+							full_testing_first_cycle = false;
+						}
+						else {
+							LOG(Info) << "Waiting for prediction.";
+							dir_classifier.clear_buffers();
+						}
+					}					
 
 				}
 
@@ -620,7 +641,6 @@ int main(int argc, char *argv[]) {
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
-					current_extreme_idx++;
 					state = 2;
 					LOG(Info) << "Going to neutral position.";
 					dmp.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(dmp_duration));
@@ -892,6 +912,112 @@ int main(int argc, char *argv[]) {
 
 				break;
 
+
+			case 9: // testing of directional classifier
+
+				// predict state
+				if (active_detector.update(mes.get_tkeo_envelope())) {
+					active_state = active_detector.get_class();
+					if (dir_classifier.update(mes.get_demean())) {
+						pred_class = dir_classifier.get_class();					
+						if (pred_refract_clock.get_elapsed_time() > dir_pred_refract_time) {
+							if (active_state == 1) {
+								if (selected_dir > 0) {
+									true_class = selected_dir - 1;
+									pred_dir = pred_class + 1;
+									LOG(Info) << "Logging directional classifier prediction for class label " << true_class;
+									testing_results_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+									for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
+										testing_results_log_row[i + 1] = dir_classifier.get_features()[i];
+									}
+									for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
+										testing_results_log_row[i + 1 + dir_classifier.get_feature_dim()] = dir_classifier.get_model_output()[i];
+									}
+									for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
+										testing_results_log_row[i + 1 + dir_classifier.get_feature_dim() + dir_classifier.get_class_count()] = dir_classifier.get_class_posteriors()[i];
+									}
+									testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count()] = (double)true_class;
+									testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count() + 1] = (double)dir_classifier.get_class();
+									testing_results_log.push_back_row(testing_results_log_row);
+									if (cond == FullTesting) {
+										state = 4;
+										selected_dir = 0;
+										LOG(Info) << "Going to extreme position.";
+										dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[pred_class].set_time(dmp_duration));
+										if (!dmp.trajectory().validate()) {
+											LOG(Warning) << "DMP trajectory invalid.";
+											stop = true;
+										}
+										state_clock.restart();
+										ref_traj_clock.restart();
+									}
+									pred_refract_clock.restart();
+								}
+							}
+							else {
+								pred_dir = 0;
+							}
+						}						
+					}
+				}
+
+				// write prediction to melshare
+				ms_pred.write_data({ (double)pred_dir });
+
+
+				// update the selected target and enable active detection
+				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
+					number_keypress = Keyboard::is_any_num_key_pressed();
+					if (number_keypress >= 0) {
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+							if (number_keypress == 0) {
+								selected_dir = number_keypress;
+								print("No target currently selected.");
+							}
+							if (number_keypress > 0 && number_keypress <= num_classes) {
+								selected_dir = number_keypress;
+								print("Current target is " + stringify(selected_dir));
+							}
+							keypress_refract_clock.restart();
+						}
+					}
+				}
+
+				// finish testing and save the results
+				if (Keyboard::is_key_pressed(Key::Enter)) {
+					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+						state = 6;
+						save_testing_results = true;
+						LOG(Info) << "Going to final position.";
+						dmp.set_endpoints(neutral_point.set_time(Time::Zero), final_point.set_time(dmp_duration));
+						if (!dmp.trajectory().validate()) {
+							LOG(Warning) << "DMP trajectory invalid.";
+							stop = true;
+						}
+						keypress_refract_clock.restart();
+						state_clock.restart();
+						ref_traj_clock.restart();
+					}
+				}
+
+				// constrain trajectory to be within range
+				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+				}
+
+				// calculate anatomical command torques
+				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
+				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+				}
+				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+
+				// set anatomical command torques
+				meii.set_anatomical_joint_torques(command_torques);
+
+				break;
+
 			} // end switch state
 
 			// write to MelShares
@@ -918,16 +1044,21 @@ int main(int argc, char *argv[]) {
 			// write to EMG standard data log
 			emg_std_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
 			for (std::size_t i = 0; i < emg_channel_count; ++i) {
-				emg_std_log_row[i + 1] = mes.get_demean()[i];
+				emg_std_log_row[i + 1] = mes.get_raw()[i];
 			}
 			for (std::size_t i = 0; i < emg_channel_count; ++i) {
-				emg_std_log_row[i + 1 + emg_channel_count] = mes.get_envelope()[i];
+				emg_std_log_row[i + 1 + emg_channel_count] = mes.get_demean()[i];
+			}
+			for (std::size_t i = 0; i < emg_channel_count; ++i) {
+				emg_std_log_row[i + 1 + 2 * emg_channel_count] = mes.get_envelope()[i];
+			}
+			for (std::size_t i = 0; i < emg_channel_count; ++i) {
+				emg_std_log_row[i + 1 + 3 * emg_channel_count] = mes.get_tkeo_envelope()[i];
 			}
 			emg_std_log.push_back_row(emg_std_log_row);
 
 			// update all DAQ output channels
 			q8.update_output();
-
 
 			// check for exit key
 			if (Keyboard::is_key_pressed(Key::Escape)) {
@@ -947,14 +1078,8 @@ int main(int argc, char *argv[]) {
 		q8.disable();
 
 		if (save_data) {
-			if (is_single_dof(dof_index)) {
-				DataLogger::write_to_csv(meii_std_log, dof_str[first_dof] + "_" + "dmp" + "_" + "meii_std_log", output_path, false);
-				DataLogger::write_to_csv(emg_std_log, dof_str[first_dof] + "_" + "dmp" + "_" + "emg_std_log", output_path, false);
-			}
-			else {
-				DataLogger::write_to_csv(meii_std_log, dof_str[first_dof] + "_and_" + dof_str[second_dof] + "_" + "dmp" + "_" + "meii_std_log", output_path, false);
-				DataLogger::write_to_csv(emg_std_log, dof_str[first_dof] + "_and_" + dof_str[second_dof] + "_" + "dmp" + "_" + "emg_std_log", output_path, false);
-			}
+			DataLogger::write_to_csv(meii_std_log, file_prefix + "_" + "myo_armband" + "_" + "meii_std_log", output_path, false);
+			DataLogger::write_to_csv(emg_std_log, file_prefix + "_" + "myo_armband" + "_" + "emg_std_log", output_path, false);
 		}
 
 		if (save_active_detector) {
@@ -966,6 +1091,18 @@ int main(int argc, char *argv[]) {
 			dir_classifier.save(file_prefix + "_" + "emg_directional_classifier", output_path, false);
 			LOG(Info) << "Directional classifier saved.";
 		}
+
+		if (save_testing_results) {
+			if (cond == BlindTesting) {
+				DataLogger::write_to_csv(testing_results_log, file_prefix + "_" + "myo_armband_blind_results_log", output_path, false);
+				LOG(Info) << "Blind testing results log saved.";
+			}
+			else if (cond == FullTesting) {
+				DataLogger::write_to_csv(testing_results_log, file_prefix + "_" + "myo_armband_full_results_log", output_path, false);
+				LOG(Info) << "Full testing results log saved.";
+			}
+		}
+
 
 	} // keyboard interface
 

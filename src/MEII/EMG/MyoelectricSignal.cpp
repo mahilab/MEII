@@ -20,15 +20,19 @@ namespace meii {
         env_buffer_(buffer_capacity_),
         tkeo_env_buffer_(buffer_capacity_),
         hp_filter_(Butterworth(hp_filter_order, hp_filter_cutoff, Butterworth::Highpass, 100)),
+		full_rect_(true),
         lp_filter_(Butterworth(lp_filter_order, lp_filter_cutoff, Butterworth::Lowpass, 100)),
-        tkeo_lp_filter_(Butterworth(tkeo_lp_filter_order, tkeo_lp_filter_cutoff, Butterworth::Lowpass, 100))
+		half_rect_(false),
+		tkeo_full_rect_(true),
+        tkeo_lp_filter_(Butterworth(tkeo_lp_filter_order, tkeo_lp_filter_cutoff, Butterworth::Lowpass, 100)),
+		tkeo_half_rect_(false)
     { }
 
     void MyoelectricSignal::update() {
         raw_ = ai_channel_.get_value();
         demean_ = hp_filter_.update(raw_);
-        envelope_ = lp_filter_.update(rect_.update(demean_));
-        tkeo_envelope_ = tkeo_lp_filter_.update(tkeo_rect_.update(tkeo_.update(demean_)));
+        envelope_ = half_rect_.update(lp_filter_.update(full_rect_.update(demean_)));
+        tkeo_envelope_ = tkeo_half_rect_.update(tkeo_lp_filter_.update(tkeo_full_rect_.update(tkeo_.update(demean_))));
     }
 
     void MyoelectricSignal::update_and_buffer() {
@@ -68,11 +72,13 @@ namespace meii {
 
     void MyoelectricSignal::reset_signal_processing() {
         hp_filter_.reset();
-        rect_.reset();
+        full_rect_.reset();
         lp_filter_.reset();
+		half_rect_.reset();
         tkeo_.reset();
-        tkeo_rect_.reset();
+        tkeo_full_rect_.reset();
         tkeo_lp_filter_.reset();
+		tkeo_half_rect_.reset();
     }
 
     double MyoelectricSignal::get_raw() const {

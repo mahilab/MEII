@@ -32,7 +32,7 @@ namespace meii {
     public:
 
         /// Constructor
-        Rectifier();
+        Rectifier(bool full = true);
 
         /// applies the process operation for one sample
         double update(const double x, const mel::Time& current_time = mel::Time::Zero) override;
@@ -41,6 +41,8 @@ namespace meii {
         void reset() override;
 
     private:
+
+		bool full_; ///< if true full-wave rectification, if false half-wave rectification
 
     };
 

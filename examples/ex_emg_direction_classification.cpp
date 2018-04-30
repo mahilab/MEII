@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
 				//if (dir_classifier.train()) {
 				//	LOG(Info) << "Trained new active/rest classifier based on given data.";
 				//}
-				dir_classifier.compute_features();
+				dir_classifier.compute_training_features();
 
 				//print(dir_classifier.get_class_feature_data(0));
 

@@ -194,7 +194,6 @@ namespace meii {
                 }
             }
         }
-		std::cout << sample_cov << std::endl << std::endl;
 
         // convert to Eigen types for computing matrix inversions, then convert back
         Eigen::VectorXd sample_mean_eig;
@@ -203,10 +202,9 @@ namespace meii {
         Eigen::VectorXd w_0_eig(K);
         //Eigen::VectorXd w_0_intermediate_eig;
         sample_cov_eig = copy_stdvecvec_to_eigmat(sample_cov);
-		std::cout << sample_cov_eig << std::endl << std::endl;
-        double reg_increment = 0.00001;
+		double reg_increment = -20;
         //std::size_t max_reg_count = (std::size_t)((unsigned)(std::abs(max_reg) / reg_increment));
-		std::size_t max_reg_count = 1e4;
+		std::size_t max_reg_count = 300;
         std::size_t reg_count = 0;
     //    if (!sample_cov_eig.fullPivLu().isInvertible()) {
     //        if (max_reg_count > 0) {
@@ -227,14 +225,14 @@ namespace meii {
     //    }
 		if (sample_cov_eig.fullPivLu().rcond() < r_min) {
 			if (max_reg_count > 0) {
-				LOG(Warning) << "Sample covariance matrix cannot be inverted. Applying regularization.";
+				LOG(Warning) << "Sample covariance matrix is ill-conditioned. Applying regularization.";
 				while (sample_cov_eig.fullPivLu().rcond() < r_min && reg_count < max_reg_count) {
 					for (std::size_t i = 0; i < D; ++i) {
-						sample_cov_eig(i, i) += reg_increment;
+						sample_cov_eig(i, i) += std::exp(reg_increment);					
 					}
+					reg_increment += 0.1;
 					reg_count++;
 				}
-				LOG(Warning) << "Regularization coefficient used was " << reg_count * reg_increment;
 			}
 			if (reg_count == max_reg_count) {
 				LOG(Warning) << "Sample covariance matrix cannot be inverted. Printing covariance matrix and aborting model computation.";
@@ -242,16 +240,13 @@ namespace meii {
 				return false;
 			}
 		}
-		std::cout << sample_cov_eig.fullPivLu().rcond() << std::endl << std::endl;
         w.resize(K);
         for (std::size_t k = 0; k < K; ++k) {
             sample_mean_eig = copy_stdvec_to_eigvec(sample_means[k]);
             w_row_eig = sample_cov_eig.fullPivLu().solve(sample_mean_eig);
-			std::cout << w_row_eig << std::endl;
             //w_0_intermediate_eig = sample_cov_eig.fullPivLu().solve(sample_mean_eig);
             //w_0_eig[k] = -0.5 * sample_mean_eig.dot(w_0_intermediate_eig);
 			w_0_eig[k] = -0.5 * sample_mean_eig.dot(w_row_eig);
-			std::cout << w_0_eig << std::endl;
             w[k] = copy_eigvec_to_stdvec(w_row_eig);
         }
         w_0 = copy_eigvec_to_stdvec(w_0_eig);

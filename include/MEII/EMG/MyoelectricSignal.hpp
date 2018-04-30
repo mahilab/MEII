@@ -105,6 +105,7 @@ namespace meii {
 
         double raw_; ///< raw MES [V]
         double demean_; ///< MES after high-pass filtering to remove mean and motion artifacts
+		//double filt_; ///< MES after full-wave rectification and 
         double envelope_; ///< MES evnelope from rectification and low-pass filtering
         double tkeo_envelope_; ///< MES envelope from TKEO, rectification, and low-pass filtering
 
@@ -115,11 +116,13 @@ namespace meii {
         mel::RingBuffer<double> tkeo_env_buffer_; ///< signal buffer to hold time history of MES TKEO envelope
 
         mel::Filter hp_filter_; ///< high-pass filter for first phase of standard MES processing
-        Rectifier rect_; ///< full-wave rectifier for second phase of standard MES processing
-        mel::Filter lp_filter_; ///< low-pass filter for third and final phase of standard MES processing
+        Rectifier full_rect_; ///< full-wave rectifier for second phase of standard MES processing
+        mel::Filter lp_filter_; ///< low-pass filter for third phase of standard MES processing
+		Rectifier half_rect_; ///< half-wave rectifier for fourth and final phase of standard MES processing
         TeagerKaiserEnergyOperator tkeo_; ///< teager-kaiser energy operator for second phase of TKEO MES processing
-        Rectifier tkeo_rect_; ///< full-wave rectifier for third phase of standard MES processing
+        Rectifier tkeo_full_rect_; ///< full-wave rectifier for third phase of standard MES processing
         mel::Filter tkeo_lp_filter_; ///< low-pass filter for fourth and final phase of TKEO MES processing
+		Rectifier tkeo_half_rect_; ///< half-wave rectifier for fifth and final phase of TKEO MES processing
 
     };
 

@@ -39,8 +39,9 @@ namespace meii {
         }
 
         sample_buffer_.push_back(sample);
-        if (!sample_buffer_.full())
-            return false;
+		if (!sample_buffer_.full()) {
+			return false;
+		}
 
         phi_ = feature_extraction(sample_buffer_.get_vector());
 
@@ -99,18 +100,18 @@ namespace meii {
         //    }
         //}
 
-		if (!compute_features()) {
+		if (!compute_training_features()) {
 			return trained_ = false;
 		}
 
-		if (!multi_linear_discriminant_model(feature_data_, w_, w_0_, 1.0)) {
+		if (!multi_linear_discriminant_model(feature_data_, w_, w_0_, 0.1)) {
 			return trained_ = false;
 		}
 
         return trained_ = true;
     }
 
-	bool RealTimeMultiClassifier::compute_features() {
+	bool RealTimeMultiClassifier::compute_training_features() {
 		bool all_classes_have_features = true;
 		std::vector<std::vector<std::vector<double>>> binned_data;
 		for (std::size_t i = 0; i < class_count_; ++i) {
@@ -154,6 +155,27 @@ namespace meii {
             return class_count_;
         return pred_class_;
     }
+
+	const std::vector<double> &RealTimeMultiClassifier::get_features() const {
+		if (!trained_) {
+			LOG(Warning) << "Attempting to access RealTimeMultiClassifier features computed for prediction before the classifier has been trained.";
+		}
+		return phi_;
+	}
+
+	const std::vector<double> &RealTimeMultiClassifier::get_model_output() const {
+		if (!trained_) {
+			LOG(Warning) << "Attempting to access RealTimeMultiClassifier model output computed for prediction before the classifier has been trained.";
+		}
+		return y_;
+	}
+
+	const std::vector<double> &RealTimeMultiClassifier::get_class_posteriors() const {
+		if (!trained_) {
+			LOG(Warning) << "Attempting to access RealTimeMultiClassifier class posteriors computed for prediction before the classifier has been trained.";
+		}
+		return p_;
+	}
 
     void RealTimeMultiClassifier::get_model(std::vector<std::vector<double>>& w, std::vector<double>& w_0) {
         w = w_;
@@ -206,6 +228,10 @@ namespace meii {
         return sample_dim_;
     }
 
+	std::size_t RealTimeMultiClassifier::get_class_count() const {
+		return class_count_;
+	}
+
 	void RealTimeMultiClassifier::set_class_count(std::size_t class_count) {
 		class_count = class_count < 2 ? 2 : class_count;
 		if (class_count_ != class_count) {
@@ -218,6 +244,11 @@ namespace meii {
 			p_.resize(class_count);
 			trained_ = false;
 		}
+	}
+
+	void RealTimeMultiClassifier::clear_buffers() {
+		classification_buffer_.clear();
+		sample_buffer_.clear();
 	}
 
 	bool RealTimeMultiClassifier::save(const std::string &filename, const std::string& directory, bool timestamp) {
