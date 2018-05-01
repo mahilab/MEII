@@ -11,6 +11,7 @@
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
+#include <MEII/Control/MinimumJerk.hpp>
 #include <MEL/Math/Integrator.hpp>
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <vector>
@@ -132,6 +133,9 @@ int main(int argc, char *argv[]) {
 		WayPoint current_wp;
 		WayPoint next_wp;
 
+		//default mj traj
+		MinimumJerk mj(dmp_Ts, neutral_point_set[0], extreme_points_set[0][0].set_time(dmp_durations[0]));
+		mj.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
 		// Initializing variables for dmp
 		DoF dof = ElbowFE; // default
@@ -193,7 +197,7 @@ int main(int argc, char *argv[]) {
 								LOG(Info) << dof_str[dof] << " selected.";
 							}
 							keypress_refract_clock.restart();
-							print("Press 'L' for a linear trajectory, or 'D' for a dmp trajectory.");
+							print("Press 'L' for a linear trajectory, 'D' for a dmp trajectory, or 'M' for a minimum jerk trajectory.");
 						}
 					}
 				}
@@ -216,6 +220,12 @@ int main(int argc, char *argv[]) {
 					if (Keyboard::is_key_pressed(Key::L)) {
 						traj_selected = true;
 						traj_type = "linear";
+					}
+
+					// press L for dmp trajectory
+					if (Keyboard::is_key_pressed(Key::M)) {
+						traj_selected = true;
+						traj_type = "min_jerk";
 					}
 
 					// check for exit key
@@ -247,6 +257,12 @@ int main(int argc, char *argv[]) {
 					else if (traj_type == "dmp")
 					{
 						dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+						ref_traj = dmp.trajectory();
+					}
+					else if (traj_type == "min_jerk")
+					{
+						mj.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+						ref_traj = mj.trajectory();
 					}
 
 					ref_traj_clock.restart();
@@ -259,30 +275,12 @@ int main(int argc, char *argv[]) {
 
 			case 1: // go to extreme position
 
-
-				// move along reference trajectory for either linear or dmp
-				if (traj_type=="linear")
-				{
-
-					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
-				}
-				else if (traj_type == "dmp")
-				{
-					ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
-				}
+				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
 				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
 					
 					// set the ref to the last point of the trajectory
-					if (traj_type == "linear")
-					{
-						ref = ref_traj.back().get_pos();
-					}
-					else if (traj_type == "dmp")
-					{
-						ref = dmp.trajectory().back().get_pos();
-					}
-					
+					ref = ref_traj.back().get_pos();
 
 					if (!dmp.trajectory().validate()) {
 						LOG(Warning) << "DMP trajectory invalid.";
@@ -312,6 +310,13 @@ int main(int argc, char *argv[]) {
 					else if (traj_type == "dmp")
 					{
 						dmp.set_endpoints(extreme_points[current_extreme_idx].set_time(Time::Zero), neutral_point.set_time(dmp_duration));
+						ref_traj = dmp.trajectory();
+					}
+
+					else if (traj_type == "min_jerk")
+					{
+						mj.set_endpoints(extreme_points[current_extreme_idx].set_time(Time::Zero), neutral_point.set_time(dmp_duration));
+						ref_traj = mj.trajectory();
 					}
 
 					// change which extreme position will be visited next
@@ -335,26 +340,13 @@ int main(int argc, char *argv[]) {
 			case 3: // go to neutral position
 
 				// move along reference trajectory for either linear or dmp
-				if (traj_type == "linear")
-				{
-					ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
-				}
-				else if (traj_type == "dmp")
-				{
-					ref = dmp.trajectory().at_time(ref_traj_clock.get_elapsed_time());
-				}
+				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
 				if (ref_traj_clock.get_elapsed_time() >= dmp.trajectory().back().when()) {
 
 					// set the ref to the last point of the trajectory
-					if (traj_type == "linear")
-					{
-						ref = ref_traj.back().get_pos();
-					}
-					else if (traj_type == "dmp")
-					{
-						ref = dmp.trajectory().back().get_pos();
-					}
+					ref = ref_traj.back().get_pos();
+					
 
 					if (!dmp.trajectory().validate()) {
 						LOG(Warning) << "DMP trajectory invalid.";
@@ -386,7 +378,14 @@ int main(int argc, char *argv[]) {
 						else if (traj_type == "dmp")
 						{
 							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+							ref_traj = dmp.trajectory();
 						}
+						else if (traj_type == "min_jerk")
+						{
+							mj.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+							ref_traj = mj.trajectory();
+						}
+
 
 						state = 1;
 						LOG(Info) << "Going to extreme position.";
