@@ -136,7 +136,7 @@ int main(int argc, char *argv[]) {
         mes.update_and_buffer();
         
 		// check game conditions
-		game.set_experiment_conditions(hand, dof, num_classes, condition, menu);
+		//game.set_experiment_conditions(hand, dof, num_classes, condition, menu);
 		if (!menu && menu_prev) {
 			active_detector.resize(num_classes);
 			game.set_target(-1);
