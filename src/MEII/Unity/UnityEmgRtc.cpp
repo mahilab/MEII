@@ -7,83 +7,143 @@ using namespace mel;
 namespace meii {
 
     UnityEmgRtc::UnityEmgRtc() :
-        variables_set_(false),
-        hand_num_(0),
-        dof_(0),
-        num_classes_(0),
-        condition_(0),
+		game_(game_name_, game_path_),
+        arm_(Left),
+        dof_(ElbowFE),
+        num_classes_(2),
+        phase_(Calibration),
+		target_count_(8),
+		targets_(target_count_, 0.0),
+		arrows_(target_count_, 0.0),
         target_label_(-1),
         viz_target_num_(-1),
-        scene_num_(1, 0.0),
-        scene_int_(0),
+		arrow_scale_(0.0),
         effort_min_(0.0),
-        effort_max_(1.0),
-        ms_scene_("melshare_scene"),
-        ms_target_("melshare_target"),
-		ms_center_("melshare_center"),
-        ms_effort_("melshare_effort")
+        effort_max_(1.0),     
+        ms_targets_("targets"),
+		ms_center_("center"),
+        ms_arrows_("arrows"),
+		ms_ring_("ring")
     {
         viz_target_mapping_ = { { {3, 7}, {1, 5}, {1, 5}, {3, 7}, {2, 4, 8, 6}, {2, 4, 8, 6} }, { { 3, 7 },{ 5, 1 },{ 5, 1 },{ 3, 7 },{ 4, 2, 6, 8 },{ 4, 2, 6, 8 } } };
     }
 
 
     void UnityEmgRtc::launch() {
-        game.launch();
+        game_.launch();
     }
 
-    void UnityEmgRtc::set_experiment_conditions(std::size_t hand, std::size_t& dof, std::size_t& num_classes, std::size_t& condition, bool& menu) {
-        scene_num_ = ms_scene_.read_data();
-        if (scene_num_.empty())
-            return;
-        scene_int_ = (int)scene_num_[0];
-        if (scene_int_ == 0) {
-            menu = true;
-            hand_num_ = hand;
-        }
-        else if (scene_int_ > 0) {
-            menu = false;
-            hand_num_ = hand;
-            dof_ = (std::size_t)((unsigned)((scene_int_ - 1) / 4));
-            condition_ = (std::size_t)((unsigned)((scene_int_ - 1) % 4));
-            if (dof_ < 4) {
-                num_classes_ = 2;
-            }
-            else {
-                num_classes_ = 4;
-            }
-            dof = dof_;
-            condition = condition_;
-            num_classes = num_classes_;
-        }
-        variables_set_ = true;
+    void UnityEmgRtc::set_experiment_conditions(Arm arm, DoF dof, Phase phase) {
+        //scene_num_ = ms_scene_.read_data();
+        //if (scene_num_.empty())
+        //    return;
+        //scene_int_ = (int)scene_num_[0];
+        //if (scene_int_ == 0) {
+        //    menu = true;
+        //    hand_num_ = hand;
+        //}
+        //else if (scene_int_ > 0) {
+        //    menu = false;
+        //    hand_num_ = hand;
+        //    dof_ = (std::size_t)((unsigned)((scene_int_ - 1) / 4));
+        //    condition_ = (std::size_t)((unsigned)((scene_int_ - 1) % 4));
+        //    if (dof_ < 4) {
+        //        num_classes_ = 2;
+        //    }
+        //    else {
+        //        num_classes_ = 4;
+        //    }
+        //    dof = dof_;
+        //    condition = condition_;
+        //    num_classes = num_classes_;
+        //}
+
+		arm_ = arm;
+		dof_ = dof;
+		phase_ = phase;
+
+		if (dof_ < 4) {
+			num_classes_ = 2;
+		}
+		else {
+			num_classes_ = 4;
+		}
+
+		targets_ = std::vector<double>(target_count_, 0.0);
+		switch (dof) {
+		case ElbowFE:
+			targets_[2] = 1.0;
+			targets_[6] = 1.0;
+			break;
+		case WristPS:
+			targets_[0] = 1.0;
+			targets_[4] = 1.0;
+			break;
+		case WristFE:
+			targets_[0] = 1.0;
+			targets_[4] = 1.0;
+			break;
+		case WristRU:
+			targets_[2] = 1.0;
+			targets_[6] = 1.0;
+			break;
+		case ElbowFE_and_WristPS:
+			targets_[1] = 1.0;
+			targets_[3] = 1.0;
+			targets_[5] = 1.0;
+			targets_[7] = 1.0;
+			break;
+		case WristFE_and_WristRU:
+			targets_[1] = 1.0;
+			targets_[3] = 1.0;
+			targets_[5] = 1.0;
+			targets_[7] = 1.0;
+			break;
+		}
+		ms_center_.write_data({ 1.0 });
+		ms_targets_.write_data(targets_);
     }
 
     void UnityEmgRtc::set_target(int target_label) {
-        if (!variables_set_)
-            return;
+		if (viz_target_num_ >= 0) {
+			targets_[viz_target_num_ - 1] = 1.0;
+			arrows_[viz_target_num_ - 1] = 0.0;
+		}
         target_label_ = target_label;
         viz_target_num_ = compute_viz_target_num(target_label_);
-        ms_target_.write_data({ (double)viz_target_num_ });
+		targets_[viz_target_num_ - 1] = 2.0;
+		arrows_[viz_target_num_ - 1] = arrow_scale_;
+        ms_targets_.write_data(targets_);
     }
 
 	void UnityEmgRtc::set_center(bool center_glow) {
 		if (center_glow) {
-			ms_center_.write_data({ 1.0 });
+			ms_center_.write_data({ 2.0 });
 		}
 		else {
-			ms_center_.write_data({ 0.0 });
+			ms_center_.write_data({ 1.0 });
 		}
 	}
 
     void UnityEmgRtc::set_effort(double effort) {
-        effort = (saturate(effort, effort_min_, effort_max_) - effort_min_) / (effort_max_ - effort_min_);
-        ms_effort_.write_data({ effort });
+        arrow_scale_ = (saturate(effort, effort_min_, effort_max_) - effort_min_) / (effort_max_ - effort_min_);
+		arrows_[viz_target_num_ - 1] = arrow_scale_;
+        ms_arrows_.write_data(arrows_);
     }
 
     void UnityEmgRtc::set_effort_range(double effort_min, double effort_max) {
         effort_min_ = effort_min;
         effort_max_ = effort_max;
     }
+
+	void UnityEmgRtc::set_ring(bool visible) {
+		if (visible) {
+			ms_ring_.write_data({ 1.0 });
+		}
+		else {
+			ms_ring_.write_data({ 0.0 });
+		}
+	}
 
 	int UnityEmgRtc::get_target_label() const {
         return target_label_;
@@ -94,15 +154,13 @@ namespace meii {
     }
 
 	int UnityEmgRtc::compute_viz_target_num(int target_label) const {
-        if (target_label == 0)
-            return 0;
-        if (target_label < 0 || target_label > num_classes_)
-            return -1;
-        if (hand_num_ < 0 || hand_num_ > 1)
-            return -1;
-        if (dof_ < 0 || dof_ > 5)
-            return -1;
-        return viz_target_mapping_[hand_num_][dof_][target_label - 1];
+		if (target_label == 0) {
+			return 0;
+		}
+		if (target_label < 0 || target_label > num_classes_) {
+			return -1;
+		}
+        return viz_target_mapping_[arm_][dof_][target_label - 1];
     }
 
 } // namespace meii

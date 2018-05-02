@@ -4,8 +4,8 @@
 		"selected_items":
 		[
 			[
-				"MEII",
-				"MEII_SOURCE_FILES"
+				"Eig",
+				"EIGEN_ROOT"
 			],
 			[
 				"eMG",
@@ -195,10 +195,407 @@
 	},
 	"buffers":
 	[
+		{
+			"file": "/C/Git/MEII/CMakeLists.txt",
+			"settings":
+			{
+				"buffer_size": 7070,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"contents": "{\n\t\"build_systems\":\n\t[\n\t\t{\n\t\t\t\"file_regex\": \"/([^/:]+):(\\\\d+):(\\\\d+): \",\n\t\t\t\"name\": \"CMake (Windows MSVC)\",\n\t\t\t\"selector\":\n\t\t\t[\n\t\t\t\t\"source.cmake\"\n\t\t\t],\n\t\t\t\"shell_cmd\": \"cmake .. -G \\\"Visual Studio 15 2017 Win64\\\" -DOSIM=ON -DPHRI_LEARN=ON -DEMG_RT_CTRL=ON -DMYO=OFF -DEXAMPLES=ON -DTESTS=ON\",\n\t\t\t\"working_dir\": \"$project_path/../build\"\n\t\t},\n\t\t{\n\t\t\t\"file_regex\": \"^[ ]*File \\\"(...*?)\\\", line ([0-9]*)\",\n\t\t\t\"name\": \"CMake (Clean)\",\n\t\t\t\"shell_cmd\": \"python clean.py\",\n\t\t\t\"working_dir\": \"$project_path/../util\"\n\t\t},\n\t\t{\n\t\t\t\"file_regex\": \"^[ ]*File \\\"(...*?)\\\", line ([0-9]*)\",\n\t\t\t\"name\": \"Anaconda Python Builder\",\n\t\t\t\"selector\": \"source.python\",\n\t\t\t\"shell_cmd\": \"\\\"C:\\\\dev\\\\python27\\\" -u \\\"$file\\\"\"\n\t\t}\n\t],\n\t\"folders\":\n\t[\n\t\t{\n\t\t\t\"path\": \"../\"\n\t\t}\n\t],\n\t\"settings\":\n\t{\n\t\t\"python_interpreter\": \"C:\\\\dev\\\\python27\"\n\t}\n}\n",
+			"file": "MEII.sublime-project",
+			"file_size": 852,
+			"file_write_time": 131696195945181892,
+			"settings":
+			{
+				"buffer_size": 814,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Git/MEII/include/MEII/OpenSim/osim_utility.hpp",
+			"settings":
+			{
+				"buffer_size": 2804,
+				"line_ending": "Windows"
+			}
+		}
 	],
 	"build_system": "CMake (Windows MSVC)",
 	"build_system_choices":
 	[
+		[
+			[
+				[
+					"Anaconda Python Builder",
+					""
+				],
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Anaconda Python Builder",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Anaconda Python Builder",
+					""
+				],
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				],
+				[
+					"PuTTY",
+					""
+				],
+				[
+					"Visual Studio",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Anaconda Python Builder",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Anaconda Python Builder",
+					""
+				],
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"CMake (Clean)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Anaconda Python Builder",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					""
+				],
+				[
+					"Packages/Python/Python.sublime-build",
+					"Syntax Check"
+				]
+			],
+			[
+				"Packages/Python/Python.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Make)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Make)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"Make (Linux)",
+					""
+				],
+				[
+					"Make (Windows)",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				]
+			],
+			[
+				"CMake (Windows MSVC)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				]
+			],
+			[
+				"CMake (Windows MSVC)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				],
+				[
+					"PuTTY",
+					""
+				],
+				[
+					"Visual Studio",
+					""
+				]
+			],
+			[
+				"CMake (Windows MSVC)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				],
+				[
+					"Visual Studio",
+					""
+				]
+			],
+			[
+				"CMake (Windows MSVC)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Linux Ninja)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"CMake (Windows Ninja)",
+					""
+				],
+				[
+					"MELScope",
+					""
+				],
+				[
+					"Ninja (Linux)",
+					""
+				],
+				[
+					"Ninja (Windows)",
+					""
+				],
+				[
+					"Visual Studio",
+					""
+				],
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					""
+				],
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					"Run"
+				]
+			],
+			[
+				"CMake (Windows MSVC)",
+				""
+			]
+		],
 		[
 			[
 				[
@@ -235,6 +632,38 @@
 				]
 			],
 			[
+				"CMake (Clean)",
+				""
+			]
+		],
+		[
+			[
+				[
+					"CMake (Clean)",
+					""
+				],
+				[
+					"CMake (Windows MSVC)",
+					""
+				],
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					""
+				],
+				[
+					"Packages/C++/C++ Single File.sublime-build",
+					"Run"
+				],
+				[
+					"Packages/C++11/C++11.sublime-build",
+					""
+				],
+				[
+					"Packages/C++11/C++11.sublime-build",
+					"Run"
+				]
+			],
+			[
 				"CMake (Windows MSVC)",
 				""
 			]
@@ -243,7 +672,7 @@
 	"build_varint": "",
 	"command_palette":
 	{
-		"height": 354.0,
+		"height": 264.0,
 		"last_filter": "install",
 		"selected_items":
 		[
@@ -268,7 +697,7 @@
 				"Package Control: Install Package"
 			]
 		],
-		"width": 528.0
+		"width": 480.0
 	},
 	"console":
 	{
@@ -289,40 +718,37 @@
 	"expanded_folders":
 	[
 		"/C/Git/MEII",
-		"/C/Git/MEII/examples",
+		"/C/Git/MEII/include",
+		"/C/Git/MEII/src",
+		"/C/Git/MEII/src/MEII",
+		"/C/Git/MEII/src/MEII/Legacy",
+		"/C/Git/MEII/unity",
 		"/C/Git/MEII/util"
 	],
 	"file_history":
 	[
-		"/C/Git/MEII/CMakeLists.txt",
-		"/C/Git/MEII/util/MEII.sublime-project",
-		"/C/Git/MEII/examples/ex_pos_control_nathan.cpp",
-		"/C/Users/nbd2/Google Drive (nbd2@rice.edu)/Fall17/MECH501/Project/Final/asme2e.bib",
-		"/C/Users/nbd2/Google Drive (nbd2@rice.edu)/Fall17/MECH501/Project/Final/asme2ej.tex",
+		"/C/Git/MEII/include/MEII/EmgRealTimeControl/EmgRealTimeControl.hpp",
+		"/C/Git/MEII/include/MEII/EmgRealTimeControl/EmgRealTimeControlNoHardware.hpp",
+		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControlNoHardware.cpp",
+		"/C/Git/MEII/src/MEII/emg_real_time_control_no_hardware.cpp",
+		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControl.cpp",
+		"/C/Git/MEII/src/MEII/Utility/VirtualInput.cpp",
+		"/C/Git/MEII/include/MEII/Utility/VirtualInput.hpp",
+		"/C/Git/MEII/examples/ex_emg_triggered_direction_classification.cpp",
 		"/C/Git/MEII/examples/CMakeLists.txt",
-		"/C/Git/MEII/src/MEII/EmgRealTimeControl/EmgRealTimeControlNoRobot.cpp",
-		"/C/Git/MEII/include/MEII/EmgRealTimeControl/EmgRealTimeContolNoRobot.hpp",
-		"/C/Git/MEII/src/emg_real_time_control_no_robot.cpp",
-		"/C/Users/Ted/Desktop/gamemanagerbackup.txt",
-		"/C/Users/Ted/Desktop/targetringscriptbackup.txt",
-		"/C/Users/Ted/GitHub/MEII/examples/CMakeLists.txt",
-		"/C/Users/Ted/GitHub/MEII/CMakeLists.txt",
-		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA.py",
-		"/C/Users/Ted/GitHub/MEII/include/MEII/Utility/LoggingUtil.hpp",
-		"/C/Users/Ted/GitHub/MEII/src/MEII/Utility/LoggingUtil.cpp",
-		"/C/Users/Ted/GitHub/MEII/examples/ex_dynamic_motion_primitive.cpp",
-		"/C/Users/Ted/GitHub/MEII/examples/ex_dynamic_motions_primitive.cpp",
-		"/C/Users/Ted/GitHub/MEII/include/MEII/Control/WayPoint.hpp",
-		"/C/Users/Ted/GitHub/MEII/src/MEII/Control/WayPoint.cpp",
-		"/C/Users/Ted/GitHub/MEII/examples/ex_mes_array.cpp",
-		"/C/Users/Ted/GitHub/MEL/CMakeLists.txt",
-		"/C/Users/Ted/GitHub/MEII/examples/ex_myoelectric_signal.cpp",
-		"/C/Users/Ted/GitHub/MEII/include/Control/Trajectory.hpp",
-		"/C/Users/Ted/GitHub/MEII/util/clean.py",
+		"/C/Git/MEII/examples/ex_emg_active_classification_unity.cpp",
+		"/C/Users/cgm4/Documents/GitHub/MEII/CMakeLists.txt",
+		"/C/Users/cgm4/Documents/GitHub/MEII/util/MEII.sublime-project",
+		"/C/Users/cgm4/Documents/GitHub/MEII/util/clean.py",
+		"/C/Users/cgm4/AppData/Roaming/Sublime Text 3/Packages/Anaconda/Anaconda.sublime-settings",
+		"/C/Users/cgm4/AppData/Roaming/Sublime Text 3/Packages/User/Anaconda.sublime-settings",
 		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/Exo.cpp",
+		"/C/Users/Ted/GitHub/MEII/include/Control/Trajectory.hpp",
 		"/C/Users/Ted/Box Sync/OpenSim_Modeling/MAHI_EXO_II_only/MATLAB/out.log",
 		"/C/Users/Ted/Box Sync/OpenSim_Modeling/MAHI_EXO_II_only/MATLAB/err.log",
 		"/C/Users/Ted/GitHub/MEII/tools/MEII.sublime-project",
+		"/C/Users/Ted/GitHub/MEII/examples/CMakeLists.txt",
+		"/C/Users/Ted/GitHub/MEII/CMakeLists.txt",
 		"/C/Users/Ted/GitHub/MEII/src/Utility/Matrix.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/Utility/Matrix.cpp",
 		"/C/Users/Ted/GitHub/MEII/examples/ex_matrix.cpp",
@@ -357,6 +783,7 @@
 		"/C/Users/Ted/GitHub/MEII/include/EMG/EmgFeatures.hpp",
 		"/C/Users/Ted/GitHub/MEII/src/Testing/test_classification.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/SignalProcessing/SignalProcessingFunctions.hpp",
+		"/C/Users/Ted/GitHub/MEL/CMakeLists.txt",
 		"/C/Users/Ted/GitHub/MEII/include/Classification/LinearDiscriminantAnalysis.hpp",
 		"/C/Users/Ted/GitHub/MEII/include/EMG/EmgDataCapture.hpp",
 		"/C/Users/Ted/GitHub/MEII/src/EMG/EmgDataCapture.cpp",
@@ -403,6 +830,7 @@
 		"/C/Users/Ted/GitHub/MEL/examples/ex_filter.cpp",
 		"/C/Users/Ted/Box Sync/EMG_Exo/Exo_Run_Files/Exo_Kinematics/phi_d_qp.txt",
 		"/C/Users/Ted/GitHub/MEL/include/MEL/Logging/DataLog.hpp",
+		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA.py",
 		"/C/Users/Ted/Box Sync/EMG_Exo/EmgRTControl/Mapping_offline/muscle_mapping_classification_all_features.py",
 		"/C/Users/Ted/Box Sync/EMG_Exo/EmgRTControl/Mapping_offline/muscle_mapping_classification_feature_select.py",
 		"/C/Users/Ted/GitHub/MEII/python/EMG_FS_LDA_offline.py",
@@ -421,11 +849,16 @@
 		"/C/Users/Ted/GitHub/MEL/include/MEL/Math/TeagerKaiserEnergyOperator.hpp",
 		"/C/Users/Ted/GitHub/MEL/include/MEL/Math/Process.hpp",
 		"/C/Users/Ted/GitHub/MEL/src/MEL/Math/Process.cpp",
-		"/C/Users/Ted/GitHub/MEII/python/MelShare.py"
+		"/C/Users/Ted/GitHub/MEII/python/MelShare.py",
+		"/C/Users/Ted/GitHub/MEL/python/MelScope.pyw",
+		"/C/Users/Ted/GitHub/MEL/TODO",
+		"/C/Users/Ted/GitHub/MEII/bin/release/MEL.log",
+		"/C/Users/Ted/GitHub/MEL/examples/ex_udp_exo_teleop.cpp",
+		"/C/Users/Ted/Desktop/Backup_MEII/bin/EMG_FS_LDA.py"
 	],
 	"find":
 	{
-		"height": 70.0
+		"height": 23.0
 	},
 	"find_in_files":
 	{
@@ -439,6 +872,8 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"read_csv",
+			"EmgRTControl"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -456,14 +891,622 @@
 	"groups":
 	[
 		{
+			"selected": 1,
 			"sheets":
 			[
+				{
+					"buffer": 0,
+					"file": "/C/Git/MEII/CMakeLists.txt",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 7070,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								5400,
+								5400
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.clone": -1,
+							"bracket_highlighter.clone_locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										4861,
+										4862
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/round_bracket.png",
+										"region.yellowish"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										4674,
+										4675
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.clone_regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										5399,
+										5400
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/round_bracket.png",
+										"region.yellowish"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										5398,
+										5399
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"git_gutter_is_enabled": true,
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/CMake/CMake.sublime-syntax",
+							"tab_size": 4,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "MEII.sublime-project",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 814,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								740,
+								740
+							]
+						],
+						"settings":
+						{
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.clone": -1,
+							"bracket_highlighter.clone_locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										739,
+										740
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/double_quote.png",
+										"region.greenish"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										735,
+										736
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.clone_regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+									"1":
+									[
+										739,
+										740
+									]
+								},
+								"icon":
+								{
+									"1":
+									[
+										"Packages/BracketHighlighter/icons/double_quote.png",
+										"region.greenish"
+									]
+								},
+								"open":
+								{
+									"1":
+									[
+										735,
+										736
+									]
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"git_gutter_is_enabled": true,
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/zzz A File Icon zzz/aliases/JSON (Sublime).sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "/C/Git/MEII/include/MEII/OpenSim/osim_utility.hpp",
+					"semi_transient": true,
+					"settings":
+					{
+						"buffer_size": 2804,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								878
+							]
+						],
+						"settings":
+						{
+							"SL.69.region_keys":
+							[
+							],
+							"bracket_highlighter.busy": false,
+							"bracket_highlighter.clone": -1,
+							"bracket_highlighter.clone_locations":
+							{
+								"close":
+								{
+								},
+								"icon":
+								{
+								},
+								"open":
+								{
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.clone_regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"bracket_highlighter.locations":
+							{
+								"close":
+								{
+								},
+								"icon":
+								{
+								},
+								"open":
+								{
+								},
+								"unmatched":
+								{
+								}
+							},
+							"bracket_highlighter.regions":
+							[
+								"bh_c_define",
+								"bh_c_define_center",
+								"bh_c_define_open",
+								"bh_c_define_close",
+								"bh_c_define_content",
+								"bh_round",
+								"bh_round_center",
+								"bh_round_open",
+								"bh_round_close",
+								"bh_round_content",
+								"bh_single_quote",
+								"bh_single_quote_center",
+								"bh_single_quote_open",
+								"bh_single_quote_close",
+								"bh_single_quote_content",
+								"bh_unmatched",
+								"bh_unmatched_center",
+								"bh_unmatched_open",
+								"bh_unmatched_close",
+								"bh_unmatched_content",
+								"bh_square",
+								"bh_square_center",
+								"bh_square_open",
+								"bh_square_close",
+								"bh_square_content",
+								"bh_regex",
+								"bh_regex_center",
+								"bh_regex_open",
+								"bh_regex_close",
+								"bh_regex_content",
+								"bh_default",
+								"bh_default_center",
+								"bh_default_open",
+								"bh_default_close",
+								"bh_default_content",
+								"bh_curly",
+								"bh_curly_center",
+								"bh_curly_open",
+								"bh_curly_close",
+								"bh_curly_content",
+								"bh_double_quote",
+								"bh_double_quote_center",
+								"bh_double_quote_open",
+								"bh_double_quote_close",
+								"bh_double_quote_content",
+								"bh_tag",
+								"bh_tag_center",
+								"bh_tag_open",
+								"bh_tag_close",
+								"bh_tag_content",
+								"bh_angle",
+								"bh_angle_center",
+								"bh_angle_open",
+								"bh_angle_close",
+								"bh_angle_content"
+							],
+							"git_gutter_is_enabled": true,
+							"incomplete_sync": null,
+							"remote_loading": false,
+							"synced": false,
+							"syntax": "Packages/C++11/C++11.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				}
 			]
 		}
 	],
 	"incremental_find":
 	{
-		"height": 25.0
+		"height": 23.0
 	},
 	"input":
 	{
@@ -496,11 +1539,23 @@
 	{
 		"height": 0.0
 	},
+	"output.SublimeLinter Messages":
+	{
+		"height": 132.0
+	},
 	"output.exec":
 	{
-		"height": 120.0
+		"height": 212.0
 	},
 	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"output.mdpopups":
+	{
+		"height": 0.0
+	},
+	"output.sftp":
 	{
 		"height": 0.0
 	},
@@ -508,7 +1563,7 @@
 	"project": "MEII.sublime-project",
 	"replace":
 	{
-		"height": 46.0
+		"height": 42.0
 	},
 	"save_all_on_build": true,
 	"select_file":
