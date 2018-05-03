@@ -87,13 +87,13 @@ namespace meii {
 			targets_[2] = 1.0;
 			targets_[6] = 1.0;
 			break;
-		case ElbowFE_and_WristPS:
+		case ElbowFE_WristPS:
 			targets_[1] = 1.0;
 			targets_[3] = 1.0;
 			targets_[5] = 1.0;
 			targets_[7] = 1.0;
 			break;
-		case WristFE_and_WristRU:
+		case WristFE_WristRU:
 			targets_[1] = 1.0;
 			targets_[3] = 1.0;
 			targets_[5] = 1.0;

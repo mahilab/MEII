@@ -102,6 +102,9 @@ namespace meii {
 
 		bool read_datalog(const std::vector<mel::Table> &tables);
 
+		/// uses 1-based indexing of class labels
+		bool export_training_features(const std::string &filename = "real_time_multi_classifier_training_features", const std::string& directory = ".", bool timestamp = true);
+
     protected:
 
         /// Convert window of observations into feature vector for classification.

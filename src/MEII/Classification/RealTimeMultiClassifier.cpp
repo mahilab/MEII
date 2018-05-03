@@ -286,7 +286,9 @@ namespace meii {
 			for (std::size_t j = 0; j < sample_dim_; ++j) {
 				table.push_back_col("x_" + stringify(j));
 			}
-			table.set_values(training_data_[i]);
+			if (!training_data_[i].empty()) {
+				table.set_values(training_data_[i]);
+			}
 			tables.push_back(table);
 		}
 
@@ -295,7 +297,9 @@ namespace meii {
 			for (std::size_t j = 0; j < get_feature_dim(); ++j) {
 				table.push_back_col("phi_" + stringify(j));
 			}
-			table.set_values(feature_data_[i]);
+			if (!feature_data_.empty()) {
+				table.set_values(feature_data_[i]);
+			}
 			tables.push_back(table);
 		}
 
@@ -303,10 +307,15 @@ namespace meii {
 		for (std::size_t j = 0; j < get_feature_dim(); ++j) {
 			model.push_back_col("w_" + stringify(j));
 		}
-		for (std::size_t i = 0; i < class_count_; ++i) {
-			model.push_back_row(w_[i]);
+		if (trained_) {
+			for (std::size_t i = 0; i < class_count_; ++i) {
+				model.push_back_row(w_[i]);
+			}
+			model.push_back_col("intercept", w_0_);
 		}
-		model.push_back_col("intercept", w_0_);
+		else {
+			model.push_back_col("intercept");
+		}
 		tables.push_back(model);
 
 		return tables;
@@ -352,6 +361,20 @@ namespace meii {
 		}
 
 		return true;
+	}
+
+	bool RealTimeMultiClassifier::export_training_features(const std::string &filename, const std::string& directory, bool timestamp) {
+		Table training_features("RtmcTrainingFeatures");
+		for (std::size_t j = 0; j < get_feature_dim(); ++j) {
+			training_features.push_back_col("phi_" + stringify(j));
+		}
+		std::vector<double> true_labels;
+		for (std::size_t i = 0; i < class_count_; ++i) {			
+			training_features.push_back_rows(feature_data_[i]);
+			true_labels.insert(true_labels.end(), feature_data_[i].size(), i + 1);
+		}		
+		training_features.push_back_col("true_label", true_labels);
+		return DataLogger::write_to_csv(training_features, filename, directory, timestamp);
 	}
 
     std::vector<double> RealTimeMultiClassifier::feature_extraction(const std::vector<std::vector<double>>& signal) const {

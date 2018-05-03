@@ -18,6 +18,8 @@
 #ifndef EMG_REAL_TIME_CONTROL_HPP
 #define EMG_REAL_TIME_CONTROL_HPP
 
+#include <vector>
+
 namespace meii {
 
 	enum Arm {
@@ -31,8 +33,8 @@ namespace meii {
 		WristPS, // WristPS = 1
 		WristFE, // WristFE = 2
 		WristRU, // WristRU = 3
-		ElbowFE_and_WristPS, // ElbowFE_and_WristPS = 4
-		WristFE_and_WristRU, // WristFE_and_WristRU = 5
+		ElbowFE_WristPS, // ElbowFE_WristPS = 4
+		WristFE_WristRU, // WristFE_WristRU = 5
 		LastDoF
 	};
 
@@ -43,6 +45,15 @@ namespace meii {
 		FullTesting, // FullTesting = 3
 		LastCondition
 	};
+
+	// return true if given DoF is single-DoF, as opposed to multi-DoF
+	bool is_single_dof(DoF dof);
+
+	// generates list of num_labels randomly distributed unsigned integers from zero to num_classes - 1
+	std::vector<std::size_t> gen_rand_class_labels(std::size_t num_labels, std::size_t num_classes);
+
+	// generates list of num_lables_per_class * num_classes randomly shuffled unsigned integers from zero to num_classes - 1
+	std::vector<std::size_t> rand_shuffle_class_labels(std::size_t num_labels_per_class, std::size_t num_classes);
 
 } // namespace meii
 

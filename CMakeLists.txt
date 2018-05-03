@@ -210,6 +210,11 @@ if(PHRI_LEARN)
     target_link_libraries(phri_learning MEII)
 endif()
 
+if (MYO)
+    add_executable(myo_armband_ml src/myo_armband_ml.cpp)
+    target_link_libraries(myo_armband_ml MEII)
+endif()
+
 if(EXAMPLES)
     add_subdirectory(examples)
 endif()

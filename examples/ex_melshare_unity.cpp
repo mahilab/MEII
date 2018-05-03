@@ -19,10 +19,6 @@ bool handler(CtrlEvent event) {
     return true;
 }
 
-bool is_single_dof(DoF dof) {
-	return dof < 4;
-}
-
 int main() {
 
     // register ctrl-c handler
@@ -50,15 +46,9 @@ int main() {
 	std::vector<std::string> phase_str = { "Calibration", "Training", "BlindTesting", "FullTesting" };
 	
 
-    // initialize melshare for showing effort on scope
-    //MelShare ms_effort("effort");
-	//MelShare ms_conditions("conditions");
-
 	// initialize local variables
-	//double prev_scene_num = -1.0;
 	int current_class = -1;
 	int prev_class = -1;
-	//bool prev_menu;
 	bool effort_large = false;
 	std::vector<double> effort_ranges = { 0, 100, 50, 200 };
 	double current_effort = effort_ranges[1];
