@@ -163,22 +163,6 @@ namespace meii {
 
 			trajectory_.add_waypoint(i, WayPoint(seconds(times_[current_time_idx_]), traj_current_));
 			current_time_idx_++;
-
-			//s_ = std::exp(-gamma_ * (times_[current_time_idx_] - times_[0]) / tau_);
-			//if (has_field_) {
-			//	q_ddot_mat_ = (K_ * (g_mat_ - q_mat_) - D_ * q_dot_mat_ * tau_ - K_ * (g_mat_ - q_0_mat_) * s_ + K_ * nonlin_function_(q_mat_, theta_mat_) * s_) * (1 / (tau_ * tau_));
-			//}
-			//else {
-			//	q_ddot_mat_ = (K_ * (g_mat_ - q_mat_) - D_ * q_dot_mat_ * tau_ - K_ * (g_mat_ - q_0_mat_) * s_) * (1 / (tau_ * tau_));
-			//}
-			//for (std::size_t j = 0; j < path_dim_; ++j) {
-			//	q_mat_(j) = integrator_[j].update(q_dot_mat_(j), seconds(times_[current_time_idx_]));
-			//}
-			//for (std::size_t j = 0; j < path_dim_; ++j) {
-			//	q_dot_mat_(j) = integrator_[j + path_dim_].update(q_ddot_mat_(j), seconds(times_[current_time_idx_]));
-			//}
-			//trajectory_.add_waypoint(current_time_idx_, WayPoint(seconds(times_[current_time_idx_]), q_mat_.get_col(0)));
-			//current_time_idx_++;
 		}
 
 		if (!trajectory_.validate()) {
