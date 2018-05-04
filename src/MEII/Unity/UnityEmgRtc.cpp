@@ -23,7 +23,8 @@ namespace meii {
         ms_targets_("targets"),
 		ms_center_("center"),
         ms_arrows_("arrows"),
-		ms_ring_("ring")
+		ms_ring_("ring"),
+		ms_text_("text")
     {
         viz_target_mapping_ = { { {3, 7}, {1, 5}, {1, 5}, {3, 7}, {2, 4, 8, 6}, {2, 4, 8, 6} }, { { 3, 7 },{ 5, 1 },{ 5, 1 },{ 3, 7 },{ 4, 2, 6, 8 },{ 4, 2, 6, 8 } } };
     }
@@ -34,35 +35,12 @@ namespace meii {
     }
 
     void UnityEmgRtc::set_experiment_conditions(Arm arm, DoF dof, Phase phase) {
-        //scene_num_ = ms_scene_.read_data();
-        //if (scene_num_.empty())
-        //    return;
-        //scene_int_ = (int)scene_num_[0];
-        //if (scene_int_ == 0) {
-        //    menu = true;
-        //    hand_num_ = hand;
-        //}
-        //else if (scene_int_ > 0) {
-        //    menu = false;
-        //    hand_num_ = hand;
-        //    dof_ = (std::size_t)((unsigned)((scene_int_ - 1) / 4));
-        //    condition_ = (std::size_t)((unsigned)((scene_int_ - 1) % 4));
-        //    if (dof_ < 4) {
-        //        num_classes_ = 2;
-        //    }
-        //    else {
-        //        num_classes_ = 4;
-        //    }
-        //    dof = dof_;
-        //    condition = condition_;
-        //    num_classes = num_classes_;
-        //}
 
 		arm_ = arm;
 		dof_ = dof;
 		phase_ = phase;
 
-		if (dof_ < 4) {
+		if (is_single_dof(dof_)) {
 			num_classes_ = 2;
 		}
 		else {
@@ -102,6 +80,7 @@ namespace meii {
 		}
 		ms_center_.write_data({ 1.0 });
 		ms_targets_.write_data(targets_);
+		ms_text_.write_message(dof_str_[dof]);
     }
 
     void UnityEmgRtc::set_target(int target_label) {

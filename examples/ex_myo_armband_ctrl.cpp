@@ -39,8 +39,7 @@ int main(int argc, char *argv[]) {
 	Options options("ex_myo_armband_ctrl.exe", "Demo of the Myo Armband controlling the MAHI Exo-II");
 	options.add_options()
 		("c,calibrate", "Calibrates the MAHI Exo-II")
-		("k,keyboard", "Runs the demo using only keyboard controls")
-		("u,unity", "Runs the demo with Unity visual interface")
+		("r,run", "Runs the demo with Unity visual interface")
 		("h,help", "Prints this help message");
 
 	auto result = options.parse(argc, argv);
@@ -112,6 +111,8 @@ int main(int argc, char *argv[]) {
 	// construct Myoelectric Signal (MES) Array
 	MesArray mes(myo.get_channels(emg_channel_numbers), 300);	
 
+	
+
 	// initialize EMG classification and data capture variables
 	std::size_t num_classes = 2;
 	std::size_t active_state = 0;
@@ -122,14 +123,14 @@ int main(int argc, char *argv[]) {
 	bool save_active_detector = false;
 	bool save_dir_classifier = false;
 	bool RMS = true;
-	bool MAV = true;
-	bool WL = true;
-	bool ZC = true;
-	bool SSC = true;
-	bool AR1 = true;
-	bool AR2 = true;
-	bool AR3 = true;
-	bool AR4 = true;
+	bool MAV = false;
+	bool WL = false;
+	bool ZC = false;
+	bool SSC = false;
+	bool AR1 = false;
+	bool AR2 = false;
+	bool AR3 = false;
+	bool AR4 = false;
 	Time mes_rest_capture_period = seconds(1);
 	Time mes_active_capture_period = seconds(1);
 	Time mes_active_period = seconds(0.2);
@@ -254,9 +255,9 @@ int main(int argc, char *argv[]) {
 	std::vector<double> rps_command_torques(meii.N_qs_, 0.0);
 	std::vector<double> ref(meii.N_aj_, 0.0);
 
-	// keyboard interface
-	if (result.count("keyboard") > 0) {
-		LOG(Info) << "Myo Armband control of MAHI Exo-II with keyboard interface.";
+	// run demo
+	if (result.count("r") > 0) {
+		LOG(Info) << "Myo Armband control of MAHI Exo-II with unity interface.";
 
 		// path for output data files
 		std::string output_path = ".";
@@ -436,6 +437,14 @@ int main(int argc, char *argv[]) {
 			testing_results_log_row.resize(testing_results_log.col_count());
 		}
 
+		// launch unity game
+		UnityEmgRtc game;
+		game.launch();
+		game.set_experiment_conditions(arm, dof, phase);
+
+		// wait for user input to move forward
+		print("Press 'Space' to begin experiment once Unity has launched.");
+		Keyboard::wait_for_key(Key::Space);
 		
 		// enable DAQ and exo
 		q8.enable();
@@ -615,6 +624,8 @@ int main(int argc, char *argv[]) {
 						else {
 							LOG(Info) << "Waiting for prediction.";
 							dir_classifier.clear_buffers();
+							selected_dir = 0;
+							game.set_target(-1);
 						}
 					}					
 
@@ -720,6 +731,7 @@ int main(int argc, char *argv[]) {
 				// predict state
 				if (active_detector.update(mes.get_tkeo_envelope())) {
 					active_state = active_detector.get_class();
+					game.set_center(active_state == 1);
 				}
 
 				// write prediction to melshare
@@ -743,18 +755,20 @@ int main(int argc, char *argv[]) {
 
 				// capture rest data
 				if (Keyboard::are_all_keys_pressed({ Key::A, Key::Num0 })) {
-					if (mes.is_buffer_full()) {
-						if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
-							bool added_successfully = true;
-							for (std::size_t k = 0; k < num_classes; ++k) {
-								if (!active_detector.add_training_data(k, 0, mes.get_tkeo_env_buffer_data(mes_rest_capture_window_size))) {
-									added_successfully = false;
+					if (game.get_target_label() == -1) {
+						if (mes.is_buffer_full()) {
+							if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
+								bool added_successfully = true;
+								for (std::size_t k = 0; k < num_classes; ++k) {
+									if (!active_detector.add_training_data(k, 0, mes.get_tkeo_env_buffer_data(mes_rest_capture_window_size))) {
+										added_successfully = false;
+									}
 								}
+								if (added_successfully) {
+									LOG(Info) << "Added rest data.";
+								}
+								training_refract_clock.restart();
 							}
-							if (added_successfully) {
-								LOG(Info) << "Added rest data.";
-							}
-							training_refract_clock.restart();
 						}
 					}
 				}
@@ -774,12 +788,14 @@ int main(int argc, char *argv[]) {
 				// capture active data
 				for (std::size_t k = 0; k < num_classes; ++k) {
 					if (Keyboard::are_all_keys_pressed({ Key::A, active_keys[k] })) {
-						if (mes.is_buffer_full()) {
-							if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
-								if (active_detector.add_training_data(k, 1, find_sum_max_window(mes.get_tkeo_env_buffer_data(mes_active_capture_window_size), mes_active_window_size))) {
-									LOG(Info) << "Added active data for target " + stringify(k + 1) + ".";
+						if ((std::size_t)((unsigned)game.get_target_label()) == k + 1) {
+							if (mes.is_buffer_full()) {
+								if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
+									if (active_detector.add_training_data(k, 1, find_sum_max_window(mes.get_tkeo_env_buffer_data(mes_active_capture_window_size), mes_active_window_size))) {
+										LOG(Info) << "Added active data for target " + stringify(k + 1) + ".";
+									}
+									training_refract_clock.restart();
 								}
-								training_refract_clock.restart();
 							}
 						}
 					}
@@ -788,9 +804,25 @@ int main(int argc, char *argv[]) {
 				// train the active/rest classifiers
 				if (Keyboard::is_key_pressed(Key::T)) {
 					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-						if (active_detector.train())
+						if (active_detector.train()) {
 							LOG(Info) << "Trained new active/rest classifier based on given data.";
+							game.set_target(-1);
+						}
 						keypress_refract_clock.restart();
+					}
+				}
+
+				// update visualization target
+				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
+					number_keypress = Keyboard::is_any_num_key_pressed();
+					if (number_keypress >= 0) {
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+							if (number_keypress == 0 || number_keypress > num_classes) {
+								number_keypress = -1;
+							}
+							game.set_target(number_keypress);
+							keypress_refract_clock.restart();
+						}
 					}
 				}
 
@@ -835,6 +867,7 @@ int main(int argc, char *argv[]) {
 				// predict state
 				if (active_detector.update(mes.get_tkeo_envelope())) {
 					active_state = active_detector.get_class();
+					game.set_center(active_state == 1);
 					if (dir_classifier.update(mes.get_demean())) {
 						pred_class = dir_classifier.get_class();
 						if (active_state == 1) {
@@ -915,15 +948,17 @@ int main(int argc, char *argv[]) {
 				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
 					number_keypress = Keyboard::is_any_num_key_pressed();
 					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (number_keypress == 0) {
-								selected_dir = number_keypress;
-								print("No target currently selected.");
-							}
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {						
 							if (number_keypress > 0 && number_keypress <= num_classes) {
 								selected_dir = number_keypress;
+								game.set_target(number_keypress);
 								print("Current target is " + stringify(selected_dir));
-							}							
+							}
+							else {
+								selected_dir = 0;
+								game.set_target(-1);
+								print("No target currently selected.");
+							}
 							keypress_refract_clock.restart();
 						}
 					}
@@ -935,6 +970,8 @@ int main(int argc, char *argv[]) {
 				if (Keyboard::is_key_pressed(Key::Enter)) {
 					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 						state = 6;
+						selected_dir = 0;
+						game.set_target(-1);
 						save_dir_classifier = true;
 						training_refract_clock.restart();
 						keypress_refract_clock.restart();
@@ -973,14 +1010,16 @@ int main(int argc, char *argv[]) {
 				// predict state
 				if (active_detector.update(mes.get_tkeo_envelope())) {
 					active_state = active_detector.get_class();
+					game.set_center(active_state == 1);
 					if (dir_classifier.update(mes.get_demean())) {
-						pred_class = dir_classifier.get_class();					
+						pred_class = dir_classifier.get_class();	
+
 						if (pred_refract_clock.get_elapsed_time() > dir_pred_refract_time) {
 							if (active_state == 1) {
 								if (selected_dir > 0) {
 									true_class = selected_dir - 1;
 									pred_dir = pred_class + 1;
-									LOG(Info) << "Logging directional classifier prediction for class label " << true_class;
+									LOG(Info) << "Logging directional classifier prediction of " << pred_dir << " for target " << selected_dir;
 									testing_results_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
 									for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
 										testing_results_log_row[i + 1] = dir_classifier.get_features()[i];
@@ -1019,19 +1058,20 @@ int main(int argc, char *argv[]) {
 				// write prediction to melshare
 				ms_pred.write_data({ (double)pred_dir });
 
-
 				// update the selected target and enable active detection
 				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
 					number_keypress = Keyboard::is_any_num_key_pressed();
 					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (number_keypress == 0) {
-								selected_dir = number_keypress;
-								print("No target currently selected.");
-							}
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {							
 							if (number_keypress > 0 && number_keypress <= num_classes) {
 								selected_dir = number_keypress;
+								game.set_target(number_keypress);
 								print("Current target is " + stringify(selected_dir));
+							}
+							else {
+								selected_dir = 0;
+								game.set_target(-1);
+								print("No target currently selected.");
 							}
 							keypress_refract_clock.restart();
 						}
@@ -1042,7 +1082,11 @@ int main(int argc, char *argv[]) {
 				if (Keyboard::is_key_pressed(Key::Enter)) {
 					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 						state = 6;
+						selected_dir = 0;
+						game.set_target(-1);
 						save_testing_results = true;
+						Eigen::MatrixXd conf_mat = gen_confusion_mat(testing_results_log.get_col(testing_results_log.col_count() - 2), testing_results_log.get_col(testing_results_log.col_count() - 1), Zero);
+						std::cout << conf_mat << "\r\n";
 						LOG(Info) << "Going to final position.";
 						dmp.set_endpoints(neutral_point.set_time(Time::Zero), final_point.set_time(time_to_final));
 						if (!dmp.trajectory().validate()) {
@@ -1234,21 +1278,10 @@ int main(int argc, char *argv[]) {
 		}
 
 
-	} // keyboard interface
+	} // run 
 
 
 
-	// unity interface
-	if (result.count("unity") > 0) {
-		LOG(Info) << "Myo Armband control of MAHI Exo-II with unity interface.";
-
-		// launch unity game
-		UnityEmgRtc game;
-		game.launch();
-
-		
-
-	} // unity interface
 
 	mel::disable_realtime();
 	return 0;

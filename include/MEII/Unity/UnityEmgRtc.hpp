@@ -80,6 +80,8 @@ namespace meii {
 		std::size_t num_classes_; ///< number of classes based on the dof, 2 for single, 4 for multi
 		Phase phase_;
 
+		std::vector<std::string> dof_str_ = { "Elbow F/E", "Wrist P/S", "Wrist F/E", "Wrist R/U", "Elbow F/E\r\n and \r\nWrist P/S", "Wrist F/E\r\n and \r\nWrist R/U" };
+
 		std::size_t target_count_;
 		std::vector<double> targets_;
 		std::vector<double> arrows_;
@@ -94,6 +96,7 @@ namespace meii {
 		mel::MelShare ms_center_;
         mel::MelShare ms_arrows_;
 		mel::MelShare ms_ring_;
+		mel::MelShare ms_text_;
     };
 
 } // namespace meii

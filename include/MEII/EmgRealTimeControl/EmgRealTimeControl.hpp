@@ -18,6 +18,7 @@
 #ifndef EMG_REAL_TIME_CONTROL_HPP
 #define EMG_REAL_TIME_CONTROL_HPP
 
+#include <Eigen/Dense>
 #include <vector>
 
 namespace meii {
@@ -46,14 +47,23 @@ namespace meii {
 		LastCondition
 	};
 
+	enum IndexBase {
+		Zero,
+		One
+	};
+
 	// return true if given DoF is single-DoF, as opposed to multi-DoF
 	bool is_single_dof(DoF dof);
 
 	// generates list of num_labels randomly distributed unsigned integers from zero to num_classes - 1
-	std::vector<std::size_t> gen_rand_class_labels(std::size_t num_labels, std::size_t num_classes);
+	std::vector<std::size_t> gen_rand_class_labels(std::size_t num_labels, std::size_t num_classes, IndexBase index_base = One);
 
 	// generates list of num_lables_per_class * num_classes randomly shuffled unsigned integers from zero to num_classes - 1
-	std::vector<std::size_t> rand_shuffle_class_labels(std::size_t num_labels_per_class, std::size_t num_classes);
+	std::vector<std::size_t> rand_shuffle_class_labels(std::size_t num_labels_per_class, std::size_t num_classes, IndexBase index_base = One);
+
+	// generates a confusion matrix from labels to evaluate classification performance
+	Eigen::MatrixXd gen_confusion_mat(const std::vector<double> &actual_labels, const std::vector<double> &predicted_labels, IndexBase index_base = One);
+	Eigen::MatrixXd gen_confusion_mat(const std::vector<std::size_t> &actual_labels, const std::vector<std::size_t> &predicted_labels, IndexBase index_base = One);
 
 } // namespace meii
 

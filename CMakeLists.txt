@@ -200,9 +200,8 @@ if (OSIM)
 endif()
 
 if(EMG_RT_CTRL)
-    #add_executable(emg_real_time_control src/emg_real_time_control.cpp)
-    #target_link_libraries(emg_real_time_control MEII)
-
+    add_executable(emg_real_time_control src/emg_real_time_control.cpp)
+    target_link_libraries(emg_real_time_control MEII)
 endif()
 
 if(PHRI_LEARN)

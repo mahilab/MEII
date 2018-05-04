@@ -21,10 +21,13 @@ int main() {
 
 	init_logger();
 
-	std::vector<std::size_t> labels = gen_rand_class_labels(20, 4);
-	std::cout << labels << "\r\n";
-	labels = rand_shuffle_class_labels(5, 4);
-	std::cout << labels << "\r\n";
+	std::vector<std::size_t> true_labels = gen_rand_class_labels(20, 4);
+	std::cout << true_labels << "\r\n";
+	std::vector<std::size_t> pred_labels = rand_shuffle_class_labels(5, 4);
+	std::cout << pred_labels << "\r\n";
+
+	Eigen::MatrixXd conf_mat = gen_confusion_mat(true_labels, pred_labels);
+	std::cout << conf_mat << "\r\n";
 
     return 0;
 }

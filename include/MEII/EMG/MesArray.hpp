@@ -37,8 +37,6 @@ namespace meii {
             std::size_t lp_filter_order = 4, double lp_filter_cutoff = 0.01,
             std::size_t tkeo_lp_filter_order = 4, double tkeo_lp_filter_cutoff = 0.01);
 
-        /// Default destructor
-        ~MesArray() {};
 
         /// Update the voltage readings from the associated analog input channels on the DAQ, and apply all signal processing and update associated signals
         void update();
