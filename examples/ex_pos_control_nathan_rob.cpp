@@ -387,6 +387,7 @@ int main(int argc, char *argv[]) {
 
 				// check for end of trajectory
 				if (ref_traj_clock.get_elapsed_time() > ref_traj.back().when()) {
+					return 0; //HERE IS WHERE IT ENDS FOR NOW
 					state = 3;
 					ref = ref_traj.back().get_pos();
 					LOG(Info) << "Waiting at neutral position.";
