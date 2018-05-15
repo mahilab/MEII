@@ -105,6 +105,29 @@ int main(int argc, char *argv[]) {
 		// setup trajectories
 		std::size_t num_full_cycles = 2;
 		std::size_t current_cycle = 0;
+
+		//// experimental
+		//std::vector<WayPoint> neutral_point_set;
+		//std::vector<std::vector<WayPoint>> extreme_points_set;
+		//std::vector<std::vector<double>> destinations = {//extreme 1      neutral         extreme 2
+		//												 { -05 * DEG2RAD, -35  * DEG2RAD, -65 * DEG2RAD }, //DOF 1
+		//												 {  30 * DEG2RAD,  00  * DEG2RAD, -30 * DEG2RAD }, //DOF 2
+		//												 {  15 * DEG2RAD,  00  * DEG2RAD, -15 * DEG2RAD }, //DOF 3
+		//												 {  15 * DEG2RAD,  00  * DEG2RAD, -15 * DEG2RAD }, //DOF 4
+		//												 {  0.09        ,  0.09         , 0.09 } // no extremes
+		//												};
+
+		//for (size_t i = 0; i < destinations.size()-1; i++){
+		//	std::vector<double> points;
+		//	for (size_t j = 0; j < destinations.size(); j++){
+		//		if (i == j){
+
+		//		}
+		//		points.push_back();
+		//	}
+		//	neutral_point_set.push_back(WayPoint(Time::Zero, { -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }));
+		//}
+
 		std::vector<WayPoint> neutral_point_set = {
 			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
 			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
