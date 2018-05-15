@@ -84,20 +84,23 @@ namespace meii {
     }
 
     void UnityEmgRtc::set_target(int target_label) {
-		if (viz_target_num_ >= 0) {
+		if (viz_target_num_ > 0) {
 			targets_[viz_target_num_ - 1] = 1.0;
 			arrows_[viz_target_num_ - 1] = 0.0;
 		}
-        target_label_ = target_label;
-        viz_target_num_ = compute_viz_target_num(target_label_);
-		targets_[viz_target_num_ - 1] = 2.0;
-		arrows_[viz_target_num_ - 1] = arrow_scale_;
-        ms_targets_.write_data(targets_);
+		target_label_ = target_label;
+		viz_target_num_ = compute_viz_target_num(target_label_);
+		if (viz_target_num_ > 0) {
+			targets_[viz_target_num_ - 1] = 2.0;
+			arrows_[viz_target_num_ - 1] = arrow_scale_;
+		}
+		ms_targets_.write_data(targets_);
+		ms_arrows_.write_data(arrows_);
     }
 
 	void UnityEmgRtc::set_center(bool center_glow) {
 		if (center_glow) {
-			ms_center_.write_data({ 2.0 });
+			ms_center_.write_data({ 3.0 });
 		}
 		else {
 			ms_center_.write_data({ 1.0 });

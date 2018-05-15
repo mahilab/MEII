@@ -79,6 +79,11 @@ file(GLOB SRC_CLASSIFICATION
     "${CMAKE_SOURCE_DIR}/include/MEII/Classification/*.hpp"
 )
 
+file(GLOB SRC_REGRESSION
+    "${CMAKE_SOURCE_DIR}/src/MEII/Regression/*.cpp"
+    "${CMAKE_SOURCE_DIR}/include/MEII/Regression/*.hpp"
+)
+
 file(GLOB SRC_UNITY
     "${CMAKE_SOURCE_DIR}/src/MEII/Unity/*.cpp"
     "${CMAKE_SOURCE_DIR}/include/MEII/Unity/*.hpp"
@@ -111,6 +116,7 @@ set(MEII_SOURCE_FILES
     ${SRC_EMG}
     ${SRC_SIGNAL_PROCESSING}
     ${SRC_CLASSIFICATION}
+    ${SRC_REGRESSION}
     ${SRC_UNITY}
     ${SRC_UTILITY}
 )
@@ -133,13 +139,12 @@ source_group("Control" FILES ${SRC_CONTROL})
 source_group("EMG" FILES ${SRC_EMG})
 source_group("SignalProcessing" FILES ${SRC_SIGNAL_PROCESSING})
 source_group("Classification" FILES ${SRC_CLASSIFICATION})
+source_group("Regression" FILES ${SRC_REGRESSION})
 source_group("Unity" FILES ${SRC_UNITY})
 source_group("Utility" FILES ${SRC_UTILITY})
 source_group("EmgRealTimeControl" FILES ${SRC_EMG_REAL_TIME_CONTROL})
 source_group("PhriLearning" FILES ${SRC_PHRI_LEARNING})
 source_group("OpenSim" FILES ${SRC_OSIM})
-
-
 
 
 #===============================================================================
@@ -207,6 +212,14 @@ endif()
 if(PHRI_LEARN)
     add_executable(phri_learning src/phri_learning.cpp)
     target_link_libraries(phri_learning MEII)
+
+    add_executable(delsys_direct_control src/delsys_direct_control.cpp)
+    target_link_libraries(delsys_direct_control MEII)
+
+    if (MYO)
+        add_executable(myo_direct_control src/myo_direct_control.cpp)
+        target_link_libraries(myo_direct_control MEII)
+    endif()
 endif()
 
 if (MYO)

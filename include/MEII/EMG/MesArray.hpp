@@ -77,17 +77,23 @@ namespace meii {
         /// Get processed MES using TKEO
         const std::vector<double>& get_tkeo_envelope() const;
 
-        /// Get the last window_size elements pushed to the MES raw buffers, with inner vector containing a single MES buffer data
+		/// Get mean of processed MES using TKEO
+		const std::vector<double>& get_tkeo_envelope_mean() const;
+
+        /// Get the last window_size elements pushed to the MES raw buffers
         std::vector<std::vector<double>> get_raw_buffer_data(std::size_t window_size) const;
 
-        /// Get the last window_size elements pushed to the MES demean buffers, with inner vector containing a single MES buffer data
+        /// Get the last window_size elements pushed to the MES demean buffers
         std::vector<std::vector<double>> get_dm_buffer_data(std::size_t window_size) const;
 
-        /// Get the last window_size elements pushed to the MES envelope buffers, with inner vector containing a single MES buffer data
+        /// Get the last window_size elements pushed to the MES envelope buffers
         std::vector<std::vector<double>> get_env_buffer_data(std::size_t window_size) const;
 
-        /// Get the last window_size elements pushed to the MES TKEO envelope buffers, with inner vector containing a single MES buffer data
+        /// Get the last window_size elements pushed to the MES TKEO envelope buffers
         std::vector<std::vector<double>> get_tkeo_env_buffer_data(std::size_t window_size) const;
+
+		/// Get the last window_size elements pushed to the MES TKEO envelope mean buffer
+		std::vector<std::vector<double>> get_tkeo_env_mean_buffer_data(std::size_t window_size) const;
 
         /// Get the last window_size elements pushed to the MES raw buffer specified by mes_index
         std::vector<double> get_single_raw_buffer_data(std::size_t mes_index, std::size_t window_size) const;
@@ -106,6 +112,9 @@ namespace meii {
         /// Put most recently updated signal in the buffer
         void push_buffer();
 
+		/// Calculate the means of certain vector signals
+		void calculate_means();
+
     private:
 
         std::vector<mel::uint32> channel_numbers_; ///< numbers associated by the DAQ with each of the analog input channels
@@ -117,6 +126,7 @@ namespace meii {
         std::vector<double> demean_; ///< vector of MES after high-pass filtering to remove mean and motion artifacts
         std::vector<double> envelope_; ///< vector of MES evnelope from rectification and low-pass filtering
         std::vector<double> tkeo_envelope_; ///< vector of MES envelope from TKEO, rectification, and low-pass filtering
+		std::vector<double> tkeo_envelope_mean_; /// < mean of the vector of MES envelope from TKEO, rectification, and low-pass filtering
 
         std::size_t buffer_capacity_; ///< capacity of all of the signal buffers (should always be the same for all MES)   
 
@@ -124,6 +134,7 @@ namespace meii {
         mel::RingBuffer<std::vector<double>> dm_buffer_; ///< signal buffer to hold time history of demean MES vectors
         mel::RingBuffer<std::vector<double>> env_buffer_; ///< signal buffer to hold time history of MES envelope vectors
         mel::RingBuffer<std::vector<double>> tkeo_env_buffer_; ///< signal buffer to hold time history of MES TKEO envelope vectors   
+		mel::RingBuffer<std::vector<double>> tkeo_env_mean_buffer_; ///< signal buffer to hold time history of MES TKEO envelope vector means 
 
     };
 

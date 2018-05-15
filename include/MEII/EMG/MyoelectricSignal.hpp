@@ -103,7 +103,6 @@ namespace meii {
 
         double raw_; ///< raw MES [V]
         double demean_; ///< MES after high-pass filtering to remove mean and motion artifacts
-		//double filt_; ///< MES after full-wave rectification and 
         double envelope_; ///< MES evnelope from rectification and low-pass filtering
         double tkeo_envelope_; ///< MES envelope from TKEO, rectification, and low-pass filtering
 

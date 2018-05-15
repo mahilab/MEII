@@ -1,5 +1,6 @@
 #include <MEII/EMG/MesArray.hpp>
 #include <MEL/Logging/Log.hpp>
+#include <MEL/Math/Functions.hpp>
 
 using namespace mel;
 
@@ -14,11 +15,13 @@ namespace meii {
         demean_(mes_count_),
         envelope_(mes_count_),
         tkeo_envelope_(mes_count_),
+		tkeo_envelope_mean_(1),
         buffer_capacity_(buffer_capacity),
         raw_buffer_(buffer_capacity),
         dm_buffer_(buffer_capacity),
         env_buffer_(buffer_capacity),
-        tkeo_env_buffer_(buffer_capacity)
+        tkeo_env_buffer_(buffer_capacity),
+		tkeo_env_mean_buffer_(buffer_capacity)
     {
         for (std::size_t i = 0; i < mes_count_; ++i) {
             mes_.emplace_back(ai_channels[i], buffer_capacity, hp_filter_order, hp_filter_cutoff, lp_filter_order, lp_filter_cutoff, tkeo_lp_filter_order, tkeo_lp_filter_cutoff);
@@ -34,6 +37,7 @@ namespace meii {
             envelope_[i] = mes_[i].get_envelope();
             tkeo_envelope_[i] = mes_[i].get_tkeo_envelope();
         }
+		calculate_means();
     }
 
     void MesArray::update_and_buffer() {
@@ -44,6 +48,7 @@ namespace meii {
             envelope_[i] = mes_[i].get_envelope();
             tkeo_envelope_[i] = mes_[i].get_tkeo_envelope();
         }
+		calculate_means();
         push_buffer();
     }
 
@@ -51,6 +56,11 @@ namespace meii {
         for (std::size_t i = 0; i < mes_count_; ++i) {
             mes_[i].clear_buffer();
         }
+		raw_buffer_.clear();
+		dm_buffer_.clear();
+		env_buffer_.clear();
+		tkeo_env_buffer_.clear();
+		tkeo_env_mean_buffer_.clear();
     }
 
     void MesArray::resize_buffer(std::size_t capacity) {
@@ -62,6 +72,7 @@ namespace meii {
         dm_buffer_.resize(buffer_capacity_);
         env_buffer_.resize(buffer_capacity_);
         tkeo_env_buffer_.resize(buffer_capacity_);
+		tkeo_env_mean_buffer_.resize(buffer_capacity_);
     }
 
     std::size_t MesArray::get_buffer_capacity() const {
@@ -116,6 +127,10 @@ namespace meii {
         return tkeo_envelope_;
     }
 
+	const std::vector<double>& MesArray::get_tkeo_envelope_mean() const {
+		return tkeo_envelope_mean_;
+	}
+
     std::vector<std::vector<double>> MesArray::get_raw_buffer_data(std::size_t window_size) const {
         if (get_buffer_size() < window_size) {
             LOG(Warning) << "Myoelectric signal array cannot return requested amount of buffer data until buffer is of size " << window_size << ". Returning vector of size " << get_buffer_size() << ".";
@@ -125,10 +140,6 @@ namespace meii {
         for (std::size_t i = 0; i < window_size; ++i) {
             raw_window[i] = raw_buffer_[raw_buffer_.size() + i - window_size];
         }
-        //std::vector<std::vector<double>> raw_window(mes_count_);
-        //for (std::size_t i = 0; i < mes_count_; ++i) {
-        //    raw_window[i] = mes_[i].get_raw_buffer_data(window_size);
-        //}
         return raw_window;
     }
 
@@ -141,10 +152,6 @@ namespace meii {
         for (std::size_t i = 0; i < window_size; ++i) {
             dm_window[i] = dm_buffer_[dm_buffer_.size() + i - window_size];
         }
-        //std::vector<std::vector<double>> demean_window(mes_count_);
-        //for (std::size_t i = 0; i < mes_count_; ++i) {
-        //    demean_window[i] = mes_[i].get_dm_buffer_data(window_size);
-        //}
         return dm_window;
     }
 
@@ -157,10 +164,6 @@ namespace meii {
         for (std::size_t i = 0; i < window_size; ++i) {
             env_window[i] = env_buffer_[env_buffer_.size() + i - window_size];
         }
-        //std::vector<std::vector<double>> envelope_window(mes_count_);
-        //for (std::size_t i = 0; i < mes_count_; ++i) {
-        //    envelope_window[i] = mes_[i].get_env_buffer_data(window_size);
-        //}
         return env_window;
     }
 
@@ -174,12 +177,21 @@ namespace meii {
         for (std::size_t i = 0; i < window_size; ++i) {
             tkeo_env_window[i] = tkeo_env_buffer_[tkeo_env_buffer_.size() + i - window_size];
         }
-        //std::vector<std::vector<double>> tkeo_envelope_window(mes_count_);
-        //for (std::size_t i = 0; i < mes_count_; ++i) {     
-        //    tkeo_envelope_window[i] = mes_[i].get_tkeo_env_buffer_data(window_size);
-        //}
         return tkeo_env_window;
     }
+
+	std::vector<std::vector<double>> MesArray::get_tkeo_env_mean_buffer_data(std::size_t window_size) const {
+		if (get_buffer_size() < window_size) {
+			LOG(Warning) << "Myoelectric signal array cannot return requested amount of buffer data until buffer is of size " << window_size << ". Returning vector of size " << get_buffer_size() << ".";
+			window_size = get_buffer_size();
+		}
+
+		std::vector<std::vector<double>> tkeo_env_mean_window(window_size);
+		for (std::size_t i = 0; i < window_size; ++i) {
+			tkeo_env_mean_window[i] = tkeo_env_mean_buffer_[tkeo_env_mean_buffer_.size() + i - window_size];
+		}
+		return tkeo_env_mean_window;
+	}
 
 
     std::vector<double> MesArray::get_single_raw_buffer_data(std::size_t mes_index, std::size_t window_size) const {
@@ -222,6 +234,11 @@ namespace meii {
         dm_buffer_.push_back(demean_);
         env_buffer_.push_back(envelope_);
         tkeo_env_buffer_.push_back(tkeo_envelope_);
+		tkeo_env_mean_buffer_.push_back(tkeo_envelope_mean_);
     }
+
+	void MesArray::calculate_means() {
+		tkeo_envelope_mean_[0] = mel::mean(tkeo_envelope_);
+	}
 
 } // namespace meii

@@ -51,7 +51,13 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
+	//====================================
+	// Constant subject parameters
+	//====================================
 	std::size_t subject_number = 0;
+	Arm arm = Right;
+	//====================================
+	//====================================
 
 	// enable Windows realtime
 	enable_realtime();
@@ -78,6 +84,7 @@ int main(int argc, char *argv[]) {
 	//}
 	//emg_channel_numbers = q8.analog_input.get_channel_numbers();
 	//std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+	//Time Ts = milliseconds(1); // sample period for DAQ
 
 	//// construct array of Myoelectric Signals    
 	//MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
@@ -146,14 +153,13 @@ int main(int argc, char *argv[]) {
 		return 0;
 	}
 
-	
-
 	// make MelShares
 	MelShare ms_pos("ms_pos");
 	MelShare ms_vel("ms_vel");
 	MelShare ms_trq("ms_trq");
 	MelShare ms_ref("ms_ref");
 	MelShare ms_emg("ms_emg");
+	MelShare ms_emg_mean("ms_emg_mean");
 	MelShare ms_pred("ms_pred");
 
 	// construct global timer in hybrid mode to avoid using 100% CPU
@@ -179,6 +185,7 @@ int main(int argc, char *argv[]) {
 
 			// write to MelShares
 			ms_emg.write_data(mes.get_tkeo_envelope());
+			ms_emg_mean.write_data(mes.get_tkeo_envelope_mean());
 
 			// check for user input
 			if (Keyboard::is_key_pressed(Key::Escape)) {
@@ -194,6 +201,15 @@ int main(int argc, char *argv[]) {
 
 	// Find neutral wrist position
 	if (result.count("neutral") > 0) {
+
+		// construct clock for regulating print
+		Clock print_clock;
+		Time print_time = seconds(1);
+		bool printing_rps = false;
+
+		// construct clock for regulating keypress
+		Clock keypress_refract_clock;
+		Time keypress_refract_time = seconds(0.5);
 
 		// initialize local state variables
 		bool neutral_position_selected = false;
@@ -217,6 +233,33 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
+			// print current position
+			if (!neutral_position_selected) {
+				if (print_clock.get_elapsed_time() >= print_time) {
+					if (printing_rps) {
+						std::cout << "Wrist P1 pos = " << meii[2].get_position() << " M\t"
+							<< "Wrist P2 pos = " << meii[3].get_position() << " M\t"
+							<< "Wrist P3 pos = " << meii[4].get_position() << " M\r\n";
+					}
+					else {
+						std::cout << "Elbow F/E angle = " << meii.get_anatomical_joint_position(0) * RAD2DEG << " DEG\t"
+							<< "Forearm P/S angle = " << meii.get_anatomical_joint_position(1) * RAD2DEG << " DEG\t"
+							<< "Wrist F/E angle = " << meii.get_anatomical_joint_position(2) * RAD2DEG << " DEG\t"
+							<< "Wrist R/U angle = " << meii.get_anatomical_joint_position(3) * RAD2DEG << " DEG\t"
+							<< "Wrist platform height = " << meii.get_anatomical_joint_position(4) << " M\r\n";
+					}
+					print_clock.restart();
+				}
+			}
+
+			// toggle print mode
+			if (Keyboard::is_key_pressed(Key::Space)) {
+				if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+					printing_rps = !printing_rps;
+					keypress_refract_clock.restart();
+				}
+			}
+
 			// check for user input
 			if (Keyboard::is_key_pressed(Key::Escape)) {
 				stop = true;
@@ -231,11 +274,18 @@ int main(int argc, char *argv[]) {
 				key = Keyboard::are_any_keys_pressed({ Key::Y, Key::N });
 				switch (key) {
 				case Key::Y:
-					print("Elbow F/E angle = " + std::to_string(meii.get_anatomical_joint_position(0) * RAD2DEG) + " DEG");
-					print("Forearm P/S angle = " + std::to_string(meii.get_anatomical_joint_position(1) * RAD2DEG) + " DEG");
-					print("Wrist F/E angle = " + std::to_string(meii.get_anatomical_joint_position(2) * RAD2DEG) + " DEG");
-					print("Wrist R/U angle = " + std::to_string(meii.get_anatomical_joint_position(3) * RAD2DEG) + " DEG");
-					print("Wrist platform height = " + std::to_string(meii.get_anatomical_joint_position(4)) + " M");
+					if (printing_rps) {
+						std::cout << "Wrist P1 pos = " << meii[2].get_position() << " M\t"
+							<< "Wrist P2 pos = " << meii[3].get_position() << " M\t"
+							<< "Wrist P3 pos = " << meii[4].get_position() << " M\r\n";
+					}
+					else {
+						std::cout << "Elbow F/E angle = " << meii.get_anatomical_joint_position(0) * RAD2DEG << " DEG\t"
+							<< "Forearm P/S angle = " << meii.get_anatomical_joint_position(1) * RAD2DEG << " DEG\t"
+							<< "Wrist F/E angle = " << meii.get_anatomical_joint_position(2) * RAD2DEG << " DEG\t"
+							<< "Wrist R/U angle = " << meii.get_anatomical_joint_position(3) * RAD2DEG << " DEG\t"
+							<< "Wrist platform height = " << meii.get_anatomical_joint_position(4) << " M\r\n";
+					}
 					stop = true;
 					break;
 				case Key::N:
@@ -257,35 +307,50 @@ int main(int argc, char *argv[]) {
 	if (result.count("r") > 0) {
 		LOG(Info) << "EMG real-time control of MAHI Exo-II with unity interface.";
 
-		// initialize EMG classification and data capture variables
-		std::size_t num_classes = 2;
-		std::size_t active_state = 0;
-		std::size_t selected_dir = 0;
-		std::size_t pred_class = 0;
-		std::size_t pred_dir = 0;
-		std::size_t true_class = 0;
-		std::size_t num_labels_per_class = 0;
-		std::vector<std::size_t> class_labels;
-		std::size_t current_class_label_index = 0;
-		std::size_t current_class_label = 0;
-		bool save_active_detector = false;
-		bool save_dir_classifier = false;
+		// initialize EMG classification variables
+		bool active_feature_mean = true;
 		bool RMS = true;
-		bool MAV = false;
-		bool WL = false;
-		bool ZC = false;
-		bool SSC = false;
-		bool AR1 = false;
-		bool AR2 = false;
-		bool AR3 = false;
-		bool AR4 = false;
+		bool MAV = true;
+		bool WL = true;
+		bool ZC = true;
+		bool SSC = true;
+		bool AR1 = true;
+		bool AR2 = true;
+		bool AR3 = true;
+		bool AR4 = true;
+		std::size_t num_classes = 2;
+		std::vector<double> active_sample;
+		std::size_t active_state = 0;	
+		std::size_t pred_class = 0;
+		std::size_t pred_dir = 0;			
+
+		// initialize data capture variables		
+		bool save_active_detector = false;
+		bool save_dir_classifier = false;		
 		Time mes_rest_capture_period = seconds(1);
-		Time mes_active_capture_period = seconds(1);
+		Time mes_active_capture_period = seconds(3);
 		Time mes_active_period = seconds(0.2);
 		Time mes_dir_capture_period = seconds(0.2);
+		bool capturing_active_data = false;
+		
+		// initialize target presentation variables
+		std::size_t selected_dir = 0;
+		std::size_t num_targets_per_class = 0;
+		std::vector<std::size_t> target_dirs;
+		std::size_t target_dir_index = 0;
+		bool automated_targets = false;
+		bool end_of_target_dirs = false;
+		Clock training_refract_clock;
+		Clock pred_refract_clock;
+		Clock pred_timeout_clock;
+		Time dir_pred_timeout_time = seconds(7);
+		bool dir_pred_timeout = false;
+		bool log_prediction = false;
+		bool advance_target = false;
+		bool initial_rest_achieved = false;
 		Time active_training_refract_time = mes_active_capture_period;
-		Time dir_training_refract_time = seconds(1);
-		Time dir_pred_refract_time = seconds(2);
+		Time dir_training_refract_time = seconds(1.5);
+		Time dir_pred_refract_time = seconds(1.5);
 		std::vector<Key> active_keys = { Key::Num1, Key::Num2, Key::Num3, Key::Num4 };
 
 		// set data capture variables
@@ -296,33 +361,15 @@ int main(int argc, char *argv[]) {
 		active_training_refract_time = seconds(std::max((double)((signed)mes.get_buffer_capacity()) * Ts.as_seconds(), active_training_refract_time.as_seconds()));
 		std::size_t mes_active_window_size = (std::size_t)((unsigned)(mes_active_period.as_seconds() / Ts.as_seconds()));
 
-		// construct classifiers	
-		EmgActiveEnsClassifier active_detector(emg_channel_count, Ts);
+		// construct classifiers
+		EmgActiveEnsClassifier active_detector(active_feature_mean ? 1 : emg_channel_count, Ts);
 		EmgDirClassifier dir_classifier(num_classes, emg_channel_count, Ts, RMS, MAV, WL, ZC, SSC, AR1, AR2, AR3, AR4);
-
-		// construct clocks for regulating classification tasks
-		Clock training_refract_clock;
-		Clock pred_refract_clock;
-
-
+		
 
 		// construct strings for printing conditions
 		std::vector<std::string> arm_str = { "Left", "Right" };
 		std::vector<std::string> dof_str = { "ElbowFE", "WristPS", "WristFE", "WristRU", "ElbowFE-WristPS", "WristFE-WristRU" };
 		std::vector<std::string> phase_str = { "Calibration", "Training", "BlindTesting", "FullTesting" };
-
-		// initialize offline training with python
-		double min_cv_score_ = 0.85;
-		double min_avg_cv_score_ = 0.95;
-		bool python_training = false;
-		std::string python_training_path = "C:\\Git\\MEII\\python";
-		std::string python_training_filename = "ex_myo_armband_ctrl_lda_training.py";
-		std::string training_data_path = "C:\\Git\\MEII\\bin\\Release";
-		std::string training_data_filename = "training_data";
-		MelShare ms_training_path("training_path");
-		MelShare ms_training_name("training_name");
-		MelShare ms_training_flag("training_flag");
-		MelShare ms_cv_results("cv_results");
 
 
 		// create robot anatomical joint space ranges
@@ -331,6 +378,9 @@ int main(int argc, char *argv[]) {
 		{ -15 * DEG2RAD, 15 * DEG2RAD },
 		{ -15 * DEG2RAD, 15 * DEG2RAD },
 		{ 0.08, 0.115 } };
+
+		// change rps init position from default
+		meii.set_rps_init_pos({ 0.12, 0.117, 0.129 });
 
 		// initialize trajectory
 		std::vector<WayPoint> neutral_point_set = {
@@ -347,10 +397,10 @@ int main(int argc, char *argv[]) {
 			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
 			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 0.09 }) },
 			{ WayPoint(Time::Zero,{ -05 * DEG2RAD, 30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -05 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD, 30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD,-15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD,-15 * DEG2RAD, 0.09 }) }
+			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 12 * DEG2RAD, 12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-12 * DEG2RAD, 12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 12 * DEG2RAD,-12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-12 * DEG2RAD,-12 * DEG2RAD, 0.09 }) }
 		};
-		WayPoint final_point(Time::Zero, { -15 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 0.12 });
-		std::vector<Time> dmp_durations = { seconds(3.0), seconds(3.0), seconds(2.0), seconds(2.0), seconds(3.0), seconds(2.0) };
+		WayPoint final_point(Time::Zero, { -35 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 0.09 });
+		std::vector<Time> dmp_durations = { seconds(4.0), seconds(4.0), seconds(3.0), seconds(3.0), seconds(4.0), seconds(3.0) };
 		std::vector<double> traj_max_diff = { 60 * mel::DEG2RAD, 60 * mel::DEG2RAD, 45 * mel::DEG2RAD, 45 * mel::DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
 		Time time_to_final = seconds(3.0);
@@ -366,13 +416,24 @@ int main(int argc, char *argv[]) {
 		bool save_data = true;
 		bool save_testing_results = false;
 
-		// file management
+		// data and log file names and paths
 		std::string output_data_directory = "C:\\Git\\MEII\\EmgRealTimeControlData";
 		std::vector<std::string> dof_abbrv = { "EFE","FPS","WFE","WRU","ELFM","WMLT" };
 		std::vector<std::string> phase_abbrv = { "cal","trng","blind","full" };
 		std::string project_abbrv = "emg_rt_ctrl";
 
-
+		// initialize offline training with python
+		double min_cv_score_ = 0.85;
+		double min_avg_cv_score_ = 0.95;
+		bool python_training = false;
+		std::string python_training_path = "C:\\Git\\MEII\\python";
+		std::string python_training_filename = "emg_real_time_control_lda_training.py";
+		std::string training_data_path;
+		std::string training_data_filename = "training_data";
+		MelShare ms_training_path("training_path");
+		MelShare ms_training_name("training_name");
+		MelShare ms_training_flag("training_flag");
+		MelShare ms_cv_results("cv_results");
 
 		// construct clock for regulating keypress
 		Clock keypress_refract_clock;
@@ -408,8 +469,11 @@ int main(int argc, char *argv[]) {
 
 			// check for confirmation key
 			if (Keyboard::is_key_pressed(Key::Enter)) {
-				subject_number_confirmed = true;
-				LOG(Info) << "Subject number is " << subject_number << ".";
+				if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+					subject_number_confirmed = true;
+					LOG(Info) << "Subject number is " << subject_number << ".";
+					keypress_refract_clock.restart();
+				}
 			}
 
 			// check for exit key
@@ -423,23 +487,17 @@ int main(int argc, char *argv[]) {
 		}
 
 		// prompt user for input to select which arm
-		print("\r\nPress number key for selecting which arm is in the exo.");
-		print("1 = Left arm");
-		print("2 = Right arm");
+		print("\r\nIs the current arm " + arm_str[arm] + "?");
+		print("Press 'Enter' if correct.");
 		print("Press 'Escape' to exit the program.\r\n");
-		bool arm_selected = false;
-		Arm arm = Left; // default
-		while (!arm_selected && !stop) {
+		bool arm_confirmed = false;
+		while (!arm_confirmed && !stop) {
 
-			// check for number keypress
-			number_keypress = Keyboard::is_any_num_key_pressed();
-			if (number_keypress >= 0) {
+			// check for confirmation key
+			if (Keyboard::is_key_pressed(Key::Enter)) {
 				if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-					if (number_keypress > 0 && number_keypress <= LastArm) {
-						arm_selected = true;
-						arm = (Arm)(number_keypress - 1);
-						LOG(Info) << arm_str[arm] << " selected.";
-					}
+					arm_confirmed = true;
+					LOG(Info) << "Experiment setup for " << arm_str[arm] << " arm.";
 					keypress_refract_clock.restart();
 				}
 			}
@@ -532,10 +590,14 @@ int main(int argc, char *argv[]) {
 		subject_number_str += std::to_string(subject_number);
 		std::string subject_directory = output_data_directory + "\\" + "EMG_" + subject_number_str;
 		std::string subject_dof_directory = subject_directory + "\\" + dof_abbrv[dof];
+		training_data_path = subject_dof_directory;
 
 		// generate file name prefixes for data output
 		std::string file_prefix = subject_number_str + "_" + dof_abbrv[dof];
 		std::string log_file_prefix = file_prefix + "_" + phase_abbrv[phase] + "_" + project_abbrv;
+
+		// set training data file name based on selected dof
+		training_data_filename = file_prefix + "_" + training_data_filename;
 
 		// set classifier paramters based on selected dof
 		if (is_single_dof(dof)) {
@@ -558,9 +620,7 @@ int main(int argc, char *argv[]) {
 			return 0;
 		}
 
-		// set training data file name based on selected dof
-		training_data_filename = file_prefix + "_" + training_data_filename;
-
+		
 		// load classifiers based on selected phase
 		if (phase != Calibration) {
 			if (!active_detector.load(file_prefix + "_" + "emg_active_detector", subject_dof_directory)) {
@@ -585,15 +645,16 @@ int main(int argc, char *argv[]) {
 
 		// generate randomized class labels based on selected phase
 		if (phase == Training) {
-			num_labels_per_class = 5;		
+			num_targets_per_class = 5;
 		}
 		else if (phase == BlindTesting) {
-			num_labels_per_class = 10;
+			num_targets_per_class = 10;
 		}
 		else if (phase == FullTesting) {
-			num_labels_per_class = 5;
+			num_targets_per_class = 5;
 		}
-		class_labels = rand_shuffle_class_labels(num_labels_per_class, num_classes);
+		target_dirs = rand_shuffle_class_labels(num_targets_per_class, num_classes);
+		std::cout << "Randomized target list is :\r\n" << target_dirs << "\r\n";
 
 		// set logging parameters based on selected dof and condition
 		if (phase == BlindTesting) {
@@ -617,6 +678,7 @@ int main(int argc, char *argv[]) {
 			testing_results_log.push_back_col("pred_label");
 			testing_results_log_row.resize(testing_results_log.col_count());
 		}
+		
 
 		// launch unity game
 		UnityEmgRtc game;
@@ -777,8 +839,9 @@ int main(int argc, char *argv[]) {
 					}
 					else if (phase == Training) {
 						state = 8;
+						training_refract_clock.restart();
 						LOG(Info) << "Training of direcitonal classifier.";
-						print("Press target number key to enable triggered data capture for that target.");
+						print("Press 'Space' to toggle automated target presentation.");
 						print("Number of possible targets is:");
 						print(num_classes);
 						print("Press 'T' to train direction classifier and begin real-time classification.");
@@ -788,8 +851,10 @@ int main(int argc, char *argv[]) {
 					}
 					else if (phase == BlindTesting) {
 						state = 9;
+						initial_rest_achieved = false;
+						pred_refract_clock.restart();
 						LOG(Info) << "Blind testing of direcitonal classifier.";
-						print("Press target number key to enable triggered predictions for that target.");
+						print("Press 'Space' to toggle automated target presentation.");
 						print("Number of possible targets is:");
 						print(num_classes);
 						print("Press 'Enter' to finish and save testing results.");
@@ -797,20 +862,26 @@ int main(int argc, char *argv[]) {
 					}
 					else if (phase == FullTesting) {
 						state = 9;
+						initial_rest_achieved = false;
+						pred_refract_clock.restart();
 						if (full_testing_first_cycle) {
 							LOG(Info) << "Blind testing of direcitonal classifier with robot motion.";
-							print("Press target number key to enable triggered predictions for that target.");
+							print("Press 'Space' to toggle automated target presentation.");
 							print("Number of possible targets is:");
 							print(num_classes);
 							print("Press 'Enter' to finish and save testing results.");
 							print("Press 'Escape' to exit.");
 							full_testing_first_cycle = false;
 						}
+						else if (end_of_target_dirs) {
+							LOG(Info) << "End of automated target presentation.";
+							dir_classifier.clear_buffers();
+							selected_dir = 0;
+						}
 						else {
 							LOG(Info) << "Waiting for prediction.";
 							dir_classifier.clear_buffers();
 							selected_dir = 0;
-							game.set_target(-1);
 						}
 					}					
 
@@ -917,13 +988,19 @@ int main(int argc, char *argv[]) {
 			case 7: // calibration
 
 				// predict state
-				if (active_detector.update(mes.get_tkeo_envelope())) {
+				if (active_feature_mean) {
+					active_sample = mes.get_tkeo_envelope_mean();
+				}
+				else {
+					active_sample = mes.get_tkeo_envelope();
+				}
+				if (active_detector.update(active_sample)) {
 					active_state = active_detector.get_class();
 					game.set_center(active_state == 1);
 				}
 
 				// write prediction to melshare
-				ms_pred.write_data({ (double)active_state });
+				ms_pred.write_data({ (double)active_state, 0.0 });
 
 				// clear rest data
 				if (Keyboard::are_all_keys_pressed({ Key::C, Key::Num0 })) {
@@ -943,14 +1020,21 @@ int main(int argc, char *argv[]) {
 
 				// capture rest data
 				if (Keyboard::are_all_keys_pressed({ Key::A, Key::Num0 })) {
-					if (game.get_target_label() == -1) {
+					if (selected_dir == 0) {
 						if (mes.is_buffer_full()) {
 							if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
 								bool added_successfully = true;
 								for (std::size_t k = 0; k < num_classes; ++k) {
-									if (!active_detector.add_training_data(k, 0, mes.get_tkeo_env_buffer_data(mes_rest_capture_window_size))) {
-										added_successfully = false;
+									if (active_feature_mean) {
+										if (!active_detector.add_training_data(k, 0, mes.get_tkeo_env_mean_buffer_data(mes_rest_capture_window_size))) {
+											added_successfully = false;
+										}
 									}
+									else {
+										if (!active_detector.add_training_data(k, 0, mes.get_tkeo_env_buffer_data(mes_rest_capture_window_size))) {
+											added_successfully = false;
+										}
+									}									
 								}
 								if (added_successfully) {
 									LOG(Info) << "Added rest data.";
@@ -976,41 +1060,47 @@ int main(int argc, char *argv[]) {
 				// capture active data
 				for (std::size_t k = 0; k < num_classes; ++k) {
 					if (Keyboard::are_all_keys_pressed({ Key::A, active_keys[k] })) {
-						if ((std::size_t)((unsigned)game.get_target_label()) == k + 1) {
+						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 							if (mes.is_buffer_full()) {
 								if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
-									if (active_detector.add_training_data(k, 1, find_sum_max_window(mes.get_tkeo_env_buffer_data(mes_active_capture_window_size), mes_active_window_size))) {
-										LOG(Info) << "Added active data for target " + stringify(k + 1) + ".";
-									}
+									LOG(Info) << "Capturing active data for target " + stringify(k + 1) + ".";
+									capturing_active_data = true;
+									selected_dir = k + 1;
+									game.set_target(selected_dir);
 									training_refract_clock.restart();
 								}
-							}
-						}
+							}	
+							keypress_refract_clock.restart();
+						}					
 					}
 				}
+				if (capturing_active_data) {
+					if (training_refract_clock.get_elapsed_time() > active_training_refract_time) {
+						if (active_feature_mean) {
+							if (active_detector.add_training_data(selected_dir - 1, 1, find_sum_max_window(mes.get_tkeo_env_mean_buffer_data(mes_active_capture_window_size), mes_active_window_size))) {
+								LOG(Info) << "Added active data for target " + stringify(selected_dir) + ".";
+							}
+						}
+						else {
+							if (active_detector.add_training_data(selected_dir - 1, 1, find_sum_max_window(mes.get_tkeo_env_buffer_data(mes_active_capture_window_size), mes_active_window_size))) {
+								LOG(Info) << "Added active data for target " + stringify(selected_dir) + ".";
+							}
+						}
+						capturing_active_data = false;
+						selected_dir = 0;
+						game.set_target(selected_dir);
+					}
+				}					
 
 				// train the active/rest classifiers
 				if (Keyboard::is_key_pressed(Key::T)) {
 					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 						if (active_detector.train()) {
 							LOG(Info) << "Trained new active/rest classifier based on given data.";
-							game.set_target(-1);
+							selected_dir = 0;
+							game.set_target(selected_dir);
 						}
 						keypress_refract_clock.restart();
-					}
-				}
-
-				// update visualization target
-				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
-					number_keypress = Keyboard::is_any_num_key_pressed();
-					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (number_keypress == 0 || number_keypress > num_classes) {
-								number_keypress = -1;
-							}
-							game.set_target(number_keypress);
-							keypress_refract_clock.restart();
-						}
 					}
 				}
 
@@ -1051,12 +1141,16 @@ int main(int argc, char *argv[]) {
 
 				break;
 
-			case 8: // training of directional classifier
-
-				
+			case 8: // training of directional classifier				
 
 				// predict state
-				if (active_detector.update(mes.get_tkeo_envelope())) {
+				if (active_feature_mean) {
+					active_sample = mes.get_tkeo_envelope_mean();;
+				}
+				else {
+					active_sample = mes.get_tkeo_envelope();
+				}
+				if (active_detector.update(active_sample)) {
 					active_state = active_detector.get_class();
 					game.set_center(active_state == 1);
 					if (dir_classifier.update(mes.get_demean())) {
@@ -1076,29 +1170,42 @@ int main(int argc, char *argv[]) {
 				// write prediction to melshare
 				ms_pred.write_data({ (double)active_state, (double)(pred_class + 1) });
 
-				// clear training data
-				for (std::size_t k = 0; k < num_classes; ++k) {
-					if (Keyboard::are_all_keys_pressed({ Key::C, active_keys[k] })) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (dir_classifier.clear_training_data(k)) {
-								LOG(Info) << "Cleared training data for target " + stringify(k + 1) + ".";
-							}
-							keypress_refract_clock.restart();
+				// update target display
+				if (automated_targets) {
+					if (training_refract_clock.get_elapsed_time() > dir_training_refract_time) {
+						if (!end_of_target_dirs) {
+							selected_dir = target_dirs[target_dir_index];
+							game.set_target(selected_dir);
+						}
+						else {
+							selected_dir = 0;
+							game.set_target(-1);
 						}
 					}
+					else {
+						selected_dir = 0;
+						game.set_target(-1);
+					}				
+				}
+				else {
+					selected_dir = 0;
+					game.set_target(-1);
 				}
 
 				// add training data
-				for (std::size_t k = 0; k < num_classes; ++k) {
-					if (selected_dir == k + 1) {
-						if (mes.is_buffer_full()) {
-							if (active_state == 1) {
-								if (training_refract_clock.get_elapsed_time() > dir_training_refract_time) {
-									if (dir_classifier.add_training_data(k, mes.get_dm_buffer_data(mes_dir_capture_window_size))) {
-										LOG(Info) << "Added training data for target " + stringify(k + 1) + ".";
+				if (selected_dir > 0) {
+					if (mes.is_buffer_full()) {
+						if (active_state == 1) {
+							if (training_refract_clock.get_elapsed_time() > dir_training_refract_time) {
+								if (dir_classifier.add_training_data(selected_dir - 1, mes.get_dm_buffer_data(mes_dir_capture_window_size))) {
+									LOG(Info) << "Added training data for target " + stringify(selected_dir) + ".";
+									target_dir_index++;
+									if (target_dir_index >= target_dirs.size()) {
+										end_of_target_dirs = true;
+										LOG(Info) << "End of automated target presentation.";
 									}
-									training_refract_clock.restart();
 								}
+								training_refract_clock.restart();
 							}
 						}
 					}
@@ -1135,26 +1242,21 @@ int main(int argc, char *argv[]) {
 				}
 				
 
-				// update the selected target and enable active detection
-				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
-					number_keypress = Keyboard::is_any_num_key_pressed();
-					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {						
-							if (number_keypress > 0 && number_keypress <= num_classes) {
-								selected_dir = number_keypress;
-								game.set_target(number_keypress);
-								print("Current target is " + stringify(selected_dir));
-							}
-							else {
-								selected_dir = 0;
-								game.set_target(-1);
-								print("No target currently selected.");
-							}
-							keypress_refract_clock.restart();
+				// toggle automated presentation of targets
+				if (Keyboard::is_key_pressed(Key::Space)) {
+					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+						automated_targets = !automated_targets;
+						if (automated_targets) {
+							training_refract_clock.restart();
+							LOG(Info) << "Resume automated target presentation.";
 						}
+						else {
+							training_refract_clock.restart();
+							LOG(Info) << "Pause automated target presentation.";
+						}
+						keypress_refract_clock.restart();
 					}
 				}
-
 
 
 				// finish training and save the computed directional classifier
@@ -1200,44 +1302,26 @@ int main(int argc, char *argv[]) {
 			case 9: // testing of directional classifier
 
 				// predict state
-				if (active_detector.update(mes.get_tkeo_envelope())) {
+				if (active_feature_mean) {
+					active_sample = mes.get_tkeo_envelope_mean();
+				}
+				else {
+					active_sample = mes.get_tkeo_envelope();
+				}
+				if (active_detector.update(active_sample)) {
 					active_state = active_detector.get_class();
 					game.set_center(active_state == 1);
+					if (!initial_rest_achieved && active_state == 0) {
+						initial_rest_achieved = true;
+					}
 					if (dir_classifier.update(mes.get_demean())) {
 						pred_class = dir_classifier.get_class();	
-
 						if (pred_refract_clock.get_elapsed_time() > dir_pred_refract_time) {
 							if (active_state == 1) {
 								if (selected_dir > 0) {
-									true_class = selected_dir - 1;
 									pred_dir = pred_class + 1;
-									LOG(Info) << "Logging directional classifier prediction of " << pred_dir << " for target " << selected_dir;
-									testing_results_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
-									for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
-										testing_results_log_row[i + 1] = dir_classifier.get_features()[i];
-									}
-									for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
-										testing_results_log_row[i + 1 + dir_classifier.get_feature_dim()] = dir_classifier.get_model_output()[i];
-									}
-									for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
-										testing_results_log_row[i + 1 + dir_classifier.get_feature_dim() + dir_classifier.get_class_count()] = dir_classifier.get_class_posteriors()[i];
-									}
-									testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count()] = (double)selected_dir;
-									testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count() + 1] = (double)pred_dir;
-									testing_results_log.push_back_row(testing_results_log_row);
-									if (phase == FullTesting) {
-										state = 4;
-										selected_dir = 0;
-										LOG(Info) << "Going to extreme position.";
-										dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[pred_class].set_time(dmp_duration));
-										if (!dmp.trajectory().validate()) {
-											LOG(Warning) << "DMP trajectory invalid.";
-											stop = true;
-										}
-										state_clock.restart();
-										ref_traj_clock.restart();
-									}
-									pred_refract_clock.restart();
+									log_prediction = true;
+									advance_target = true;									
 								}
 							}
 							else {
@@ -1250,23 +1334,97 @@ int main(int argc, char *argv[]) {
 				// write prediction to melshare
 				ms_pred.write_data({ (double)pred_dir });
 
-				// update the selected target and enable active detection
-				if (!Keyboard::is_key_pressed(Key::A) && !Keyboard::is_key_pressed(Key::C)) {
-					number_keypress = Keyboard::is_any_num_key_pressed();
-					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {							
-							if (number_keypress > 0 && number_keypress <= num_classes) {
-								selected_dir = number_keypress;
-								game.set_target(number_keypress);
-								print("Current target is " + stringify(selected_dir));
+				// update target display
+				if (automated_targets) {
+					if (end_of_target_dirs) {
+						selected_dir = 0;
+					}
+					else if (!initial_rest_achieved) {
+						selected_dir = 0;
+					}
+					else {
+						if (selected_dir > 0) {
+							if (pred_timeout_clock.get_elapsed_time() > dir_pred_timeout_time) {
+								pred_dir = 0;
+								log_prediction = true;
+								advance_target = true;
+							}
+						}
+						else {
+							if (pred_refract_clock.get_elapsed_time() > dir_pred_refract_time) {
+								selected_dir = target_dirs[target_dir_index];
+								pred_timeout_clock.restart();
 							}
 							else {
 								selected_dir = 0;
-								game.set_target(-1);
-								print("No target currently selected.");
 							}
-							keypress_refract_clock.restart();
 						}
+					}					
+				}
+				else {
+					selected_dir = 0;
+				}
+				game.set_target(selected_dir);
+
+				// log a prediction
+				if (log_prediction) {
+					LOG(Info) << "Logging directional classifier prediction of " << pred_dir << " for target " << selected_dir;
+					testing_results_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+					for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
+						testing_results_log_row[i + 1] = dir_classifier.get_features()[i];
+					}
+					for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
+						testing_results_log_row[i + 1 + dir_classifier.get_feature_dim()] = dir_classifier.get_model_output()[i];
+					}
+					for (std::size_t i = 0; i < dir_classifier.get_class_count(); ++i) {
+						testing_results_log_row[i + 1 + dir_classifier.get_feature_dim() + dir_classifier.get_class_count()] = dir_classifier.get_class_posteriors()[i];
+					}
+					testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count()] = (double)selected_dir;
+					testing_results_log_row[1 + dir_classifier.get_feature_dim() + 2 * dir_classifier.get_class_count() + 1] = (double)pred_dir;
+					testing_results_log.push_back_row(testing_results_log_row);
+					log_prediction = false;
+				}
+
+				// advance through target list
+				if (advance_target) {
+					target_dir_index++;
+					if (target_dir_index >= target_dirs.size()) {
+						end_of_target_dirs = true;
+						LOG(Info) << "End of automated target presentation.";
+					}
+
+					if (phase == FullTesting) {
+						if (pred_dir != 0) {
+							state = 4;
+							//selected_dir = 0;
+							LOG(Info) << "Going to extreme position.";
+							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[pred_class].set_time(dmp_duration));
+							if (!dmp.trajectory().validate()) {
+								LOG(Warning) << "DMP trajectory invalid.";
+								stop = true;
+							}
+							state_clock.restart();
+							ref_traj_clock.restart();
+						}					
+					}
+
+					selected_dir = 0;
+					pred_refract_clock.restart();
+					advance_target = false;
+				}
+
+				// toggle automated presentation of targets
+				if (Keyboard::is_key_pressed(Key::Space)) {
+					if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
+						automated_targets = !automated_targets;
+						if (automated_targets) {
+							pred_refract_clock.restart();
+							LOG(Info) << "Resume automated target presentation.";
+						}
+						else {
+							LOG(Info) << "Pause automated target presentation.";
+						}
+						keypress_refract_clock.restart();
 					}
 				}
 
@@ -1320,6 +1478,7 @@ int main(int argc, char *argv[]) {
 			ms_trq.write_data(command_torques);
 			ms_ref.write_data(ref);
 			ms_emg.write_data(mes.get_tkeo_envelope());
+			ms_emg_mean.write_data(mes.get_tkeo_envelope_mean());
 			
 
 			// write to MEII standard data log
@@ -1437,7 +1596,7 @@ int main(int argc, char *argv[]) {
 
 			// read classification model from python and save as directional classifier
 			std::vector<std::vector<double>> weights;
-			DataLogger::read_from_csv(weights, file_prefix + "_" + "myo_armband_python_classifier", training_data_path);
+			DataLogger::read_from_csv(weights, file_prefix + "_" + project_abbrv + "_" + "python_classifier", training_data_path);
 			std::vector<double> intercept(num_classes);
 			for (std::size_t i = 0; i < num_classes; ++i) {
 				intercept[i] = weights[i].back();

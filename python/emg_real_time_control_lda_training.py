@@ -17,8 +17,9 @@ ms_cv = MelShare("cv_results")
 filepath = ms_fp.read_message()
 filename = ms_fn.read_message()
 
-# extract dof from file name
-str_dof, token = filename.split("_",1)
+# extract subject number and dof from file name
+str_subject_num, token = filename.split("_",1)
+str_dof, token = token.split("_",1)
 
 # read data from file
 fullfile = filepath + "\\" + filename + ".csv"
@@ -88,7 +89,7 @@ else:
 
 # write full classifier matrix to file
 my_classifier = pandas.DataFrame(classifier)
-classifier_filename = str_dof + "_" + "myo_armband_python_classifier"
+classifier_filename = str_subject_num + "_" + str_dof + "_" + "emg_rt_ctrl_python_classifier"
 my_classifier.to_csv(filepath + "\\" + classifier_filename + ".csv", index=False, header=False)
 
 # send flag over MelShare indicating code successfully executed

@@ -89,4 +89,29 @@ namespace meii {
         return signal_window;
     }
 
+	std::vector<double> max_sample_per_channel(const std::vector<std::vector<double>> signal) {
+		if (signal.empty()) {
+			LOG(Warning) << "Input to max_sample() was empty. Returning empty vector.";
+			return std::vector<double>();
+		}
+		std::size_t sample_size = signal[0].size();
+		for (std::size_t i = 0; i < signal.size(); ++i) {
+			if (signal[i].size() != sample_size) {
+				LOG(Warning) << "Input to max_sample() signal contains sample vectors of different sizes. Returning empty vector.";
+				return std::vector<double>();
+			}
+		}
+
+
+		std::vector<double> max(sample_size);
+		std::vector<double> channel(signal.size());
+		for (std::size_t i = 0; i < sample_size; ++i) {
+			for (std::size_t j = 0; j < signal.size(); ++j) {
+				channel[j] = signal[j][i];
+			}
+			max[i] = *std::max_element(channel.begin(), channel.end());
+		}
+		return max;
+	}
+
 } // namespace meii

@@ -8,15 +8,16 @@ from sklearn import feature_selection
 
 
 # get full file path and file name for EMG training data
-filepath = "C:\\Git\\MEII\\bin\\Release"
+filepath = "C:\\Git\\MEII\\EmgRealTimeControlData\\EMG_S00\\WFE"
 print filepath
 
-filename = "WristFE_training_data"
+filename = "S00_WFE_training_data"
 print filename
 
 
-# extract dof from file name
-str_dof, token = filename.split("_",1)
+# extract subject number and dof from file name
+str_subject_num, token = filename.split("_",1)
+str_dof, token = token.split("_",1)
 
 # read data from file
 fullfile = filepath + "\\" + filename + ".csv"
@@ -96,7 +97,7 @@ else:
 
 # write full classifier matrix to file
 my_classifier = pandas.DataFrame(classifier)
-classifier_filename = str_dof + "_" + "myo_armband_python_classifier"
+classifier_filename = str_subject_num + "_" + str_dof + "_" + "emg_rt_ctrl_python_classifier"
 my_classifier.to_csv(filepath + "\\" + classifier_filename + ".csv", index=False, header=False)
 
 

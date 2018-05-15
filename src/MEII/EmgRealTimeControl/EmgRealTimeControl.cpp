@@ -61,7 +61,8 @@ namespace meii {
 			return conf_mat;
 		}
 
-		std::size_t min_val = std::min(*std::min_element(actual_labels.begin(), actual_labels.end()), *std::min_element(predicted_labels.begin(), predicted_labels.end()));
+		//std::size_t min_val = std::min(*std::min_element(actual_labels.begin(), actual_labels.end()), *std::min_element(predicted_labels.begin(), predicted_labels.end()));
+		std::size_t min_val = *std::min_element(actual_labels.begin(), actual_labels.end());
 		if (min_val < index_base) {
 			LOG(Warning) << "Function gen_confusion_mat() received input arguments containing class labels out of valid range.";
 			return conf_mat;
@@ -70,11 +71,13 @@ namespace meii {
 		for (std::size_t j = 0; j < K; ++j) {
 			for (std::size_t i = 0; i < N; ++i) {
 				if (actual_labels[i] == j + index_base) {
-					if (predicted_labels[i] == actual_labels[i]) {
-						conf_mat(j, j) += 1;
-					}
-					else {
-						conf_mat(j, predicted_labels[i] - index_base) += 1;
+					if (predicted_labels[i] >= index_base && predicted_labels[i] <= K) {
+						if (predicted_labels[i] == actual_labels[i]) {
+							conf_mat(j, j) += 1;
+						}
+						else {
+							conf_mat(j, predicted_labels[i] - index_base) += 1;
+						}
 					}
 				}
 			}

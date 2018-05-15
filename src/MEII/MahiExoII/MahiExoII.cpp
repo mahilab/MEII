@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <MEL/Utility/Console.hpp>
 #include <MEII/Utility/EigenConversions.hpp>
+#include <MEL/Logging/Log.hpp>
 
 
 using namespace mel;
@@ -565,6 +566,25 @@ namespace meii {
     //-----------------------------------------------------------------------------
     // PUBLIC UTILITY FUNCTIONS
     //-----------------------------------------------------------------------------
+
+	bool MahiExoII::set_rps_init_pos(std::vector<double> new_rps_init_par_pos) {
+		bool new_pos_valid = true;
+		if (new_rps_init_par_pos.size() != 3) {
+			new_pos_valid = false;
+			LOG(Warning) << "Invalid size of input argument given to MEII::set_rps_init_pos(). Must be of size 3.";
+		}
+		for (std::size_t i = 0; i < new_rps_init_par_pos.size(); ++i) {
+			if (new_rps_init_par_pos[i] < params_.pos_limits_min_[i + 2] || new_rps_init_par_pos[i] > params_.pos_limits_max_[i + 2]) {
+				new_pos_valid = false;
+			}			
+		}
+		if (!new_pos_valid) {
+			LOG(Warning) << "Input argument given to MEII::set_rps_init_pos() contains value outside valid range.";
+		}
+		rps_init_pos_ = new_rps_init_par_pos;
+		rps_init_par_ref_ = SmoothReferenceTrajectory(rps_par_joint_speed_, rps_init_pos_);
+		return new_pos_valid;
+	}
 
     bool MahiExoII::check_rps_init(bool print_output) const {
         std::vector<double> rps_pos_tol_vec(N_qs_, rps_init_err_tol_);

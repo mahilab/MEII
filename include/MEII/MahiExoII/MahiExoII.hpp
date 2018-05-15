@@ -154,6 +154,7 @@ namespace meii {
         void inverse_rps_kinematics_velocity(std::vector<double>& q_ser_in, std::vector<double>& q_par_out, std::vector<double>& qp_out, std::vector<double>& q_ser_dot_in, std::vector<double>& q_par_dot_out, std::vector<double>& qp_dot_out) const;
 
         // PUBLIC UTILITY FUNCTIONS
+		bool set_rps_init_pos(std::vector<double> new_rps_init_par_pos);
         bool check_rps_init(bool print_output = false) const;
         bool check_goal_rps_par_pos(std::vector<double> goal_rps_par_pos, std::vector<char> check_dof, bool print_output = false) const;
         bool check_goal_rps_ser_pos(std::vector<double> goal_rps_ser_pos, std::vector<char> check_dof, bool print_output = false) const;
@@ -261,7 +262,7 @@ namespace meii {
         double rps_init_err_tol_ = 0.01; /// [m]
         std::vector<double> rps_par_goal_err_tol_ = std::vector<double>(N_qs_, 0.003);
         std::vector<double> rps_ser_goal_err_tol_ = { 2.0 * mel::DEG2RAD, 2.0 * mel::DEG2RAD, 0.005 };
-        const std::vector<double> rps_init_pos_ = { 0.12, 0.12, 0.12 };
+        std::vector<double> rps_init_pos_ = { 0.12, 0.12, 0.12 };
         const std::vector<double> rps_par_joint_speed_ = { 0.015, 0.015, 0.015 }; /// [m/s]
         const std::vector<double> rps_ser_joint_speed_ = { 0.125, 0.125, 0.015 }; /// [rad/s] and [m/s]
 
