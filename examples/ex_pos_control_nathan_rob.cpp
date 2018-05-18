@@ -90,6 +90,8 @@ int main(int argc, char *argv[]) {
 	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);
 	MahiExoII meii(config);
 
+	bool rps_is_init = false;
+
 	// calibrate - manually zero the encoders (right arm supinated)
 	if (result.count("calibrate") > 0) {
 		meii.calibrate(stop);
@@ -312,7 +314,10 @@ int main(int argc, char *argv[]) {
 				// check for wait period to end
 				if (traj_selected) {
 					
-					meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
+					if (!rps_is_init) {
+						meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
+						LOG(Info) << "Initializing RPS Mechanism";
+					}
 
 					dof_selected = false;
 					traj_selected = false;
@@ -320,27 +325,42 @@ int main(int argc, char *argv[]) {
 					ref_traj_clock.restart();
 					state = 1;
 					
-					LOG(Info) << "Initializing RPS Mechanism";
 					state_clock.restart();
 				}
 				break;
 
 			case 1: // initialize rps                
 
-				// update ref, though not being used
-				ref = meii.get_anatomical_joint_positions();
+				if (!rps_is_init) {
+					// update ref, though not being used
+					ref = meii.get_anatomical_joint_positions();
 
-				// calculate commanded torques
-				rps_command_torques = meii.set_rps_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
-				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+					// calculate commanded torques
+					rps_command_torques = meii.set_rps_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
+					std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+				}
+				else {
+					// set zero torque
+					for (size_t i = 0; i < meii.N_aj_; i++) {
+						command_torques[i] = 0.0;
+					}
+					// command zero torque
+					meii.set_joint_torques(command_torques);
+				}
 
 				// check for RPS Initialization target reached
-				if (meii.check_rps_init()) {
-					meii.rps_init_par_ref_.stop();
+				if (meii.check_rps_init() || rps_is_init == true) {
+					
+					/*meii.rps_init_par_ref_.stop();*/
 					state = 2;
-					LOG(Info) << "RPS initialization complete.";
+					if (!rps_is_init) {
+						LOG(Info) << "RPS initialization complete.";
+						meii.set_rps_control_mode(2); // platform height NON-backdrivable   
+					}
+					
+					rps_is_init = true;
+
 					LOG(Info) << "Going to neutral position.";
-					meii.set_rps_control_mode(2); // platform height NON-backdrivable                   
 					
 					// generate new trajectories
 					if (traj_type == "linear"){
@@ -563,8 +583,6 @@ int main(int argc, char *argv[]) {
 			ms_vel.write_data(aj_velocities);
 			ms_trq.write_data(command_torques);
 			ms_ref.write_data(ref);
-
-
 			
 			// update all DAQ output channels
 			q8.update_output();
