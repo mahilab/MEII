@@ -241,6 +241,8 @@ int main(int argc, char *argv[]) {
 				aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
 			}
 
+			//print(aj_positions);
+
 			// begin switch state
 			switch (state) {
 			case 0: // backdrive
@@ -309,13 +311,16 @@ int main(int argc, char *argv[]) {
 
 				// check for wait period to end
 				if (traj_selected) {
+					
+					meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
 
 					dof_selected = false;
 					traj_selected = false;
 
 					ref_traj_clock.restart();
 					state = 1;
-					LOG(Info) << "Going to Extreme position";
+					
+					LOG(Info) << "Initializing RPS Mechanism";
 					state_clock.restart();
 				}
 				break;
@@ -331,6 +336,7 @@ int main(int argc, char *argv[]) {
 
 				// check for RPS Initialization target reached
 				if (meii.check_rps_init()) {
+					meii.rps_init_par_ref_.stop();
 					state = 2;
 					LOG(Info) << "RPS initialization complete.";
 					LOG(Info) << "Going to neutral position.";
@@ -387,7 +393,7 @@ int main(int argc, char *argv[]) {
 
 				// check for end of trajectory
 				if (ref_traj_clock.get_elapsed_time() > ref_traj.back().when()) {
-					return 0; //HERE IS WHERE IT ENDS FOR NOW
+					//stop = true; //HERE IS WHERE IT ENDS FOR NOW
 					state = 3;
 					ref = ref_traj.back().get_pos();
 					LOG(Info) << "Waiting at neutral position.";
@@ -553,7 +559,15 @@ int main(int argc, char *argv[]) {
 
 
 			// write ref to MelShares
+			ms_pos.write_data(aj_positions);
+			ms_vel.write_data(aj_velocities);
+			ms_trq.write_data(command_torques);
 			ms_ref.write_data(ref);
+
+
+			
+			// update all DAQ output channels
+			q8.update_output();
 
 			// check for save key
 			if (Keyboard::is_key_pressed(Key::Enter)) {
@@ -573,6 +587,11 @@ int main(int argc, char *argv[]) {
 				robot_log_row[i + 1] = ref[i];
 			}
 			robot_log.buffer(robot_log_row);
+
+			// kick watchdog
+			if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
+				stop = true;
+			}
 
 			// wait for remainder of sample period
 			timer.wait();
