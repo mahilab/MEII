@@ -137,7 +137,6 @@ namespace meii {
         std::vector<std::vector<std::vector<double>>> training_data_; ///< training data for all classes
         std::vector<std::vector<std::vector<double>>> feature_data_; ///< feature data computed from training data for all classes
 
-        //std::size_t feature_dim_; ///< dimension of the feature space
         std::vector<std::vector<double>> w_; ///< classification weighting coefficients
         std::vector<double> w_0_; ///< classification intercept
         std::vector<double> phi_; ///< classification input

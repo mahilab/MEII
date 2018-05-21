@@ -22,7 +22,6 @@ namespace meii {
         sample_buffer_(feature_window_size_),
         training_data_(class_count_),
         feature_data_(class_count_),
-        //feature_dim_(get_feature_dim()),
         w_(class_count_),
         w_0_(class_count_),
         y_(class_count_),
@@ -84,22 +83,6 @@ namespace meii {
     }
 
     bool RealTimeMultiClassifier::train() {
-        //for (std::size_t i = 0; i < class_count_; ++i) {
-        //    if (training_data_[i].empty()) {
-        //        LOG(Warning) << "Must collect training data for all classes before calling RealTimeMultiClassifier::train(). Training was aborted.";
-        //        return trained_ = false;
-        //    }
-        //}
-
-        //std::vector<std::vector<std::vector<double>>> binned_data;
-        //for (std::size_t i = 0; i < class_count_; ++i) {
-        //    binned_data = bin_signal(training_data_[i], feature_window_size_);
-        //    feature_data_[i].resize(binned_data.size());
-        //    for (std::size_t j = 0; j < binned_data.size(); ++j) {
-        //        feature_data_[i][j] = feature_extraction(binned_data[j]);
-        //    }
-        //}
-
 		if (!compute_training_features()) {
 			return trained_ = false;
 		}
@@ -323,7 +306,7 @@ namespace meii {
 
 	bool RealTimeMultiClassifier::read_datalog(const std::vector<mel::Table> &tables) {
 		if (tables.empty()) {
-			LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::load() are invalid. Incorrect number of Tables.";
+			LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::read_datalog() are invalid. Incorrect number of Tables.";
 			return false;
 		}
 
@@ -337,12 +320,12 @@ namespace meii {
 			trained_ = (bool)tables[0](0, 7);
 		}
 		else {
-			LOG(Warning) << "Contents of file given to RealTimeClassifier::load() are invalid. No Parameters Table.";
+			LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::read_datalog() are invalid. No Parameters Table.";
 			return false;
 		}
 
 		if (tables.size() != 2 * class_count_ + 2) {
-			LOG(Warning) << "Contents of file given to EnsembleRTClassifier::load() are invalid. Incorrect number of Tables.";
+			LOG(Warning) << "Contents of file given to RealTimeMultiClassifier::read_datalog() are invalid. Incorrect number of Tables.";
 			return false;
 		}
 

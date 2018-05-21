@@ -1,0 +1,77 @@
+DATA_SOURCES:
+- curve_colors:
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  - [177, 89, 40]
+  - [166, 206, 227]
+  - [251, 154, 153]
+  curve_names: ['emg[0]', 'emg[1]', 'emg[2]', 'emg[3]', 'emg[4]', 'emg[5]', 'emg[6]',
+    'emg[7]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: emg
+  settings: null
+  size: 8
+  type: melshare
+- curve_colors:
+  - [178, 223, 138]
+  - [31, 120, 180]
+  - [227, 26, 28]
+  - [51, 160, 44]
+  - [255, 127, 0]
+  - [106, 61, 154]
+  - [177, 89, 40]
+  - [166, 206, 227]
+  curve_names: ['pred[0]', 'pred[1]', 'pred[2]', 'pred[3]', 'pred[4]', 'pred[5]',
+    'pred[6]', 'pred[7]']
+  curve_styles: [Solid, Solid, Solid, Solid, Solid, Solid, Solid, Solid]
+  curve_widths: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+  mode: Read Only
+  name: pred
+  settings: null
+  size: 8
+  type: melshare
+- curve_colors: []
+  curve_names: []
+  curve_styles: []
+  curve_widths: []
+  mode: Read Only
+  name: ref
+  settings: null
+  size: 0
+  type: melshare
+GRID_COLS: 3
+GRID_ROWS: 1
+SCOPES:
+- filter:
+    emg: [true, true, true, true, true, true, true, true]
+    pred: [false, false, false, false, false, false, false, false]
+    ref: []
+  index: 0
+  legend: false
+  mode: Plot
+  title: Scope0
+  yrange: [-1.0, 1.0]
+- filter:
+    emg: [false, false, false, false, false, false, false, false]
+    pred: [true, true, true, true, true, true, true, true]
+    ref: []
+  index: 1
+  legend: false
+  mode: Plot
+  title: Scope1
+  yrange: [-1.0, 1.0]
+- filter:
+    emg: [false, false, false, false, false, false, false, false]
+    pred: [false, false, false, false, false, false, false, false]
+    ref: []
+  index: 2
+  legend: false
+  mode: Plot
+  title: Scope2
+  yrange: [-1.0, 1.0]
+THEME: Dark

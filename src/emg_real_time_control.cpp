@@ -54,7 +54,7 @@ int main(int argc, char *argv[]) {
 	//====================================
 	// Constant subject parameters
 	//====================================
-	std::size_t subject_number = 0;
+	std::size_t subject_number = 16;
 	Arm arm = Right;
 	//====================================
 	//====================================
@@ -72,51 +72,51 @@ int main(int argc, char *argv[]) {
 	// EMG Configuration with Delsys
 	//====================================
 
-	//// make Q8 USB and configure    
-	//std::vector<uint32> emg_channel_numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
-	//Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
-	//q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-	//q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-	//q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
-	//if (!q8.identify(7)) {
-	//	LOG(Error) << "Incorrect DAQ";
-	//	return 0;
-	//}
-	//emg_channel_numbers = q8.analog_input.get_channel_numbers();
-	//std::size_t emg_channel_count = q8.analog_input.get_channel_count();
-	//Time Ts = milliseconds(1); // sample period for DAQ
-
-	//// construct array of Myoelectric Signals    
-	//MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
-
-	//bool using_myo = false;
-
-	//====================================
-	// EMG Configuration with Myo
-	//====================================
-
-	// construct Q8 USB and configure    
-	Q8Usb q8;
+	// make Q8 USB and configure    
+	std::vector<uint32> emg_channel_numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
+	Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
 	q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
 	q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
 	q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
 	if (!q8.identify(7)) {
 		LOG(Error) << "Incorrect DAQ";
 		return 0;
-	}	
-	Time Ts = milliseconds(1); // sample period for DAQ	
+	}
+	emg_channel_numbers = q8.analog_input.get_channel_numbers();
+	std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+	Time Ts = milliseconds(1); // sample period for DAQ
 
-	// construct and enable myo
-	MyoBand myo("my_myo");
-	myo.enable();
-	bool using_myo = true;
+	// construct array of Myoelectric Signals    
+	MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
 
-	// set emg channel numbers
-	std::vector<uint32> emg_channel_numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
-	std::size_t emg_channel_count = emg_channel_numbers.size();
+	bool using_myo = false;
 
-	// construct Myoelectric Signal (MES) Array
-	MesArray mes(myo.get_channels(emg_channel_numbers));
+	//====================================
+	// EMG Configuration with Myo
+	//====================================
+
+	//// construct Q8 USB and configure    
+	//Q8Usb q8;
+	//q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
+	//q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
+	//q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+	//if (!q8.identify(7)) {
+	//	LOG(Error) << "Incorrect DAQ";
+	//	return 0;
+	//}	
+	//Time Ts = milliseconds(1); // sample period for DAQ	
+
+	//// construct and enable myo
+	//MyoBand myo("my_myo");
+	//myo.enable();
+	//bool using_myo = true;
+
+	//// set emg channel numbers
+	//std::vector<uint32> emg_channel_numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
+	//std::size_t emg_channel_count = emg_channel_numbers.size();
+
+	//// construct Myoelectric Signal (MES) Array
+	//MesArray mes(myo.get_channels(emg_channel_numbers));
 
 	//====================================
 	// end EMG Configuration
@@ -177,7 +177,7 @@ int main(int argc, char *argv[]) {
 			// update all DAQ input channels
 			q8.update_input();
 			if (using_myo) {
-				myo.update();
+				//myo.update();
 			}
 
 			// emg signal processing
@@ -380,26 +380,26 @@ int main(int argc, char *argv[]) {
 		{ 0.08, 0.115 } };
 
 		// change rps init position from default
-		meii.set_rps_init_pos({ 0.12, 0.117, 0.129 });
+		meii.set_rps_init_pos({ 0.128, 0.1195, 0.116 });
 
 		// initialize trajectory
 		std::vector<WayPoint> neutral_point_set = {
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
-			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
+			WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })
 		};
 		std::vector<std::vector<WayPoint>> extreme_points_set = {
-			{ WayPoint(Time::Zero,{ -05 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -05 * DEG2RAD, 30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -05 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD, 30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
-			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 12 * DEG2RAD, 12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-12 * DEG2RAD, 12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 12 * DEG2RAD,-12 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD,-12 * DEG2RAD,-12 * DEG2RAD, 0.09 }) }
+			{ WayPoint(Time::Zero,{ -05 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
+			{ WayPoint(Time::Zero,{ -35 * DEG2RAD,  00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
+			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 10 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD,-10 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
+			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD, 10 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 00 * DEG2RAD,-10 * DEG2RAD, 0.09 }) },
+			{ WayPoint(Time::Zero,{ -05 * DEG2RAD,  00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -05 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD,  00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -65 * DEG2RAD,-30 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }) },
+			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 10 * DEG2RAD, 10 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD,-10 * DEG2RAD, 10 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD, 10 * DEG2RAD,-10 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, -15 * DEG2RAD,-10 * DEG2RAD,-10 * DEG2RAD, 0.09 }) }
 		};
-		WayPoint final_point(Time::Zero, { -35 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 0.09 });
+		WayPoint final_point(Time::Zero, { -35 * DEG2RAD , -15 * DEG2RAD , 00 * DEG2RAD , 00 * DEG2RAD , 0.09 });
 		std::vector<Time> dmp_durations = { seconds(4.0), seconds(4.0), seconds(3.0), seconds(3.0), seconds(4.0), seconds(3.0) };
 		std::vector<double> traj_max_diff = { 60 * mel::DEG2RAD, 60 * mel::DEG2RAD, 45 * mel::DEG2RAD, 45 * mel::DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
@@ -708,7 +708,7 @@ int main(int argc, char *argv[]) {
 			// update all DAQ input channels
 			q8.update_input();
 			if (using_myo) {
-				myo.update();
+				//myo.update();
 			}
 
 			// update MahiExoII kinematics
@@ -731,7 +731,7 @@ int main(int argc, char *argv[]) {
 			switch (state) {
 			case 0: // backdrive
 
-					// update ref, though not being used
+				// update ref, though not being used
 				ref = meii.get_anatomical_joint_positions();
 
 				// command zero torque
@@ -1519,9 +1519,10 @@ int main(int argc, char *argv[]) {
 				save_data = false;
 			}
 
-			// kick watchdog
-			if (!q8.watchdog.kick() || meii.any_limit_exceeded())
+			// kick watchdog and check limits
+			if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
 				stop = true;
+			}
 
 			// wait for remainder of sample period
 			timer.wait();

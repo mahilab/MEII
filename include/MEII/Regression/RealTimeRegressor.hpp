@@ -19,6 +19,7 @@
 #define MEII_REAL_TIME_REGRESSOR_HPP
 
 #include <MEL/Core/Time.hpp>
+#include <MEL/Logging/Table.hpp>
 #include <vector>
 
 namespace meii {
@@ -32,27 +33,36 @@ namespace meii {
 	public:
 
 		/// Constructor
-		RealTimeRegressor(std::size_t sample_dimension, mel::Time sample_period);
+		RealTimeRegressor(std::size_t sample_dimension, std::size_t prediction_dimension, mel::Time sample_period);
 
 		/// Update called every sample period, taking in new input sample. Must have already done training.
-		bool update(std::vector<double> sample);
+		bool update(const std::vector<double> &sample);
 
-		/// Provide the linear classification model without training data.
-		bool set_model(const std::vector<double>& w, double w_0);
-		bool set_model(std::vector<double> w_full);
+		/// Provide the linear regression model without training data.
+		bool set_model(const std::vector<std::vector<double>> &w, const std::vector<double> &w_0);
 
-		/// Get latest prediction of the class label since calling update.
-		std::size_t get_pred() const;
+		/// Get latest prediction since calling update.
+		const std::vector<double>& get_pred() const;
 
 		/// Get the vector of w with w_0 on the end used for computing predictions.
-		std::vector<double> get_model() const;
+		void get_model(std::vector<std::vector<double>> &w, std::vector<double> &w_0);
 
 		/// Return whether or not the classifier has been trained.
-		bool is_trained();
+		bool is_trained() const;
 
-		/// Return the size of the sample space
+		/// Return the dimension of the sample space
 		std::size_t get_sample_dim() const;
 
+		/// Return the dimension of the prediction space
+		std::size_t get_pred_dim() const;
+
+		bool save(const std::string &filename = "real_time_regressor", const std::string& directory = ".", bool timestamp = true);
+
+		bool load(const std::string &filename = "real_time_regressor", const std::string& directory = ".");
+
+		std::vector<mel::Table> make_datalog() const;
+
+		bool read_datalog(const std::vector<mel::Table> &tables);
 
 	protected:
 
@@ -60,12 +70,13 @@ namespace meii {
 	private:
 
 		std::size_t sample_dim_; ///< size of sample vector
+		std::size_t pred_dim_; ///< size of prediction vector
 
 		mel::Time Ts_; ///< sample period    
 
-		std::vector<double> w_; ///< regressor weights
-		double w_0_; ///< regressor intercept
-		double y_; ///< regressor output
+		std::vector<std::vector<double>> w_; ///< regressor weights
+		std::vector<double> w_0_; ///< regressor intercept
+		std::vector<double> y_; ///< regressor output
 
 		bool trained_; ///< whether or not a regressor has been trained
 

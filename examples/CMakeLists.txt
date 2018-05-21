@@ -8,6 +8,9 @@ target_link_libraries(ex_melshare_unity MEII)
 add_executable(ex_classification ex_classification.cpp)
 target_link_libraries(ex_classification MEII)
 
+add_executable(ex_regression ex_regression.cpp)
+target_link_libraries(ex_regression MEII)
+
 add_executable(ex_emg_active_classification ex_emg_active_classification.cpp)
 target_link_libraries(ex_emg_active_classification MEII)
 
@@ -49,4 +52,7 @@ endif()
 if (MYO)
 	add_executable(ex_myo_armband_ctrl ex_myo_armband_ctrl.cpp)
 	target_link_libraries(ex_myo_armband_ctrl MEII)
+
+	add_executable(ex_myo_regression ex_myo_regression.cpp)
+	target_link_libraries(ex_myo_regression MEII)
 endif()
