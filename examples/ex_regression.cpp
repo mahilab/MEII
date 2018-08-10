@@ -5,7 +5,7 @@
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Utility/Windows/Keyboard.hpp>
 #include <MEL/Logging/Log.hpp>
-#include <MEL/Communications/Windows/MelShare.hpp>
+#include <MEL/Communications/MelShare.hpp>
 #include <MEL/Math/Butterworth.hpp>
 #include <MEII/Regression/RealTimeRegressor.hpp>
 #include <MEL/Logging/DataLogger.hpp>

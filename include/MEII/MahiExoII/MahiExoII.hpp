@@ -237,19 +237,23 @@ namespace meii {
         double wrist_ph_D_ = 10.0;
 
         std::array<mel::PdController, N_rj_> robot_joint_pd_controllers_ = {
-            mel::PdController(elbow_P_, elbow_D_),
-            mel::PdController(forearm_P_, forearm_D_),
-            mel::PdController(prismatic_P_, prismatic_D_),
-            mel::PdController(prismatic_P_, prismatic_D_),
-            mel::PdController(prismatic_P_, prismatic_D_)
+            {
+                mel::PdController(elbow_P_, elbow_D_),
+                mel::PdController(forearm_P_, forearm_D_),
+                mel::PdController(prismatic_P_, prismatic_D_),
+                mel::PdController(prismatic_P_, prismatic_D_),
+                mel::PdController(prismatic_P_, prismatic_D_)
+            }
         };
 
         std::array<mel::PdController, N_aj_> anatomical_joint_pd_controllers_ = {
-            mel::PdController(elbow_P_, elbow_D_),
-            mel::PdController(forearm_P_, forearm_D_),
-            mel::PdController(wrist_fe_P_, wrist_fe_D_),
-            mel::PdController(wrist_ru_P_, wrist_ru_D_),
-            mel::PdController(wrist_ph_P_, wrist_ph_D_)
+            {
+                mel::PdController(elbow_P_, elbow_D_),
+                mel::PdController(forearm_P_, forearm_D_),
+                mel::PdController(wrist_fe_P_, wrist_fe_D_),
+                mel::PdController(wrist_ru_P_, wrist_ru_D_),
+                mel::PdController(wrist_ph_P_, wrist_ph_D_)
+            }
         };
 
 

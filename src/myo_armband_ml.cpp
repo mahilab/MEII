@@ -1,5 +1,5 @@
 #include <MEL/Utility/System.hpp>
-#include <MEL/Communications/Windows/MelShare.hpp>
+#include <MEL/Communications/MelShare.hpp>
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Math/Functions.hpp>
@@ -25,19 +25,20 @@ int main() {
 	enable_realtime();
 
 	// initialize logger
-	init_logger();
+	//init_logger();
 
 	// set emg channel numbers
 	std::vector<uint32> emg_channel_numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
 	std::size_t emg_channel_count = emg_channel_numbers.size();
-
+	
 	// construct and enable myo
 	MyoBand myo("my_myo");
 	myo.enable();
 
+	print("here");
 	// construct Myoelectric Signal (MES) Array
 	MesArray mes(myo.get_channels(emg_channel_numbers), 300);	
-
+	print("here");
 	// make MelShares
 	MelShare ms_emg("ms_emg");		
 
@@ -265,7 +266,7 @@ int main() {
 			
 		// write to EMG data log
 		if (recording) {
-			emg_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+			emg_log_row[0] = timer.get_elapsed_time().as_seconds();
 			for (std::size_t i = 0; i < emg_channel_count; ++i) {
 				emg_log_row[i + 1] = mes.get_raw()[i];
 			}

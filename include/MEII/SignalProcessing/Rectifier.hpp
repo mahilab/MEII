@@ -19,6 +19,7 @@
 #define MEII_RECTIFIER_HPP
 
 #include <MEL/Math/Process.hpp>
+#include <MEL/Math/Functions.hpp>
 #include <vector>
 
 namespace meii {

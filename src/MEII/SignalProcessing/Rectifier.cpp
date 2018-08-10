@@ -11,7 +11,7 @@ namespace meii {
     double Rectifier::update(const double x, const Time& current_time) {
         Time unused = current_time; // unused
 		if (full_) {
-			return std::abs(x);
+			return mel::abs(x);
 		}
 		else {
 			if (x > 0) {

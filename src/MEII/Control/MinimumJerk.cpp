@@ -139,9 +139,9 @@ namespace meii {
 
 		for (size_t i = 0; i < path_dim_; i++)
 		{
-			a_[3][i] = -(20 * a0_[i] + 20 * a1_[i] + 20 * a2_[i] - 20 * g_.get_pos()[i] - 8 * T_*a1_[i] - 16 * T_*a2_[i] + 8 * T_*xT2 + 2 * pow(T_,2) * a2_[i] - pow(T_,2) * xT3) / (2 * pow(T_,3));
-			a_[4][i] = (15 * a0_[i] + 15 * a1_[i] + 15 * a2_[i] - 15 * g_.get_pos()[i] - 7 * T_*a1_[i] - 14 * T_*a2_[i] + 7 * T_*xT2 + 2 * pow(T_,2) * a2_[i] - pow(T_,2) * xT3) / pow(T_,4);
-			a_[5][i] = -(12 * a0_[i] + 12 * a1_[i] + 12 * a2_[i] - 12 * g_.get_pos()[i] - 6 * T_*a1_[i] - 12 * T_*a2_[i] + 6 * T_*xT2 + 2 * pow(T_,2) * a2_[i] - pow(T_,2) * xT3) / (2 * pow(T_,5));
+			a_[3][i] = -(20 * a0_[i] + 20 * a1_[i] + 20 * a2_[i] - 20 * g_.get_pos()[i] - 8 * T_*a1_[i] - 16 * T_*a2_[i] + 8 * T_*xT2 + 2 * mel::pow(T_,2) * a2_[i] - mel::pow(T_,2) * xT3) / (2 * mel::pow(T_,3));
+			a_[4][i] = (15 * a0_[i] + 15 * a1_[i] + 15 * a2_[i] - 15 * g_.get_pos()[i] - 7 * T_*a1_[i] - 14 * T_*a2_[i] + 7 * T_*xT2 + 2 * mel::pow(T_,2) * a2_[i] - mel::pow(T_,2) * xT3) / mel::pow(T_,4);
+			a_[5][i] = -(12 * a0_[i] + 12 * a1_[i] + 12 * a2_[i] - 12 * g_.get_pos()[i] - 6 * T_*a1_[i] - 12 * T_*a2_[i] + 6 * T_*xT2 + 2 * mel::pow(T_,2) * a2_[i] - mel::pow(T_,2) * xT3) / (2 * mel::pow(T_,5));
 		}
 		
 		// reset
@@ -157,7 +157,7 @@ namespace meii {
 			{
 				for (size_t k = 0; k < a_.size(); k++)
 				{
-					traj_current_[j] += a_[k][j] * pow(times_[i], k);
+					traj_current_[j] += a_[k][j] * mel::pow(times_[i], k);
 				}
 			}
 

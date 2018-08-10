@@ -3,7 +3,7 @@
 #include "MEL/Logging/Log.hpp"
 #include "MEL/Utility/Console.hpp"
 #include "MEII/EMG/MesArray.hpp"
-#include "MEL/Communications/Windows/MelShare.hpp"
+#include "MEL/Communications/MelShare.hpp"
 #include "MEL/Utility/Windows/Keyboard.hpp"
 #include "MEII/Classification/EmgDirClassifier.hpp"
 #include <MEL/Core/Clock.hpp>

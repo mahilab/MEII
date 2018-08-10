@@ -1,4 +1,5 @@
 #include <MEII/Classification/EmgActiveEnsClassifier.hpp>
+#include <algorithm>
 
 using namespace mel;
 

@@ -18,9 +18,8 @@
 #ifndef MEII_MEII_CONFIGURATION_HPP
 #define MEII_MEII_CONFIGURATION_HPP
 
-#include <MEL/Daq/Daq.hpp>
+#include <MEL/Daq/Quanser/Q8Usb.hpp>
 #include <MEL/Daq/Encoder.hpp>
-#include <MEL/Daq/Velocity.hpp>
 #include <MEL/Daq/Input.hpp>
 #include <MEL/Daq/Output.hpp>
 #include <MEL/Daq/Watchdog.hpp>
@@ -46,18 +45,16 @@ namespace meii {
 
         /// Constructor for standard configuration
         MeiiConfiguration(
-            mel::Daq& daq,
+            mel::Q8Usb& daq,
             mel::Watchdog& watchdog,
             const std::vector<mel::Encoder::Channel>& encoder_channels,
-            const std::vector<mel::Velocity::Channel>& velocity_channels,
             const std::vector<mel::Amplifier>& amplifiers);
 
         /// Constructor for EMG or Force Sensor configuration
         MeiiConfiguration(
-            mel::Daq& daq,
+            mel::Q8Usb& daq,
             mel::Watchdog& watchdog,
             const std::vector<mel::Encoder::Channel>& encoder_channels,
-            const std::vector<mel::Velocity::Channel>& velocity_channels,
             const std::vector<mel::Amplifier>& amplifiers,
             const std::vector<mel::AnalogInput::Channel>& ai_channels);
 
@@ -69,10 +66,9 @@ namespace meii {
         friend class MahiExoIIEmg;
         friend class MahiExoIIFrc;
 
-        mel::Daq&                                  daq_;                ///< DAQ controlling the MahiExoII
+        mel::Q8Usb&                                daq_;                ///< DAQ controlling the MahiExoII
         mel::Watchdog&                             watchdog_;           ///< watchdog the MahiExoII is guarded by
         std::vector<mel::Encoder::Channel>         encoder_channels_;   ///< encoder channels that measure motor positions
-        std::vector<mel::Velocity::Channel>        velocity_channels_;  ///< encoder channels that measure motor velocities
         std::vector<mel::Amplifier>                amplifiers_;         ///< amplifiers used to control robot motors
         std::vector<mel::AnalogInput::Channel>     ai_channels_;        ///< analog input channels that measure EMG
 

@@ -12,6 +12,26 @@
 			"working_dir": "$project_path/../build"
 		},
 		{
+			"file_regex": "/([^/:]+):(\\d+):(\\d+): ",
+			"name": "CMake (Ninja)",
+			"selector":
+			[
+				"source.cmake"
+			],
+			"shell_cmd": "cmake .. -G \"Ninja\"",
+			"working_dir": "$project_path/../build"
+		},
+		{
+			"file_regex": "^(..[^:]*)(?::|\\()([0-9]+)(?::|\\))(?:([0-9]+):)?\\s*(.*)",
+			"name": "Build (Ninja)",
+			"selector":
+			[
+				"source.c++.11"
+			],
+			"shell_cmd": "ninja",
+			"working_dir": "$project_path/../build"
+		},
+		{
 			"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
 			"name": "CMake (Clean)",
 			"shell_cmd": "python clean.py",
@@ -24,14 +44,25 @@
 			"shell_cmd": "\"C:\\dev\\python27\" -u \"$file\""
 		}
 	],
-	"folders":
+		"folders":
 	[
 		{
 			"path": "../"
+		},
+		{
+			"path": "../../MEL"
 		}
 	],
 	"settings":
 	{
+		"ecc_common_flags":
+		[
+			"-I$project_base_path/include",
+			"-I$project_base_path/src",
+			"-I$project_base_path/../MEL/include",
+			"-I/dev/eigen",
+			"-I/Git/SFML/include"
+		],
 		"python_interpreter": "C:\\dev\\python27"
 	}
 }

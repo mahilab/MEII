@@ -1,5 +1,5 @@
 #include <MEL/Utility/System.hpp>
-#include <MEL/Communications/Windows/MelShare.hpp>
+#include <MEL/Communications/MelShare.hpp>
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Math/Functions.hpp>

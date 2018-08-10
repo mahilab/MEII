@@ -20,7 +20,7 @@
 
 #include <MEII/EmgRealTimeControl/EmgRealTimeControl.hpp>
 #include <MEL/Utility/Windows/ExternalApp.hpp>
-#include <MEL/Communications/Windows/MelShare.hpp>
+#include <MEL/Communications/MelShare.hpp>
 #include <vector>
 
 namespace meii {

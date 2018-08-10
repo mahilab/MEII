@@ -47,16 +47,15 @@ namespace meii {
 
             // set encoder counts
             config_.encoder_channels_[i].set_units_per_count(2 * PI / params_.encoder_res_[i]);
-            config_.velocity_channels_[i].set_units_per_count(2 * PI / params_.encoder_res_[i]);
 
             // construct joints
             Joint joint(
                 "meii_joint_" + num,
-                motors_[i],
+                &motors_[i],
                 params_.eta_[i],
-                config_.encoder_channels_[i],
+                &config_.encoder_channels_[i],
                 params_.eta_[i],
-                config_.velocity_channels_[i],
+                &config_.encoder_channels_[i],
                 params_.eta_[i],
                 std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
                 params_.vel_limits_[i],

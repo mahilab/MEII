@@ -19,6 +19,7 @@
 #define MEII_MATRIX_HPP
 
 #include <vector>
+#include <ostream>
 
 namespace meii {
 
