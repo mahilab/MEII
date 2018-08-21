@@ -217,7 +217,7 @@
 			]
 		]
 	},
-	"build_system": "Build (Ninja)",
+	"build_system": "CMake (Ninja)",
 	"build_system_choices":
 	[
 		[
@@ -268,7 +268,7 @@
 				]
 			],
 			[
-				"Build (Ninja)",
+				"CMake (Ninja)",
 				""
 			]
 		],
@@ -559,6 +559,7 @@
 		"height": 105.0,
 		"where_history":
 		[
+			""
 		]
 	},
 	"find_state":
@@ -566,6 +567,9 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"input()<volt",
+			"set_channel_",
+			"input",
 			"CrioDIO",
 			"MEL",
 			"reset",

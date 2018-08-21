@@ -28,11 +28,11 @@ namespace meii {
 		tkeo_half_rect_(false)
     { }
 
-	bool on_enable() {
+	bool MyoelectricSignal::on_enable() {
 		return true;
 	}
 
-	bool on_disable() {
+	bool MyoelectricSignal::on_disable() {
 		return true;
 	}
 

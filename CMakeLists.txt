@@ -109,12 +109,12 @@ file(GLOB SRC_CLASSIFICATION
     "${CMAKE_SOURCE_DIR}/include/MEII/Classification/*.hpp"
 )
 
-file(GLOB SRC_DAQ
-    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
-    "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
-    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
-    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
-    )
+# file(GLOB SRC_DAQ
+#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
+#     "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
+#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
+#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
+#     )
 
 file(GLOB SRC_REGRESSION
     "${CMAKE_SOURCE_DIR}/src/MEII/Regression/*.cpp"
@@ -152,7 +152,7 @@ file(GLOB SRC_OSIM
 set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
     ${SRC_CONTROL}
-    ${SRC_DAQ}
+    # ${SRC_DAQ}
     ${SRC_EMG}
     ${SRC_SIGNAL_PROCESSING}
     ${SRC_CLASSIFICATION}
@@ -294,6 +294,9 @@ endif()
 if (MYO)
     add_executable(myo_armband_ml src/myo_armband_ml.cpp)
     target_link_libraries(myo_armband_ml MEII)
+
+    add_executable(Jeb_emg src/Jeb_emg.cpp)
+    target_link_libraries(Jeb_emg MEII)
 endif()
 
 if (CRIO)
