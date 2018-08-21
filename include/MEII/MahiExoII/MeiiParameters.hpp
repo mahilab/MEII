@@ -19,7 +19,7 @@
 #define MEII_MEII_PARAMETERS_HPP
 
 #include <MEL/Math/Constants.hpp>
-#include <MEL/Utility/Types.hpp>
+#include <MEL/Core/Types.hpp>
 #include <MEL/Core/Time.hpp>
 #include <array>
 

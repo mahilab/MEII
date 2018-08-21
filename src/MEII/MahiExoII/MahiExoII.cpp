@@ -2,10 +2,10 @@
 #include <MEL/Daq/Quanser/Q8Usb.hpp>
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Core/Timer.hpp>
-#include <MEL/Core/PositionSensor.hpp>
-#include <MEL/Core/VelocitySensor.hpp>
+#include <MEL/Mechatronics/PositionSensor.hpp>
+#include <MEL/Mechatronics/VelocitySensor.hpp>
 #include <iomanip>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEII/Utility/EigenConversions.hpp>
 #include <MEL/Logging/Log.hpp>
 
@@ -101,7 +101,7 @@ namespace meii {
     }
 
 
-    bool MahiExoII::disable() {
+    bool MahiExoII::on_disable() {
 
         // disable reference trajectories
         rps_init_par_ref_.stop();

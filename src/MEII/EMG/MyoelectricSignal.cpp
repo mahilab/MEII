@@ -28,6 +28,14 @@ namespace meii {
 		tkeo_half_rect_(false)
     { }
 
+	bool on_enable() {
+		return true;
+	}
+
+	bool on_disable() {
+		return true;
+	}
+
     void MyoelectricSignal::update() {
         raw_ = ai_channel_.get_value();
         demean_ = hp_filter_.update(raw_);

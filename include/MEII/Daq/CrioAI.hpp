@@ -1,6 +1,6 @@
 // MIT License
 //
-// MEII - MAHI Exo-II Extension of MEL, the MAHI Exoskeleton Library
+// MEL - Mechatronics Engine & Library
 // Copyright (c) 2018 Mechatronics and Haptic Interfaces Lab - Rice University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -13,45 +13,39 @@
 // The above copyright notice and this permission notice shall be included in
 // all copies or substantial portions of the Software.
 //
-// Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
+// Author(s): Nathan Dunkelberger (nbd2@rice.edu)
 
-#ifndef MEII_EXO_HPP
-#define MEII_EXO_HPP
+#ifndef MEII_CRIOAI_HPP
+#define MEII_CRIOAI_HPP
 
-#include <MEL/Mechatronics/Robot.hpp>
+#include <MEL/Daq/Input.hpp>
+#include <MEL/Core/NonCopyable.hpp>
+
+//==============================================================================
+// FORWARD DECLARATIONS
+//==============================================================================
 
 namespace meii {
+
+class Crio;
 
 //==============================================================================
 // CLASS DECLARATION
 //==============================================================================
 
-class Exo : public mel::Robot {
-
+class CrioAI : public mel::AnalogInput, mel::NonCopyable {
 public:
 
-    Exo(const std::string& name);
+    CrioAI(Crio& daq, const std::vector<mel::uint32>& channel_numbers);
 
-    virtual ~Exo() {};
+    bool update_channel(mel::uint32 channel_number) override;
 
-    virtual std::vector<double> get_anatomical_joint_positions() const;
+private:
 
-    virtual double get_anatomical_joint_position(int index) const;
-
-    virtual std::vector<double> get_anatomical_joint_velocities() const;
-
-    virtual double get_anatomical_joint_velocity(int index) const;
-
-    virtual void set_anatomical_joint_torques(std::vector<double> new_torques) {}
-
-protected:
-
-    std::vector<double> anatomical_joint_positions_;
-    std::vector<double> anatomical_joint_velocities_;
-    std::vector<double> anatomical_joint_torques_;
+    Crio& daq_;
 
 };
 
-} // namespace meii
+}  // namespace mel
 
-#endif // MEII_EXO_HPP
+#endif  // MEII_CRIOAI_HPP

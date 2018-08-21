@@ -19,7 +19,7 @@
 #define MEII_SIGNAL_PROCESSING_FUNCTIONS_HPP
 
 #include <MEL/Logging/Log.hpp>
-#include <MEL/Utility/Types.hpp>
+#include <MEL/Core/Types.hpp>
 #include <vector>
 
 using namespace mel;

@@ -23,7 +23,7 @@
 #include <MEL/Daq/Input.hpp>
 #include <MEL/Daq/Output.hpp>
 #include <MEL/Daq/Watchdog.hpp>
-#include <MEL/Core/Amplifier.hpp>
+#include <MEL/Mechatronics/Amplifier.hpp>
 #include <vector>
 
 namespace meii {

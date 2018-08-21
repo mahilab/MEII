@@ -1,6 +1,6 @@
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <MEL/Utility/System.hpp>
-#include <MEL/Utility/Timestamp.hpp>
+#include <MEL/Core/Timestamp.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
 

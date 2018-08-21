@@ -18,12 +18,12 @@
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Communications/MelShare.hpp>
 #include <MEL/Communications/MelNet.hpp>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Math.hpp>
-#include <MEII/Control/NiFpga_quadrature.h>
-// #include <MEII/Control/NiFpga.h>
+#include <MEII/Daq/Detail/NiFpga_quadrature.h>
+#include <MEII/Daq/Crio.hpp>
 
 /* This demo demonstates how MelNet and MelShare can by combined to create a
  * communications server. The server constantly checks for incomming data from a
@@ -128,7 +128,6 @@ int main(int argc, char* argv[]) {
     }
     // server loop
     else {
-
         LOG(Info) << "Starting Server";
         MelShare melshare(melshare_name);
         std::vector<double> data;

@@ -21,8 +21,8 @@
 #include <MEII/MahiExoII/MeiiConfiguration.hpp>
 #include <MEII/MahiExoII/MeiiParameters.hpp>
 #include <MEII/MahiExoII/Exo.hpp>
-#include <MEL/Core/Motor.hpp>
-#include <MEL/Core/PdController.hpp>
+#include <MEL/Mechatronics/Motor.hpp>
+#include <MEL/Mechatronics/PdController.hpp>
 #include <MEL/Core/Time.hpp>
 #include <array>
 #include <vector>
@@ -117,7 +117,7 @@ namespace meii {
         void calibrate(volatile std::atomic<bool>& stop_flag);
 
         /// Disables the robot and stops all smooth reference trajectories
-        bool disable() override;
+        bool on_disable() override;
 
         // rps position control functions
         void set_rps_control_mode(int mode);

@@ -109,6 +109,13 @@ file(GLOB SRC_CLASSIFICATION
     "${CMAKE_SOURCE_DIR}/include/MEII/Classification/*.hpp"
 )
 
+file(GLOB SRC_DAQ
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
+    "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
+    )
+
 file(GLOB SRC_REGRESSION
     "${CMAKE_SOURCE_DIR}/src/MEII/Regression/*.cpp"
     "${CMAKE_SOURCE_DIR}/include/MEII/Regression/*.hpp"
@@ -139,10 +146,13 @@ file(GLOB SRC_OSIM
     "${CMAKE_SOURCE_DIR}/include/MEII/OpenSim/*.hpp"
 )
 
+
+
 # MEII expansion library source files
 set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
     ${SRC_CONTROL}
+    ${SRC_DAQ}
     ${SRC_EMG}
     ${SRC_SIGNAL_PROCESSING}
     ${SRC_CLASSIFICATION}
@@ -287,7 +297,6 @@ if (MYO)
 endif()
 
 if (CRIO)
-    project(cRIO_test)
     add_executable(cRIO_test src/cRIO_test.cpp)
     # target_include_directories(cRIO_test src/NiFpga.h src/NiFpga.c NiFpga_quadrature.h)
     target_link_libraries(cRIO_test MEII)

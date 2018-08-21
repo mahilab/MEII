@@ -19,7 +19,7 @@
 #define MEII_LOGGING_UTIL_HPP
 
 #include <MEL/Logging/Table.hpp>
-#include <MEL/Utility/Types.hpp>
+#include <MEL/Core/Types.hpp>
 #include <vector>
 
 namespace meii {

@@ -30,9 +30,11 @@ namespace meii {
 	public:
 
 		VirtualInput(const std::string& name, std::vector<mel::uint32> channel_numbers);
+
+		~VirtualInput() override;
 		
-		bool enable() override;
-		bool disable() override;
+		bool on_enable() override;
+		bool on_disable() override;
 		bool update() override;
 		bool update_channel(mel::uint32 channel_number) override;
 

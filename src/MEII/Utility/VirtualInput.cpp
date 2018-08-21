@@ -14,12 +14,16 @@ namespace meii {
 		set_channel_numbers(channel_numbers);
 	}
 
-	bool VirtualInput::enable() {
-		return Device::enable();
+	VirtualInput::~VirtualInput() {
+		disable();
 	}
 
-	bool VirtualInput::disable() {
-		return Device::disable();
+	bool VirtualInput::on_enable() {
+		return true;
+	}
+
+	bool VirtualInput::on_disable() {
+		return true;
 	}
 
 	bool VirtualInput::update() { 

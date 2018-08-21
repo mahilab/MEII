@@ -42,6 +42,11 @@ namespace meii {
             std::size_t lp_filter_order = 4, double lp_filter_cutoff = 0.01,
             std::size_t tkeo_lp_filter_order = 4, double tkeo_lp_filter_cutoff = 0.01);
 
+		/// Override on_enable from device class
+		bool on_enable() override;
+
+		/// Override on_enable from device class
+		bool on_disable() override;
 
         /// Update the voltage reading from the associated analog input channel on the DAQ, and apply all signal processing and update associated signals
         void update();

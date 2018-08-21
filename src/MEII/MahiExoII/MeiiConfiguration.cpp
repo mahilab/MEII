@@ -8,6 +8,7 @@ namespace meii {
     // CLASS DEFINTIONS
     //==============================================================================
 
+    // MEII configuration without AI channels
     MeiiConfiguration::MeiiConfiguration(
         Q8Usb& daq,
         Watchdog& watchdog,
@@ -20,6 +21,7 @@ namespace meii {
     {
     }
 
+    // MEII configuration with AI channels
     MeiiConfiguration::MeiiConfiguration(
         Q8Usb& daq,
         Watchdog& watchdog,
@@ -33,5 +35,7 @@ namespace meii {
         ai_channels_(ai_channels)
     {
     }
+
+    // MEII configuration with cRIO & no AI channels
 
 }

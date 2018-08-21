@@ -57,11 +57,13 @@
 	{
 		"ecc_common_flags":
 		[
+			// "-DMEL_EXPORTS",
 			"-I$project_base_path/include",
 			"-I$project_base_path/src",
 			"-I$project_base_path/../MEL/include",
-			"-I/dev/eigen",
-			"-I/Git/SFML/include"
+			"-I$project_base_path/../MEL/src",
+			"-I/dev/eigen"
+			// "-I/Git/SFML/include"
 		],
 		"python_interpreter": "C:\\dev\\python27"
 	}
