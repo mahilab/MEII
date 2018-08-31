@@ -18,7 +18,7 @@ CrioDIO::CrioDIO(Crio& daq, const std::vector<mel::uint32>& channel_numbers) :
 bool CrioDIO::set_directions(const std::vector<Direction> &directions){
     if (!InputOutput::set_directions(directions))
         return false;
-    mel::t_error result;
+    t_error result;
     result = hil_set_digital_directions(daq_.handle_,
         &input_channel_numbers_[0], static_cast<uint32>(input_channel_numbers_.size()),
         &output_channel_numbers_[0], static_cast<uint32>(output_channel_numbers_.size()));

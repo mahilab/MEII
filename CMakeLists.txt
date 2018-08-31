@@ -109,12 +109,12 @@ file(GLOB SRC_CLASSIFICATION
     "${CMAKE_SOURCE_DIR}/include/MEII/Classification/*.hpp"
 )
 
-# file(GLOB SRC_DAQ
-#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
-#     "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
-#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
-#     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
-#     )
+file(GLOB SRC_DAQ
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
+    "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
+    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
+    )
 
 file(GLOB SRC_REGRESSION
     "${CMAKE_SOURCE_DIR}/src/MEII/Regression/*.cpp"
@@ -152,7 +152,7 @@ file(GLOB SRC_OSIM
 set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
     ${SRC_CONTROL}
-    # ${SRC_DAQ}
+    ${SRC_DAQ}
     ${SRC_EMG}
     ${SRC_SIGNAL_PROCESSING}
     ${SRC_CLASSIFICATION}
@@ -189,6 +189,7 @@ endif()
 source_group("MahiExoII" FILES ${SRC_MAHI_EXO_II})
 source_group("Control" FILES ${SRC_CONTROL})
 source_group("EMG" FILES ${SRC_EMG})
+source_group("Daq" FILES ${SRC_DAQ})
 source_group("SignalProcessing" FILES ${SRC_SIGNAL_PROCESSING})
 source_group("Classification" FILES ${SRC_CLASSIFICATION})
 source_group("Regression" FILES ${SRC_REGRESSION})

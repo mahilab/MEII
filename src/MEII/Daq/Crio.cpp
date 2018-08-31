@@ -35,7 +35,7 @@ Crio::Crio(const std::string& name) :
     DaqBase(name),
     Crio9401(*this, std::vector<mel::uint32> {0,1,2,3,4,5,6,7}),
 {
-
+	NiFpga_Session session;
 }
 
 
@@ -49,7 +49,18 @@ bool Crio::on_open() {
 }
 
 bool Crio::on_close(){
-    return true;
+    /* Close the session */
+	NiFpga_MergeStatus(&status, NiFpga_Close(session, 0));
+
+	/* Finalize must be called before exiting program and after closing FPGA session */
+	NiFpga_MergeStatus(&status, NiFpga_Finalize());
+
+	/* Return an error code if there is an error */
+	if(NiFpga_IsError(status))
+	{
+		printf("Error! Exiting program. LabVIEW error code: %d\n", status);
+	}
+	return 0;
 }
 
 bool Crio::on_enable(){

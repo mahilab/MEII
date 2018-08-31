@@ -217,7 +217,7 @@
 			]
 		]
 	},
-	"build_system": "CMake (Ninja)",
+	"build_system": "CMake (Windows MSVC)",
 	"build_system_choices":
 	[
 		[
@@ -268,7 +268,7 @@
 				]
 			],
 			[
-				"CMake (Ninja)",
+				"CMake (Windows MSVC)",
 				""
 			]
 		],
@@ -421,12 +421,17 @@
 	},
 	"file_history":
 	[
+		"/C/Git/MEL/include/MEL/Daq/InputOutput.hpp",
+		"/C/Git/MEII/src/MEII/Daq/Crio9401.cpp",
+		"/C/Git/MEII/examples/ex_emg_direction_classification.cpp",
+		"/C/Git/MEII/src/myo_direct_control.cpp",
+		"/C/Git/MEII/python/MelShare.py",
+		"/C/Git/MEL/include/MEL/Utility/System.hpp",
 		"/C/Git/MEII/src/MEII/Daq/CrioModule.cpp",
 		"//storage.rice.edu/mahishare/Course Materials (343, 498, 488, etc)/MECH 343 labs/MECH 343 Fall 2017/AssignmentBoxLockCombination.txt",
 		"/C/Git/MEL/include/MEL/Core/Device.hpp",
 		"/C/Git/MEL/include/MEL/Daq/Module.hpp",
 		"/C/Git/MEII/src/MEII/Daq/Crio9205.cpp",
-		"/C/Git/MEII/src/MEII/Daq/Crio9401.cpp",
 		"/C/Git/MEII/CMakeLists.txt",
 		"/C/Git/MEL/include/MEL/Logging/Log.hpp",
 		"/C/Git/MEII/src/MEII/Daq/Crio9264.cpp",
@@ -472,7 +477,6 @@
 		"/C/Git/MEL/util/clean.py",
 		"/C/Users/nbd2/Desktop/cRIO Downloads",
 		"/C/Git/MEII/examples/CMakeLists.txt",
-		"/C/Git/MEII/src/myo_direct_control.cpp",
 		"/C/Git/MEII/examples/ex_myo_regression.cpp",
 		"/C/Git/MEII/examples/ex_regression.cpp",
 		"/C/Git/MEII/include/MEII/EMG/EmgDirectMapping.hpp",
@@ -544,11 +548,7 @@
 		"/C/Users/Ted/GitHub/MEII/src/SignalProcessing/TeagerKaiserEnergyOperator.cpp",
 		"/C/Users/Ted/GitHub/MEII/include/SignalProcessing/Rectifier.hpp",
 		"/C/Users/Ted/GitHub/MEII/include/SignalProcessing/TeagerKaiserEnergyOperator.hpp",
-		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/MahiExoII.cpp",
-		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/MeiiConfiguration.cpp",
-		"/C/Users/Ted/GitHub/MEII/include/MahiExoII/MahiExoII.hpp",
-		"/C/Users/Ted/GitHub/MEII/include/MahiExoII/MeiiConfiguration.hpp",
-		"/C/Users/Ted/GitHub/MEII/include/MahiExoII/MeiiParameters.hpp"
+		"/C/Users/Ted/GitHub/MEII/src/MahiExoII/MahiExoII.cpp"
 	],
 	"find":
 	{
@@ -567,6 +567,10 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"include",
+			"EMG_r",
+			"emg",
+			"daq",
 			"input()<volt",
 			"set_channel_",
 			"input",
@@ -661,7 +665,7 @@
 	},
 	"incremental_find":
 	{
-		"height": 24.0
+		"height": 33.0
 	},
 	"input":
 	{
@@ -687,7 +691,7 @@
 		"cols":
 		[
 			0.0,
-			0.5,
+			0.626086956522,
 			1.0
 		],
 		"rows":
@@ -707,7 +711,7 @@
 	},
 	"output.exec":
 	{
-		"height": 317.0
+		"height": 318.0
 	},
 	"output.find_results":
 	{
@@ -724,7 +728,7 @@
 	"pinned_build_system": "",
 	"replace":
 	{
-		"height": 44.0
+		"height": 62.0
 	},
 	"save_all_on_build": true,
 	"select_file":
