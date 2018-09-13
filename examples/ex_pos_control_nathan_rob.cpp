@@ -7,8 +7,8 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Utility/Console.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Core/Console.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]) {
 				Low,
 				q8.DO[i + 1],
 				1.8,
-				q8.analog_output[i + 1])
+				q8.AO[i + 1])
 		);
 	}
 	for (uint32 i = 2; i < 5; ++i) {
@@ -81,7 +81,7 @@ int main(int argc, char *argv[]) {
 				Low,
 				q8.DO[i + 1],
 				0.184,
-				q8.analog_output[i + 1])
+				q8.AO[i + 1])
 		);
 	}
 	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);

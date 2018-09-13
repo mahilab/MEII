@@ -8,9 +8,6 @@ using namespace meii;
 
 int main() {
 
-    // initialize logger
-    init_logger();
-
     // construct waypoints vector
     std::vector<WayPoint> waypoints;
     waypoints.push_back(WayPoint(seconds(0.0), { 1.0, 2.0, 3.0 }));

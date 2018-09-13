@@ -7,8 +7,8 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Utility/Console.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Core/Console.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
@@ -53,27 +53,25 @@ int main(int argc, char *argv[]) {
 	// enable Windows realtime
 	enable_realtime();
 
-	// initialize logger
-	init_logger();
-
 	// register ctrl-c handler
 	register_ctrl_handler(handler);	
 
 	// make Q8 USB and configure    
-	Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
-	q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+	Q8Usb q8;
+	q8.open();
+	q8.DO.set_enable_values(std::vector<Logic>(8, High));
+	q8.DO.set_disable_values(std::vector<Logic>(8, High));
+	q8.DO.set_expire_values(std::vector<Logic>(8, High));
 	if (!q8.identify(7)) {
 		LOG(Error) << "Incorrect DAQ";
 		return 0;
 	}
-	emg_channel_numbers = q8.analog_input.get_channel_numbers();
-	std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+	emg_channel_numbers = q8.AI.get_channel_numbers();
+	std::size_t emg_channel_count = q8.AI.get_channel_count();
 	Time Ts = milliseconds(1); // sample period for DAQ
 
 	// construct array of Myoelectric Signals    
-	MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
+	MesArray mes(q8.AI.get_channels(emg_channel_numbers));
 
 	// make MelShares
 	MelShare ms_emg("ms_emg");
@@ -143,7 +141,7 @@ int main(int argc, char *argv[]) {
 		ms_emg.write_data(mes.get_tkeo_envelope());
 
 		// write to EMG standard data log
-		emg_std_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+		emg_std_log_row[0] = timer.get_elapsed_time().as_seconds();
 		for (std::size_t i = 0; i < emg_channel_count; ++i) {
 			emg_std_log_row[i + 1] = mes.get_raw()[i];
 		}

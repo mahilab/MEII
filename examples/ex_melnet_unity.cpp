@@ -1,5 +1,5 @@
 #include <MEL/Communications/MelNet.hpp>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEL/Core/Clock.hpp>
 #include <MEL/Utility/System.hpp>
 #include <MEL/Core/Timer.hpp>

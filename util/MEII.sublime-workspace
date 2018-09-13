@@ -421,6 +421,7 @@
 	},
 	"file_history":
 	[
+		"/C/Git/MEII/CMakeLists.txt",
 		"/C/Git/MEL/include/MEL/Daq/InputOutput.hpp",
 		"/C/Git/MEII/src/MEII/Daq/Crio9401.cpp",
 		"/C/Git/MEII/examples/ex_emg_direction_classification.cpp",
@@ -432,7 +433,6 @@
 		"/C/Git/MEL/include/MEL/Core/Device.hpp",
 		"/C/Git/MEL/include/MEL/Daq/Module.hpp",
 		"/C/Git/MEII/src/MEII/Daq/Crio9205.cpp",
-		"/C/Git/MEII/CMakeLists.txt",
 		"/C/Git/MEL/include/MEL/Logging/Log.hpp",
 		"/C/Git/MEII/src/MEII/Daq/Crio9264.cpp",
 		"/C/Git/MEII/util/MEII.sublime-project",
@@ -552,7 +552,7 @@
 	],
 	"find":
 	{
-		"height": 41.0
+		"height": 25.0
 	},
 	"find_in_files":
 	{
@@ -665,7 +665,7 @@
 	},
 	"incremental_find":
 	{
-		"height": 33.0
+		"height": 25.0
 	},
 	"input":
 	{
@@ -691,7 +691,7 @@
 		"cols":
 		[
 			0.0,
-			0.626086956522,
+			0.712422360249,
 			1.0
 		],
 		"rows":
@@ -728,7 +728,7 @@
 	"pinned_build_system": "",
 	"replace":
 	{
-		"height": 62.0
+		"height": 46.0
 	},
 	"save_all_on_build": true,
 	"select_file":

@@ -13,9 +13,6 @@ using namespace meii;
 
 int main() {
 
-    // initialize default logger
-    init_logger();
-
 	// construct a clock for measuring computation times
 	Clock clock;
 

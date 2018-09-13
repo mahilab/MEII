@@ -7,8 +7,8 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Utility/Console.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Core/Console.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <vector>
 #include <MEII/Control/Trajectory.hpp>
 
@@ -60,17 +60,15 @@ int main(int argc, char *argv[]) {
     // enable Windows realtime
     enable_realtime();
 
-    // initialize logger
-    init_logger();
-
     // register ctrl-c handler
     register_ctrl_handler(handler);   
 
     // make Q8 USB and configure
     Q8Usb q8;
-    q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+	q8.open();
+    q8.DO.set_enable_values(std::vector<Logic>(8, High));
+    q8.DO.set_disable_values(std::vector<Logic>(8, High));
+    q8.DO.set_expire_values(std::vector<Logic>(8, High));
     if (!q8.identify(7)) {
         LOG(Error) << "Incorrect DAQ";
         return 0;
@@ -83,18 +81,18 @@ int main(int argc, char *argv[]) {
         amplifiers.push_back(
             Amplifier("meii_amp_" + std::to_string(i),
                 Low,
-                q8.digital_output[i + 1],
+                q8.DO[i + 1],
                 1.8,
-                q8.analog_output[i + 1])
+                q8.AO[i + 1])
         );
     }
     for (uint32 i = 2; i < 5; ++i) {
         amplifiers.push_back(
             Amplifier("meii_amp_" + std::to_string(i),
                 Low,
-                q8.digital_output[i + 1],
+                q8.DO[i + 1],
                 0.184,
-                q8.analog_output[i + 1])
+                q8.AO[i + 1])
         );
     }
     MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);

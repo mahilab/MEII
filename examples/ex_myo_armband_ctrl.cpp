@@ -7,8 +7,8 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Utility/Console.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Core/Console.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEL/Math/Integrator.hpp>
@@ -52,17 +52,14 @@ int main(int argc, char *argv[]) {
 	// enable Windows realtime
 	enable_realtime();
 
-	// initialize logger
-	init_logger();
-
 	// register ctrl-c handler
 	register_ctrl_handler(handler);	
 
 	// construct Q8 USB and configure    
 	Q8Usb q8;
-	q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-	q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+	q8.DO.set_enable_values(std::vector<Logic>(8, High));
+	q8.DO.set_disable_values(std::vector<Logic>(8, High));
+	q8.DO.set_expire_values(std::vector<Logic>(8, High));
 	if (!q8.identify(7)) {
 		LOG(Error) << "Incorrect DAQ";
 		return 0;
@@ -76,18 +73,18 @@ int main(int argc, char *argv[]) {
 		amplifiers.push_back(
 			Amplifier("meii_amp_" + std::to_string(i),
 				Low,
-				q8.digital_output[i + 1],
+				q8.DO[i + 1],
 				1.8,
-				q8.analog_output[i + 1])
+				q8.AO[i + 1])
 		);
 	}
 	for (uint32 i = 2; i < 5; ++i) {
 		amplifiers.push_back(
 			Amplifier("meii_amp_" + std::to_string(i),
 				Low,
-				q8.digital_output[i + 1],
+				q8.DO[i + 1],
 				0.184,
-				q8.analog_output[i + 1])
+				q8.AO[i + 1])
 		);
 	}
 	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);
@@ -1020,7 +1017,7 @@ int main(int argc, char *argv[]) {
 									true_class = selected_dir - 1;
 									pred_dir = pred_class + 1;
 									LOG(Info) << "Logging directional classifier prediction of " << pred_dir << " for target " << selected_dir;
-									testing_results_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+									testing_results_log_row[0] = timer.get_elapsed_time().as_seconds();
 									for (std::size_t i = 0; i < dir_classifier.get_feature_dim(); ++i) {
 										testing_results_log_row[i + 1] = dir_classifier.get_features()[i];
 									}
@@ -1128,7 +1125,7 @@ int main(int argc, char *argv[]) {
 			
 
 			// write to MEII standard data log
-			meii_std_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+			meii_std_log_row[0] = timer.get_elapsed_time().as_seconds();
 			for (std::size_t i = 0; i < meii.N_rj_; ++i) {
 				meii_std_log_row[i + 1] = meii[i].get_position();
 			}
@@ -1141,7 +1138,7 @@ int main(int argc, char *argv[]) {
 			meii_std_log.push_back_row(meii_std_log_row);
 
 			// write to EMG standard data log
-			emg_std_log_row[0] = timer.get_elapsed_time_ideal().as_seconds();
+			emg_std_log_row[0] = timer.get_elapsed_time().as_seconds();
 			for (std::size_t i = 0; i < emg_channel_count; ++i) {
 				emg_std_log_row[i + 1] = mes.get_raw()[i];
 			}

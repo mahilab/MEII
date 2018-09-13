@@ -1,5 +1,5 @@
 #include <MEII/Utility/Matrix.hpp>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 
 using namespace mel;
 using namespace meii;

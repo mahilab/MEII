@@ -1,12 +1,12 @@
 #include <MEII/Unity/UnityEmgRtc.hpp>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEL/Core/Clock.hpp>
 #include <MEL/Utility/System.hpp>
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Math/Functions.hpp>
 #include <vector>
 #include <string>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEII/EmgRealTimeControl/EmgRealTimeControl.hpp>
 
@@ -23,9 +23,6 @@ int main() {
 
     // register ctrl-c handler
     register_ctrl_handler(handler);
-
-    // initialize default MEL logger
-    init_logger();
 
     // enable Windows realtime
     mel::enable_realtime();

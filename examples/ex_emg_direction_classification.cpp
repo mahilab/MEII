@@ -1,10 +1,10 @@
 #include "MEL/Daq/Quanser/Q8Usb.hpp"
 #include "MEL/Utility/System.hpp"
 #include "MEL/Logging/Log.hpp"
-#include "MEL/Utility/Console.hpp"
+#include "MEL/Core/Console.hpp"
 #include "MEII/EMG/MesArray.hpp"
 #include "MEL/Communications/MelShare.hpp"
-#include "MEL/Utility/Windows/Keyboard.hpp"
+#include "MEL/Devices/Windows/Keyboard.hpp"
 #include "MEII/Classification/EmgDirClassifier.hpp"
 #include <MEL/Core/Clock.hpp>
 #include <MEL/Logging/DataLogger.hpp>
@@ -70,26 +70,24 @@ int main(int argc, char *argv[]) {
     // enable Windows realtime
     enable_realtime();
 
-    // initialize logger
-    init_logger();
-
     // register ctrl-c handler
     register_ctrl_handler(handler);
 
     // construct Q8 USB and configure    
-    Q8Usb q8(QOptions(), true, true, emg_channel_numbers); // specify all EMG channels
-    q8.digital_output.set_enable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_disable_values(std::vector<Logic>(8, High));
-    q8.digital_output.set_expire_values(std::vector<Logic>(8, High));
+	Q8Usb q8;
+	q8.open();
+    q8.DO.set_enable_values(std::vector<Logic>(8, High));
+    q8.DO.set_disable_values(std::vector<Logic>(8, High));
+    q8.DO.set_expire_values(std::vector<Logic>(8, High));
     if (!q8.identify(7)) {
         LOG(Error) << "Incorrect DAQ";
         return 0;
     }
-    emg_channel_numbers = q8.analog_input.get_channel_numbers();
-    std::size_t emg_channel_count = q8.analog_input.get_channel_count();
+    emg_channel_numbers = q8.AI.get_channel_numbers();
+    std::size_t emg_channel_count = q8.AI.get_channel_count();
 
     // construct array of Myoelectric Signals    
-    MesArray mes(q8.analog_input.get_channels(emg_channel_numbers));
+    MesArray mes(q8.AI.get_channels(emg_channel_numbers));
 
     // make MelShares
     MelShare ms_mes_tkeo_env("mes_tkeo_env");

@@ -7,8 +7,8 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Utility/Console.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Core/Console.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
@@ -48,9 +48,6 @@ int main(int argc, char *argv[]) {
 
 	// enable Windows realtime
 	enable_realtime();
-
-	// initialize logger
-	init_logger();
 
 	// register ctrl-c handler
 	register_ctrl_handler(handler);

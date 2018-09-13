@@ -1,9 +1,9 @@
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Core/Clock.hpp>
-#include <MEL/Utility/Console.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEL/Utility/System.hpp>
 #include <MEL/Utility/Options.hpp>
-#include <MEL/Utility/Windows/Keyboard.hpp>
+#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Communications/MelShare.hpp>
 #include <MEL/Math/Butterworth.hpp>
@@ -33,9 +33,6 @@ int main(int argc, char *argv[]) {
 
     // enable Windows realtime
     enable_realtime();
-
-    // initialize logger
-    init_logger();
 
     // register ctrl-c handler
     register_ctrl_handler(handler); 
