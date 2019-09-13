@@ -7,7 +7,6 @@ option(NI_X64      "Turn ON if compiling for NI Intel x64 embeded hardware"     
 option(MEII_STATIC "Turn ON to build MEII as a static library (Default is shared)"             ON)
 option(MOVE_BINS   "Turn ON to move binariest to conventional bin/lib folders at compilation"  ON)
 
-option(CRIO        "Turn on to build cRIO example"                                             ON)
 option(QUANSER     "Turn ON if compiling for Quanser hardware"                                 ON)
 option(OSIM        "Turn ON to build OpenSim related executable(s)."                           OFF)
 option(PHRI_LEARN  "Turn ON to build Phyical Human-Robot Interaction Learning executable(s)."  OFF)
@@ -298,13 +297,6 @@ if (MYO)
 
     add_executable(Jeb_emg src/Jeb_emg.cpp)
     target_link_libraries(Jeb_emg MEII)
-endif()
-
-if (CRIO)
-    add_executable(cRIO_test src/cRIO_test.cpp)
-    # target_include_directories(cRIO_test src/NiFpga.h src/NiFpga.c NiFpga_quadrature.h)
-    target_link_libraries(cRIO_test MEII)
-    # target_link_libraries(cRIO_test MEL)
 endif()
 
 if(EXAMPLES)
