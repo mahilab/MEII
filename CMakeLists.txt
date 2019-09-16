@@ -111,8 +111,6 @@ file(GLOB SRC_CLASSIFICATION
 file(GLOB SRC_DAQ
     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
     "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
-    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.h"
-    "${CMAKE_SOURCE_DIR}/src/MEII/Daq/Detail/*.c"
     )
 
 file(GLOB SRC_REGRESSION
@@ -152,10 +150,10 @@ set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
     ${SRC_CONTROL}
     ${SRC_DAQ}
-    ${SRC_EMG}
+    # ${SRC_EMG}
     ${SRC_SIGNAL_PROCESSING}
-    ${SRC_CLASSIFICATION}
-    ${SRC_REGRESSION}
+    # ${SRC_CLASSIFICATION}
+    # ${SRC_REGRESSION}
     ${SRC_UNITY}
     ${SRC_UTILITY}
 )

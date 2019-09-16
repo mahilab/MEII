@@ -26,7 +26,7 @@
 #include <MEL/Mechatronics/Amplifier.hpp>
 #include <vector>
 
-namespace meii {
+namespace mel {
 
     //==============================================================================
     // FORWARD DECLARATIONS
@@ -47,14 +47,14 @@ namespace meii {
         MeiiConfiguration(
             mel::Q8Usb& daq,
             mel::Watchdog& watchdog,
-            const std::vector<mel::Encoder::Channel>& encoder_channels,
+            const std::vector<QuanserEncoder::Channel>& encoder_channels,
             const std::vector<mel::Amplifier>& amplifiers);
 
         /// Constructor for EMG or Force Sensor configuration
         MeiiConfiguration(
             mel::Q8Usb& daq,
             mel::Watchdog& watchdog,
-            const std::vector<mel::Encoder::Channel>& encoder_channels,
+            const std::vector<QuanserEncoder::Channel>& encoder_channels,
             const std::vector<mel::Amplifier>& amplifiers,
             const std::vector<mel::AnalogInput::Channel>& ai_channels);
 
@@ -68,7 +68,7 @@ namespace meii {
 
         mel::Q8Usb&                                daq_;                ///< DAQ controlling the MahiExoII
         mel::Watchdog&                             watchdog_;           ///< watchdog the MahiExoII is guarded by
-        std::vector<mel::Encoder::Channel>         encoder_channels_;   ///< encoder channels that measure motor positions
+        std::vector<QuanserEncoder::Channel>       encoder_channels_;   ///< encoder channels that measure motor positions
         std::vector<mel::Amplifier>                amplifiers_;         ///< amplifiers used to control robot motors
         std::vector<mel::AnalogInput::Channel>     ai_channels_;        ///< analog input channels that measure EMG
 

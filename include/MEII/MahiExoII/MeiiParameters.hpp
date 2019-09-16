@@ -23,7 +23,7 @@
 #include <MEL/Core/Time.hpp>
 #include <array>
 
-namespace meii {
+namespace mel {
 
     /// Stores the constant parameters associated with the MAHI Exo-II.
     struct MeiiParameters {

@@ -10,9 +10,9 @@
 #include <MEL/Logging/Log.hpp>
 
 
-using namespace mel;
+// using namespace mel;
 
-namespace meii {  
+namespace mel {  
 
     // geometric parameters
     const double MahiExoII::R_ = 0.1044956;
@@ -27,7 +27,7 @@ namespace meii {
     //-------------------------------------------------------------------------
 
     MahiExoII::MahiExoII(MeiiConfiguration configuration, MeiiParameters parameters) :
-        Exo("mahi_exo_ii"),
+        MahiExoII::Exo("mahi_exo_ii"),
         config_(configuration),
         params_(parameters)
     {
@@ -381,11 +381,11 @@ namespace meii {
     }
 
     std::vector<double> MahiExoII::get_wrist_parallel_positions() const {
-        return copy_eigvec_to_stdvec(q_par_);
+        return meii::copy_eigvec_to_stdvec(q_par_);
     }
 
     std::vector<double> MahiExoII::get_wrist_serial_positions() const {
-        return copy_eigvec_to_stdvec(q_ser_);
+        return meii::copy_eigvec_to_stdvec(q_ser_);
     }
 
     void MahiExoII::set_anatomical_joint_torques(std::vector<double> new_torques) {
@@ -466,7 +466,7 @@ namespace meii {
     }
 
     void MahiExoII::set_rps_ser_torques(std::vector<double>& tau_ser) {
-        Eigen::VectorXd tau_ser_eig = copy_stdvec_to_eigvec(tau_ser);
+        Eigen::VectorXd tau_ser_eig = meii::copy_stdvec_to_eigvec(tau_ser);
         //Eigen::VectorXd tau_par = Eigen::VectorXd::Zero(N_qs_);
         //tau_par = jac_fk_.transpose() * tau_ser_eig;
         tau_par_rob_ = jac_fk_.transpose() * tau_ser_eig;
@@ -485,14 +485,14 @@ namespace meii {
 
     void MahiExoII::forward_rps_kinematics(std::vector<double>& q_par_in, std::vector<double>& q_ser_out, std::vector<double>& qp_out) const {
 
-        Eigen::VectorXd q_par_in_eig = copy_stdvec_to_eigvec(q_par_in);
+        Eigen::VectorXd q_par_in_eig = meii::copy_stdvec_to_eigvec(q_par_in);
         Eigen::VectorXd q_ser_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_out_eig = Eigen::VectorXd::Zero(N_qp_);
 
         forward_rps_kinematics(q_par_in_eig, q_ser_out_eig, qp_out_eig);
 
-        q_ser_out = copy_eigvec_to_stdvec(q_ser_out_eig);
-        qp_out = copy_eigvec_to_stdvec(qp_out_eig);
+        q_ser_out = meii::copy_eigvec_to_stdvec(q_ser_out_eig);
+        qp_out = meii::copy_eigvec_to_stdvec(qp_out_eig);
 
     }
 
@@ -504,19 +504,19 @@ namespace meii {
 
     void MahiExoII::forward_rps_kinematics_velocity(std::vector<double>& q_par_in, std::vector<double>& q_ser_out, std::vector<double>& qp_out, std::vector<double>& q_par_dot_in, std::vector<double>& q_ser_dot_out, std::vector<double>& qp_dot_out) const {
 
-        Eigen::VectorXd q_par_in_eig = copy_stdvec_to_eigvec(q_par_in);
+        Eigen::VectorXd q_par_in_eig = meii::copy_stdvec_to_eigvec(q_par_in);
         Eigen::VectorXd q_ser_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_out_eig = Eigen::VectorXd::Zero(N_qp_);
-        Eigen::VectorXd q_par_dot_in_eig = copy_stdvec_to_eigvec(q_par_dot_in);
+        Eigen::VectorXd q_par_dot_in_eig = meii::copy_stdvec_to_eigvec(q_par_dot_in);
         Eigen::VectorXd q_ser_dot_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_dot_out_eig = Eigen::VectorXd::Zero(N_qs_);
 
         forward_rps_kinematics_velocity(q_par_in_eig, q_ser_out_eig, qp_out_eig, q_par_dot_in_eig, q_ser_dot_out_eig, qp_dot_out_eig);
 
-        q_ser_out = copy_eigvec_to_stdvec(q_ser_out_eig);
-        qp_out = copy_eigvec_to_stdvec(qp_out_eig);
-        q_ser_dot_out = copy_eigvec_to_stdvec(q_ser_dot_out_eig);
-        qp_dot_out = copy_eigvec_to_stdvec(qp_dot_out_eig);
+        q_ser_out = meii::copy_eigvec_to_stdvec(q_ser_out_eig);
+        qp_out = meii::copy_eigvec_to_stdvec(qp_out_eig);
+        q_ser_dot_out = meii::copy_eigvec_to_stdvec(q_ser_dot_out_eig);
+        qp_dot_out = meii::copy_eigvec_to_stdvec(qp_dot_out_eig);
 
     }
 
@@ -527,14 +527,14 @@ namespace meii {
 
     void MahiExoII::inverse_rps_kinematics(std::vector<double>& q_ser_in, std::vector<double>& q_par_out, std::vector<double>& qp_out) const {
 
-        Eigen::VectorXd q_ser_in_eig = copy_stdvec_to_eigvec(q_ser_in);
+        Eigen::VectorXd q_ser_in_eig = meii::copy_stdvec_to_eigvec(q_ser_in);
         Eigen::VectorXd q_par_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_out_eig = Eigen::VectorXd::Zero(N_qp_);
 
         inverse_rps_kinematics(q_ser_in_eig, q_par_out_eig, qp_out_eig);
 
-        q_par_out = copy_eigvec_to_stdvec(q_par_out_eig);
-        qp_out = copy_eigvec_to_stdvec(qp_out_eig);
+        q_par_out = meii::copy_eigvec_to_stdvec(q_par_out_eig);
+        qp_out = meii::copy_eigvec_to_stdvec(qp_out_eig);
 
     }
 
@@ -545,19 +545,19 @@ namespace meii {
 
     void MahiExoII::inverse_rps_kinematics_velocity(std::vector<double>& q_ser_in, std::vector<double>& q_par_out, std::vector<double>& qp_out, std::vector<double>& q_ser_dot_in, std::vector<double>& q_par_dot_out, std::vector<double>& qp_dot_out) const {
 
-        Eigen::VectorXd q_ser_in_eig = copy_stdvec_to_eigvec(q_ser_in);
+        Eigen::VectorXd q_ser_in_eig = meii::copy_stdvec_to_eigvec(q_ser_in);
         Eigen::VectorXd q_par_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_out_eig = Eigen::VectorXd::Zero(N_qp_);
-        Eigen::VectorXd q_ser_dot_in_eig = copy_stdvec_to_eigvec(q_ser_dot_in);
+        Eigen::VectorXd q_ser_dot_in_eig = meii::copy_stdvec_to_eigvec(q_ser_dot_in);
         Eigen::VectorXd q_par_dot_out_eig = Eigen::VectorXd::Zero(N_qs_);
         Eigen::VectorXd qp_dot_out_eig = Eigen::VectorXd::Zero(N_qp_);
 
         inverse_rps_kinematics_velocity(q_ser_in_eig, q_par_out_eig, qp_out_eig, q_ser_dot_in_eig, q_par_dot_out_eig, qp_dot_out_eig);
 
-        q_par_out = copy_eigvec_to_stdvec(q_par_out_eig);
-        qp_out = copy_eigvec_to_stdvec(qp_out_eig);
-        q_par_dot_out = copy_eigvec_to_stdvec(q_par_dot_out_eig);
-        qp_dot_out = copy_eigvec_to_stdvec(qp_dot_out_eig);
+        q_par_out = meii::copy_eigvec_to_stdvec(q_par_out_eig);
+        qp_out = meii::copy_eigvec_to_stdvec(qp_out_eig);
+        q_par_dot_out = meii::copy_eigvec_to_stdvec(q_par_dot_out_eig);
+        qp_dot_out = meii::copy_eigvec_to_stdvec(qp_dot_out_eig);
 
     }
 

@@ -32,14 +32,14 @@
 #include <Eigen/StdVector>
 #include <MEII/Control/Trajectory.hpp>
 
-namespace meii {
+namespace mel {
 
 
     //==============================================================================
     // CLASS DECLARATION
     //==============================================================================
 
-    class MahiExoII : public Exo {
+    class MahiExoII : public meii::Exo {
 
     public:
 

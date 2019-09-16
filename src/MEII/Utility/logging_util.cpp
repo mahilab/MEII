@@ -1,5 +1,5 @@
 #include <MEII/Utility/logging_util.hpp>
-#include <MEL/Logging/DataLogger.hpp>
+#include <MEL/Logging/Log.hpp>
 #include <MEL/Core/Console.hpp>
 
 using namespace mel;

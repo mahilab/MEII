@@ -2,7 +2,6 @@
 #include <MEL/Math/Functions.hpp>
 #include <MEII/SignalProcessing/SignalProcessingFunctions.hpp>
 #include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/DataLogger.hpp>
 
 using namespace mel;
 
