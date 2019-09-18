@@ -4,10 +4,10 @@
 #include <MEL/Communications/MelShare.hpp>
 #include <MEL/Utility/Options.hpp>
 #include <MEL/Core/Timer.hpp>
+#include <MEL/Core/Console.hpp>
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/DataLogger.hpp>
-#include <MEL/Core/Console.hpp>
+#include <MEL/Logging/Csv.hpp>
 #include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
@@ -54,6 +54,7 @@ int main(int argc, char *argv[]) {
 
 	// construct Q8 USB and configure    
 	Q8Usb q8;
+	q8.open();
 	q8.DO.set_enable_values(std::vector<Logic>(8, High));
 	q8.DO.set_disable_values(std::vector<Logic>(8, High));
 	q8.DO.set_expire_values(std::vector<Logic>(8, High));
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]) {
 				q8.AO[i + 1])
 		);
 	}
-	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);
+	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], amplifiers);
 	MahiExoII meii(config);
 
 	bool rps_is_init = false;
@@ -126,13 +127,16 @@ int main(int argc, char *argv[]) {
 	};
 	std::vector<std::string> dof_str = { "ElbowFE", "WristPS", "WristFE", "WristRU" };
 
-	// construct robot data log
-	DataLogger robot_log(WriterType::Buffered, false);
-	std::vector<double> robot_log_row(6);
-	std::vector<std::string> log_header = { "Time [s]", "ref 1 [rad/s]", "ref 2 [rad/s]",  "ref 3 [rad/s]", "ref 4 [rad/s]", "ref 5 [rad/s]" };
-	robot_log.set_header(log_header);
-	robot_log.set_record_format(DataFormat::Default, 12);
 	bool save_data = false;
+    std::string filepath = "example_meii_robot_data_log.csv";
+
+	// construct robot data log
+	std::vector<double> robot_log_row(6);
+	std::vector<std::vector<double>> robot_log;
+	std::vector<std::string> header = { "Time [s]", "ref 1 [rad/s]", "ref 2 [rad/s]",  "ref 3 [rad/s]", "ref 4 [rad/s]", "ref 5 [rad/s]" };
+	if (save_data){
+		csv_write_row(filepath, header);
+	}
 
 	// trajectory following
 	if (result.count("single") > 0) {
@@ -601,7 +605,7 @@ int main(int argc, char *argv[]) {
 			for (std::size_t i = 0; i < 5; ++i) {
 				robot_log_row[i + 1] = ref[i];
 			}
-			robot_log.buffer(robot_log_row);
+			robot_log.push_back(robot_log_row);
 
 			// kick watchdog
 			if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
@@ -617,8 +621,7 @@ int main(int argc, char *argv[]) {
 			print("Do you want to save the robot data log? (Y/N)");
 			Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
 			if (key == Key::Y) {
-				robot_log.save_data("example_meii_robot_data_log.csv", ".", false);
-				robot_log.wait_for_save();
+            	csv_append_rows(filepath, robot_log);
 			}
 		}
 	}

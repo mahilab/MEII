@@ -6,7 +6,7 @@
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Math/Functions.hpp>
 #include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/DataLogger.hpp>
+#include <MEL/Logging/Csv.hpp>
 #include <MEL/Core/Console.hpp>
 #include <MEL/Devices/Windows/Keyboard.hpp>
 #include <vector>
@@ -95,7 +95,7 @@ int main(int argc, char *argv[]) {
                 q8.AO[i + 1])
         );
     }
-    MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], q8.velocity[{1, 2, 3, 4, 5}], amplifiers);
+    MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], amplifiers);
     MahiExoII meii(config);   
 
     // calibrate - manually zero the encoders (right arm supinated)
@@ -105,17 +105,24 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    bool save_data = false;
+    std::string filepath = "example_meii_robot_data_log.csv";
+
     // create robot data log
-    DataLogger robot_log(WriterType::Buffered, false);
+    // DataLogger robot_log(WriterType::Buffered, false);
     std::vector<double> robot_log_row(16);
-    std::vector<std::string> log_header = { "Time [s]", "MEII EFE Position [rad]", "MEII EFE Velocity [rad/s]", "MEII EFE Commanded Torque [Nm]",
+    std::vector<std::vector<double>> robot_log;
+    std::vector<std::string> header = { "Time [s]", "MEII EFE Position [rad]", "MEII EFE Velocity [rad/s]", "MEII EFE Commanded Torque [Nm]",
         "MEII FPS Position [rad]", "MEII FPS Velocity [rad/s]", "MEII FPS Commanded Torque [Nm]",
         "MEII RPS L1 Position [m]", "MEII RPS L1 Velocity [m/s]", "MEII RPS L1 Commanded Force [N]",
         "MEII RPS L2 Position [m]", "MEII RPS L2 Velocity [m/s]", "MEII RPS L2 Commanded Force [N]",
         "MEII RPS L3 Position [m]", "MEII RPS L3 Velocity [m/s]", "MEII RPS L3 Commanded Force [N]" };
-    robot_log.set_header(log_header);
-    robot_log.set_record_format(DataFormat::Default, 12);
-    bool save_data = false;
+    // robot_log.set_header(log_header);
+    if (save_data){
+        csv_write_row(filepath, header);
+    }
+    // robot_log.set_record_format(DataFormat::Default, 12);
+    
 
     // make MelShares
     MelShare ms_pos("ms_pos");
@@ -251,9 +258,9 @@ int main(int argc, char *argv[]) {
             for (std::size_t i = 0; i < meii.N_rj_; ++i) {
                 robot_log_row[3 * i + 1] = meii[i].get_position();
                 robot_log_row[3 * i + 2] = meii[i].get_velocity();
-                robot_log_row[3 * i + 3] = meii[i].get_torque();
+                robot_log_row[3 * i + 3] = meii[i].get_torque_command();
             }
-            robot_log.buffer(robot_log_row);
+            robot_log.push_back(robot_log_row);
 
             // check for save key
             if (Keyboard::is_key_pressed(Key::Enter)) {
@@ -430,9 +437,9 @@ int main(int argc, char *argv[]) {
             for (std::size_t i = 0; i < meii.N_rj_; ++i) {
                 robot_log_row[3 * i + 1] = meii[i].get_position();
                 robot_log_row[3 * i + 2] = meii[i].get_velocity();
-                robot_log_row[3 * i + 3] = meii[i].get_torque();
+                robot_log_row[3 * i + 3] = meii[i].get_torque_command();
             }
-            robot_log.buffer(robot_log_row);
+            robot_log.push_back(robot_log_row);
 
             // check for save key
             if (Keyboard::is_key_pressed(Key::Enter)) {
@@ -463,8 +470,7 @@ int main(int argc, char *argv[]) {
         print("Do you want to save the robot data log? (Y/N)");
         Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
         if (key == Key::Y) {
-            robot_log.save_data("example_meii_robot_data_log.csv", ".", false);
-            robot_log.wait_for_save();
+            csv_append_rows("example_meii_robot_data_log.csv", robot_log);
         }
     }
 

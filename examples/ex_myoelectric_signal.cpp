@@ -2,7 +2,7 @@
 #include <MEL/Communications/MelShare.hpp>
 #include <MEL/Core/Timer.hpp>
 #include <MEL/Core/Clock.hpp>
-#include <MEL/Logging/DataLogger.hpp>
+#include <MEL/Logging/Csv.hpp>
 #include <MEL/Core/Console.hpp>
 #include <MEL/Utility/System.hpp>
 #include <MEL/Devices/Windows/Keyboard.hpp>

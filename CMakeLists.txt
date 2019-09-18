@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.13.0)
 
 #===============================================================================
 # USER OPTIONS
@@ -17,7 +17,7 @@ option(TESTS       "Turn ON to build test executable(s)"                        
 
 set(NI_X64_ROOT  "C:/dev/nirlt-linux-x64"       CACHE FILEPATH "Absolute path to NI Linux Realtime GNU toolchain (x64).")
 set(QUANSER_ROOT "C:/Program Files/Quanser"     CACHE FILEPATH "Absolute path to Quanser installation.")
-set(MEL_ROOT     "C:/Git/MEL"                   CACHE FILEPATH "Absolute path to MEL.")
+# set(MEL_ROOT     "C:/Git/MEL"                   CACHE FILEPATH "Absolute path to MEL.")
 set(EIGEN_ROOT   "C:/dev/eigen"                 CACHE FILEPATH "Absolute path to Eigen installation.")
 set(MYO_ROOT     "C:/dev/myo-sdk-win-0.9.0"     CACHE FILEPATH "Absolute path to Myo SDK.")
 
@@ -45,6 +45,8 @@ set(CMAKE_CONFIGURATION_TYPES Release)
 # create project
 project(MEII)
 
+find_package(MEL REQUIRED)
+
 # set binary output locations
 if(MOVE_BINS)
     set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/lib)
@@ -69,7 +71,7 @@ endif()
 #===============================================================================
 
 # MEL Lib and Eigen Lib
-set(INCLUDE_DIRS include ${MEL_ROOT}/include ${EIGEN_ROOT})
+set(INCLUDE_DIRS include ${EIGEN_ROOT})#{MEL_ROOT}/include ${EIGEN_ROOT})
 if (MYO)
     list(APPEND INCLUDE_DIRS ${MYO_ROOT}/include)
 endif()
@@ -143,8 +145,6 @@ file(GLOB SRC_OSIM
     "${CMAKE_SOURCE_DIR}/include/MEII/OpenSim/*.hpp"
 )
 
-
-
 # MEII expansion library source files
 set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
@@ -211,7 +211,7 @@ endif()
 #===============================================================================
 
 set(LINK_LIBS "")
-link_directories("${MEL_ROOT}/lib")
+# link_directories("${MEL_ROOT}/build-msvc2017-release/Release")
 if(QUANSER)
     if (CMAKE_SIZEOF_VOID_P EQUAL 8) # 64-bit
         link_directories("${QUANSER_ROOT}/QUARC/lib/win64")
@@ -220,7 +220,7 @@ if(QUANSER)
     endif()
 endif(QUANSER)
 
-list(APPEND LINK_LIBS MEL)
+# list(APPEND LINK_LIBS MEL::Quanser)
 
 if(win32)
     list(APPEND LINK_LIBS
@@ -252,7 +252,7 @@ else()
     add_library(MEII SHARED ${MEII_SOURCE_FILES})
 endif()
 
-target_link_libraries(MEII ${LINK_LIBS})
+target_link_libraries(MEII MEL::quanser)#${LINK_LIBS})
 target_compile_definitions(MEII PRIVATE -DMEII_EXPORTS)
 
 
