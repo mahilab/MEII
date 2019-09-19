@@ -387,8 +387,8 @@ int main(int argc, char *argv[]) {
                     meii.set_rps_control_mode(2); // platform height backdrivable
                     //meii.anat_ref_.start(setpoint_rad, meii.get_anatomical_joint_positions(), timer.get_elapsed_time());
                     state = 2;
-                    //command_torques = std::vector<double>(meii.N_aj_, 0.0);
-                    //meii.set_anatomical_joint_torques(command_torques);
+                    // command_torques = std::vector<double>(meii.N_aj_, 0.0);
+                    meii.set_anatomical_joint_torques(command_torques);
                     initial_waypoint = WayPoint(seconds(0.0), aj_positions);
                     waypoints[0] = initial_waypoint;
                     ref_traj.set_waypoints(meii.N_aj_, waypoints, Trajectory::Interp::Linear, traj_max_diff);
@@ -409,8 +409,11 @@ int main(int argc, char *argv[]) {
                 // calculate anatomical command torques
                 command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
                 command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+                // command_torques[0] = 0;
+                // command_torques[1] = 0;
                 for (int i = 0; i < meii.N_qs_; ++i) {
                     rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+                    // rps_command_torques[i] = 0;
                 }
 
                 std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
