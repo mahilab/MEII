@@ -244,8 +244,6 @@ int main(int argc, char *argv[]) {
 				aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
 			}
 
-			//print(aj_positions);
-
 			// begin switch state
 			switch (state) {
 			case 0: // backdrive
@@ -363,14 +361,16 @@ int main(int argc, char *argv[]) {
 
 					LOG(Info) << "Going to neutral position.";
 					
+					// define new waypoints
+					waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
+					waypoints[1] = neutral_point.set_time(dmp_duration);
+
 					// generate new trajectories
 					if (traj_type == "linear"){
-						waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
-						waypoints[1] = neutral_point.set_time(dmp_duration);
-						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+						ref_traj.set_waypoints(2, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 					}
 					else if (traj_type == "dmp"){
-						dmp.set_endpoints(WayPoint(Time::Zero, meii.get_anatomical_joint_positions()), neutral_point.set_time(dmp_duration));
+						dmp.set_endpoints(waypoints[0], waypoints[1]);
 						if (!dmp.trajectory().validate()) {
 							LOG(Warning) << "DMP trajectory invalid.";
 							stop = true;
@@ -378,7 +378,7 @@ int main(int argc, char *argv[]) {
 						ref_traj = dmp.trajectory();
 					}
 					else if (traj_type == "min_jerk"){
-						mj.set_endpoints(WayPoint(Time::Zero, meii.get_anatomical_joint_positions()), neutral_point.set_time(dmp_duration));
+						mj.set_endpoints(waypoints[0], waypoints[1]);
 						if (!mj.trajectory().validate()) {
 							LOG(Warning) << "MJ trajectory invalid.";
 							stop = true;
@@ -482,6 +482,20 @@ int main(int argc, char *argv[]) {
 						LOG(Info) << "Trajectory finished.";
 						state_clock.restart();
 						ref_traj_clock.restart();
+
+						// prompt user for input
+						print("Press 'Escape' to exit the program.");
+						print("Press 'Enter' to exit the program and save data.");
+
+						print("Press number key for selecting single DoF trajectory.");
+						print("1 = Elbow Flexion/Extension");
+						print("2 = Wrist Pronation/Supination");
+						print("3 = Wrist Flexion/Extension");
+						print("4 = Wrist Radial/Ulnar Deviation");
+						print("Press 'Escape' to exit the program.");
+
+						// start loop
+						LOG(Info) << "Robot Backdrivable.";
 					}
 
 				}
@@ -616,13 +630,16 @@ int main(int argc, char *argv[]) {
 			timer.wait();
 		}
 
-		// save the data if the user wants
-		if (save_data) {
-			print("Do you want to save the robot data log? (Y/N)");
-			Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
-			if (key == Key::Y) {
-            	csv_append_rows(filepath, robot_log);
-			}
+		meii.disable();
+        q8.disable();
+	}
+
+	// save the data if the user wants
+	if (save_data) {
+		print("Do you want to save the robot data log? (Y/N)");
+		Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
+		if (key == Key::Y) {
+			csv_append_rows(filepath, robot_log);
 		}
 	}
 

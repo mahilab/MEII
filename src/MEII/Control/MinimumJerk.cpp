@@ -34,7 +34,7 @@ namespace meii {
 		return trajectory_;
 	}
 
-	const Trajectory& MinimumJerk::update(const std::vector<double> &theta) {
+	const Trajectory& MinimumJerk::update() {
 		generate_trajectory();
 		return trajectory_;
 	}

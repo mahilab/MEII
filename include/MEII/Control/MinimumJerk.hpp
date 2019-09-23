@@ -38,7 +38,7 @@ namespace meii {
 		const Trajectory& trajectory();
 
 		/// Updates the trajectory of the DMP based on the new value of theta
-		const Trajectory& update(const std::vector<double> &theta);
+		const Trajectory& update();
 
 		/// Clears the DMP memory
 		void clear();
