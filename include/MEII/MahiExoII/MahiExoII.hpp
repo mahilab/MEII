@@ -116,6 +116,9 @@ namespace mel {
         /// Manually zero the encoders
         void calibrate(volatile std::atomic<bool>& stop_flag);
 
+        /// Automatically zero the encoders
+        void calibrate_auto(volatile std::atomic<bool>& stop_flag);
+
         /// Disables the robot and stops all smooth reference trajectories
         bool on_disable() override;
 

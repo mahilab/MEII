@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 
 	// calibrate - manually zero the encoders (right arm supinated)
 	if (result.count("calibrate") > 0) {
-		meii.calibrate(stop);
+		meii.calibrate_auto(stop);
 		LOG(Info) << "MAHI Exo-II encoders calibrated.";
 		return 0;
 	}
@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
 
 	// construct timer in hybrid mode to avoid using 100% CPU
 	Timer timer(Ts, Timer::Hybrid);
+	timer.set_acceptable_miss_rate(0.05);
 
 	// construct clock for regulating keypress
 	Clock keypress_refract_clock;
@@ -264,6 +265,7 @@ int main(int argc, char *argv[]) {
 
 					// check for number keypress
 					number_keypress = Keyboard::is_any_num_key_pressed();
+
 					if (number_keypress >= 0) {
 						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
 							if (number_keypress > 0 && number_keypress <= 4) {
@@ -479,6 +481,7 @@ int main(int argc, char *argv[]) {
 					}
 					else {
 						state = 0;
+						current_cycle = 0;
 						LOG(Info) << "Trajectory finished.";
 						state_clock.restart();
 						ref_traj_clock.restart();
@@ -644,5 +647,6 @@ int main(int argc, char *argv[]) {
 	}
 
 	disable_realtime();
+	Keyboard::clear_console_input_buffer();
 	return 0;
 }

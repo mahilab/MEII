@@ -100,6 +100,225 @@ namespace mel {
         config_.daq_.disable();
     }
 
+    void MahiExoII::calibrate_auto(volatile std::atomic<bool>& stop) {
+
+        // calibration offsets for the joints
+        std::array<int32, 5>  encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
+
+        // destinations for the joints after setting calibration
+        std::array<double, 5> neutral_points  = { -35 * DEG2RAD, 00 * DEG2RAD, 0.09, 0.09, 0.09 };
+        
+        // create needed variables
+        std::array<double, 5> zeros = { 0, 0, 0, 0, 0 }; // determined zero positions for each joint
+        std::array<int, 5> dir = { 1 , -1, 1, 1, 1 };    // direction to rotate each joint
+        mel::uint32 calibrating_joint = 0;               // joint currently calibrating
+        bool returning = false;                          // bool to track if calibrating joint is return to zero
+        double pos_ref = 0;                              // desired position
+
+        std::array<double, 5> vel_ref = {10 * DEG2RAD, 20 * DEG2RAD, 0.01, 0.01, 0.01}; // desired velocities
+        
+        std::vector<double> stored_positions;  // stores past positions
+        stored_positions.reserve(100000);
+
+        std::vector<std::vector<double>> par_stored_positions;  // stores past positions
+        // for (size_t i = 0; i < 3; i++)
+        // {
+        //     par_stored_positions[i].reserve(10000);
+        // }
+        std::vector<double> par_pos_ref = {0.0, 0.0, 0.0};
+        std::vector<bool>   par_returning = {false, false, false};
+
+        std::array<double, 5> sat_torques = { 2.0, 2.0, 5.0, 5.0, 5.0 }; // temporary saturation torques
+
+        Time timeout = seconds(45); // max amout of time we will allow calibration to occur for
+
+        // enable DAQs, zero encoders, and start watchdog
+        config_.daq_.enable();
+        for (size_t i = 0; i < 5; i++){
+            config_.encoder_channels_[i].zero();
+        }
+        config_.watchdog_.start();
+
+        // enable MEII
+        enable();
+
+        // start the clock
+        Timer timer(milliseconds(1), Timer::Hybrid);
+        
+        // start the calibration control loop
+        while (!stop && timer.get_elapsed_time() < timeout) {
+
+            // read and reload DAQs
+            config_.daq_.update_input();
+            config_.watchdog_.kick();
+
+            if (calibrating_joint < 2){
+                // iterate over all joints
+                for (std::size_t i = 0; i < 2; i++) {
+
+                    // get positions and velocities
+                    double pos_act = joints_[i].get_position();
+                    double vel_act = joints_[i].get_velocity();
+
+                    double torque = 0;
+                    if (i == calibrating_joint) {
+                        if (!returning) {
+
+                            // calculate torque req'd to move the calibrating joint forward at constant speed
+                            pos_ref += dir[i] * vel_ref[i] * timer.get_period().as_seconds();
+                            torque = robot_joint_pd_controllers_[i].calculate(pos_ref, pos_act, 0, vel_act);
+                            torque = saturate(torque, sat_torques[i]);
+
+                            // check if the calibrating joint is still moving
+                            stored_positions.push_back(pos_act);
+                            bool moving = true;
+                            if (stored_positions.size() > 500) {
+                                moving = false;
+                                for (size_t j = stored_positions.size() - 500; j < stored_positions.size(); j++) {
+                                    moving = stored_positions[j] != stored_positions[j - 1];
+                                    if (moving)
+                                        break;
+                                }
+                            }
+
+                            // if it's not moving, it's at a hardstop so record the position and deduce the zero location
+                            if (!moving) {
+                                config_.encoder_channels_[i].reset_count(encoder_offsets[i]);
+                                returning = true;
+                                // update the reference position to be the current one
+                                pos_ref = joints_[i].get_position();
+                            }
+                        }
+
+                        else {
+                            // calculate torque req'd to retur the calibrating joint back to zero
+                            pos_ref -= dir[i] * vel_ref[i] *  timer.get_period().as_seconds();
+                            torque = robot_joint_pd_controllers_[i].calculate(pos_ref, pos_act, 0, vel_act);
+                            torque = saturate(torque, sat_torques[i]);
+
+
+                            if (dir[i] * pos_ref <= dir[i] * neutral_points[i]) {
+                                // reset for the next joint
+                                calibrating_joint += 1;
+                                pos_ref = 0;
+                                returning = false;
+                                LOG(Info) << "Joint " << joints_[i].get_name() << " calibrated";
+                            }
+                        }
+                    }
+                    else {
+                        // lock all other joints at their zero positions
+                        if (i > calibrating_joint){
+                            torque = robot_joint_pd_controllers_[i].calculate(zeros[i], pos_act, 0, vel_act);
+                        }
+                        else{
+                            torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], pos_act, 0, vel_act);
+                        }
+                        torque = saturate(torque, sat_torques[i]);
+                    }
+                    joints_[i].set_torque(torque);
+                }
+
+                // set rps joint torques
+                for (std::size_t i = 0; i < 3; ++i) {
+					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, joints_[i + 2].get_position(), 0, joints_[i + 2].get_velocity());
+                    torque = saturate(torque, sat_torques[i]);
+                    joints_[i + 2].set_torque(torque);
+				}
+            }
+            else{
+                for (size_t i = 0; i < 2; i++)
+                {
+                    double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], joints_[i].get_position(), 0, joints_[i].get_velocity());
+                    torque = saturate(torque, sat_torques[i]);
+                    joints_[i].set_torque(torque);
+                }
+
+                std::vector<bool> par_moving = {true, true, true};
+                
+                for (std::size_t i = 0; i < 3; i++) {
+                    double torque = 0;
+                    int dof_num = i+2;
+                    // get positions and velocities
+                    double pos_act = joints_[dof_num].get_position();
+                    double vel_act = joints_[dof_num].get_velocity();
+                    
+                    if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })) {
+                        par_pos_ref[i] += dir[dof_num] * vel_ref[dof_num] * timer.get_period().as_seconds();
+
+                        torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
+                        torque = saturate(torque, sat_torques[dof_num]);
+
+                        // check if the calibrating joint is still moving
+                        par_stored_positions[i].push_back(pos_act);
+
+                        if (par_stored_positions[i].size() > 500) {
+                            par_moving[i] = false;
+                            for (size_t j = stored_positions.size() - 500; j < stored_positions.size(); j++) {
+                                par_moving[i] = par_stored_positions[i][j] != par_stored_positions[i][j-1];
+                                if (par_moving[i])
+                                    break;
+                            }
+                        }
+
+                        // if it's not moving, it's at a hardstop so record the position and deduce the zero location
+                        if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
+                            for (size_t j = 0; j < 3; j++){
+                                config_.encoder_channels_[j+2].reset_count(encoder_offsets[j+2]);
+                                // update the reference position to be the current one
+                                par_pos_ref[j] = joints_[j+2].get_position();
+                            }                        
+                            par_returning = {true, true, true};
+                        }
+                    }
+
+                    else{
+                        if (par_returning[i]){
+                            // calculate torque req'd to retur the calibrating joint back to zero
+                            par_pos_ref[i] -= dir[dof_num] * vel_ref[dof_num] *  timer.get_period().as_seconds();
+                            torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
+                            torque = saturate(torque, sat_torques[dof_num]);
+
+                            if (dir[dof_num] * par_pos_ref[i] <= dir[dof_num] * neutral_points[dof_num]) {
+                                // reset for the next joint
+                                par_returning[i] = false;
+                                par_pos_ref[i] = 0;
+                                returning = false;
+                                LOG(Info) << "Joint " << joints_[dof_num].get_name() << " calibrated";
+                                if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })){
+                                    stop = true;
+                                }
+                            }
+                        }
+                        else{
+                            torque = robot_joint_pd_controllers_[dof_num].calculate(neutral_points[dof_num], pos_act, 0, vel_act);
+                            torque = saturate(torque, sat_torques[dof_num]);
+                        }
+                    }
+                    joints_[dof_num].set_torque(torque);
+                }
+            }
+            
+            // write all DAQs
+            config_.daq_.update_output();
+
+            // check joint velocity limits
+            if (any_velocity_limit_exceeded() || any_torque_limit_exceeded()) {
+                stop = true;
+                break;
+            }
+
+            // wait the clock
+            timer.wait();
+        }
+
+        // disable MEII
+        disable();
+
+        // disable DAQ
+        config_.daq_.disable();
+    }
+
 
     bool MahiExoII::on_disable() {
 
