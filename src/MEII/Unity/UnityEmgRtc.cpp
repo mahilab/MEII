@@ -139,7 +139,7 @@ namespace meii {
 		if (target_label == 0) {
 			return 0;
 		}
-		if (target_label < 0 || target_label > num_classes_) {
+		if (target_label < 0 || target_label > static_cast<int>(num_classes_)) {
 			return -1;
 		}
         return viz_target_mapping_[arm_][dof_][target_label - 1];

@@ -28,6 +28,8 @@ bool handler(CtrlEvent event) {
 
 int main(int argc, char *argv[]) {
 
+    register_ctrl_handler(handler);
+
 	// make options
 	Options options("ex_pos_control_nathan.exe", "Nathan's Position Control Demo");
 	options.add_options()

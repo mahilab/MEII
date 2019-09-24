@@ -21,10 +21,10 @@ examples:
    short: Examples
    long: "Build examples"
    settings: 
-    MEL_EXAMPLES: ON
+    EXAMPLES: ON
   off: 
    short: "No Examples"
    long: "Do not build examples"
    settings: 
-    MEL_EXAMPLES: OFF
+    EXAMPLES: OFF
 

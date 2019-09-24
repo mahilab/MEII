@@ -42,6 +42,8 @@ bool handler(CtrlEvent event) {
 
 int main(int argc, char *argv[]) {
 
+    register_ctrl_handler(handler);
+
     // make options
     Options options("ex_mahiexoii_pos_ctrl.exe", "MahiExoII Position Control Demo");
     options.add_options()

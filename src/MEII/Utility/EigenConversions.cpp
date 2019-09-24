@@ -24,7 +24,7 @@ namespace meii {
 
     Eigen::VectorXd copy_stdvec_to_eigvec(const std::vector<double>& std_vec) {
         Eigen::VectorXd eigen_vec(std_vec.size());
-        for (int i = 0; i < std_vec.size(); ++i) {
+        for (size_t i = 0; i < std_vec.size(); ++i) {
             eigen_vec[i] = std_vec[i];
         }
         return eigen_vec;
@@ -44,9 +44,9 @@ namespace meii {
     Eigen::MatrixXd copy_stdvecvec_to_eigmat(const std::vector<std::vector<double>>& std_vecvec) {
         size_t cols = std_vecvec[0].size();
         Eigen::MatrixXd eigen_mat(std_vecvec.size(), cols);
-        for (int i = 0; i < std_vecvec.size(); ++i) {
+        for (size_t i = 0; i < std_vecvec.size(); ++i) {
             if (std_vecvec[i].size() == cols) {
-                for (int j = 0; j < cols; ++j) {
+                for (size_t j = 0; j < cols; ++j) {
                     eigen_mat(i, j) = std_vecvec[i][j];
                 }
             }

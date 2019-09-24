@@ -98,6 +98,7 @@ namespace mel {
             config_.encoder_channels_[i].reset_count(encoder_offsets[i]);
         }
         config_.daq_.disable();
+        stop = true;
     }
 
     void MahiExoII::calibrate_auto(volatile std::atomic<bool>& stop) {
@@ -382,7 +383,7 @@ namespace mel {
             print("ERROR: Cannot call set_ref() before start().");
         }
         else {
-            for (int i = 0; i < ref_pos.size(); ++i) {
+            for (size_t i = 0; i < ref_pos.size(); ++i) {
                 prev_ref_[i] = calculate_smooth_ref(i, current_time);
             }
             ref_ = ref_pos;
@@ -1238,7 +1239,7 @@ namespace mel {
     bool MahiExoII::check_goal_pos(std::vector<double> goal_pos, std::vector<double> current_pos, std::vector<char> check_dof, std::vector<double> error_tol, bool print_output) const {
 
         bool goal_reached = true;
-        for (int i = 0; i < goal_pos.size(); ++i) {
+        for (size_t i = 0; i < goal_pos.size(); ++i) {
             if (check_dof.at(i)) {
                 if (std::abs(goal_pos.at(i) - current_pos.at(i)) > std::abs(error_tol.at(i))) {
                     if (print_output && goal_reached) {
