@@ -106,7 +106,7 @@ namespace mel {
         std::array<int32, 5>  encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
 
         // destinations for the joints after setting calibration
-        std::array<double, 5> neutral_points  = { -35 * DEG2RAD, 00 * DEG2RAD, 0.09, 0.09, 0.09 };
+        std::array<double, 5> neutral_points  = { -35 * DEG2RAD, 00 * DEG2RAD, 0.13, 0.13, 0.13 };
         
         // create needed variables
         std::array<double, 5> zeros = { 0, 0, 0, 0, 0 }; // determined zero positions for each joint
@@ -121,14 +121,15 @@ namespace mel {
         stored_positions.reserve(100000);
 
         std::vector<std::vector<double>> par_stored_positions;  // stores past positions
-        // for (size_t i = 0; i < 3; i++)
-        // {
-        //     par_stored_positions[i].reserve(10000);
-        // }
+        for (size_t i = 0; i < 3; i++)
+        {
+            par_stored_positions.push_back({});
+            par_stored_positions[i].reserve(10000);
+        }
         std::vector<double> par_pos_ref = {0.0, 0.0, 0.0};
         std::vector<bool>   par_returning = {false, false, false};
 
-        std::array<double, 5> sat_torques = { 2.0, 2.0, 5.0, 5.0, 5.0 }; // temporary saturation torques
+        std::array<double, 5> sat_torques = { 2.0, 2.0, 15.0, 15.0, 15.0 }; // temporary saturation torques
 
         Time timeout = seconds(45); // max amout of time we will allow calibration to occur for
 
@@ -227,8 +228,7 @@ namespace mel {
 				}
             }
             else{
-                for (size_t i = 0; i < 2; i++)
-                {
+                for (size_t i = 0; i < 2; i++){
                     double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], joints_[i].get_position(), 0, joints_[i].get_velocity());
                     torque = saturate(torque, sat_torques[i]);
                     joints_[i].set_torque(torque);
@@ -254,13 +254,13 @@ namespace mel {
 
                         if (par_stored_positions[i].size() > 500) {
                             par_moving[i] = false;
-                            for (size_t j = stored_positions.size() - 500; j < stored_positions.size(); j++) {
+                            for (size_t j = par_stored_positions[i].size() - 500; j < par_stored_positions[i].size(); j++) {
                                 par_moving[i] = par_stored_positions[i][j] != par_stored_positions[i][j-1];
                                 if (par_moving[i])
                                     break;
                             }
                         }
-
+                        
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
@@ -283,7 +283,6 @@ namespace mel {
                                 // reset for the next joint
                                 par_returning[i] = false;
                                 par_pos_ref[i] = 0;
-                                returning = false;
                                 LOG(Info) << "Joint " << joints_[dof_num].get_name() << " calibrated";
                                 if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })){
                                     stop = true;
