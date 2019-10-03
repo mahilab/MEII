@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
 		std::vector<WayPoint> extreme_points = { WayPoint(Time::Zero,{ -05 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),  // flexed
 			  									  WayPoint(Time::Zero,{ -65 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })}; // extended
 
-        Time mj_duration = seconds(3.0);
+        Time mj_duration = seconds(5.0);
 
 		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
@@ -187,7 +187,7 @@ int main(int argc, char *argv[]) {
 		WayPoint next_wp;
 
 		//default mj traj
-		MinimumJerk mj(mj_Ts, extreme_points[0].set_time(mj_duration), extreme_points[1].set_time(mj_duration));
+		MinimumJerk mj(mj_Ts, extreme_points[0], extreme_points[1].set_time(mj_duration));
 		mj.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
 		// Initializing variables for dmp
@@ -204,7 +204,6 @@ int main(int argc, char *argv[]) {
 		// set up state machine
 		Phase state = Backdrive;
 		Time backdrive_time = seconds(1);
-		Time wait_at_neutral_time = seconds(1);
 		Time wait_at_extreme_time = seconds(1);
 
 		// create data containers
@@ -261,8 +260,6 @@ int main(int argc, char *argv[]) {
 
 				// command zero torque
 				meii.set_joint_torques(command_torques);
-
-				int number_keypress;
 
 				// prompt user for input to select which trajectory
 				if (!traj_selected) {
@@ -327,7 +324,7 @@ int main(int argc, char *argv[]) {
 					
 					rps_is_init = true;
 
-					LOG(Info) << "Going to neutral position.";
+					LOG(Info) << "Going to Extended Position.";
 					
 					// define new waypoints
 					waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
@@ -365,9 +362,9 @@ int main(int argc, char *argv[]) {
 				meii.set_anatomical_joint_torques(command_torques);
 
 				// check for wait period to end
-				if (state_clock.get_elapsed_time() > wait_at_neutral_time) {
+				if (state_clock.get_elapsed_time() > mj_duration) {
 					state = MoveWait;
-					LOG(Info) << "Going to Extended Position.";
+					LOG(Info) << "Waiting at Flex Position.";
 
 					state_clock.restart();
 					ref_traj_clock.restart();
@@ -397,11 +394,21 @@ int main(int argc, char *argv[]) {
 				meii.set_anatomical_joint_torques(command_torques);
 
 				// check for wait period to end
-				if (state_clock.get_elapsed_time() > wait_at_neutral_time) {
+				if (state_clock.get_elapsed_time() > mj_duration) {
 					if (current_cycle < num_full_cycles) {
 						current_cycle++;
 						state = MoveFlex;
-						LOG(Info) << "Waiting at Flexed Position";
+						LOG(Info) << "Moving to Flexed Position";
+
+						// generate new trajectory
+						waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
+						waypoints[1] = extreme_points[0].set_time(mj_duration);
+						mj.set_endpoints(waypoints[0], waypoints[1]);
+						if (!mj.trajectory().validate()) {
+							LOG(Warning) << "MJ trajectory invalid.";
+							stop = true;
+						}
+						ref_traj = mj.trajectory();
 					}
 					else {
 						state = Backdrive;
@@ -419,7 +426,6 @@ int main(int argc, char *argv[]) {
 					}
 					state_clock.restart();
 					ref_traj_clock.restart();
-
 				}
 
 				break;

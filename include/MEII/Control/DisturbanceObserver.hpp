@@ -18,6 +18,7 @@
 # pragma once
 
 #include <MEII/Utility/Matrix.hpp>
+#include <MEL/Core/Time.hpp>
 
 namespace meii {
 
