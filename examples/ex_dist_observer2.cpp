@@ -121,9 +121,11 @@ int main(int argc, char *argv[]) {
 	Time keypress_refract_time = seconds(0.5);
 
     enum Phase {
-        Backdrive, // Backdrive = 0
-        Move,      // Move      = 1
-        Stop       // Stop      = 2
+        Backdrive,   // Backdrive   = 0
+		InitRPS,     // InitRPS     = 1
+		MoveToStart, // MoveToStart = 2
+        Move,        // Move        = 3
+        Stop         // Stop        = 4
     };
 
     Phase DO_Phase = Backdrive;
@@ -162,20 +164,15 @@ int main(int argc, char *argv[]) {
 		// setup trajectories
 		std::size_t num_full_cycles = 2;
 		std::size_t current_cycle = 0;
-		WayPoint neutral_point = WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 });
 
 		std::vector<WayPoint> extreme_points = { WayPoint(Time::Zero,{ -05 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }), 
 			  									  WayPoint(Time::Zero,{ -65 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })};
 
-        Time dmp_duration = seconds(3.0);
+        Time mj_duration = seconds(3.0);
 
 		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
-		Time dmp_Ts = milliseconds(50);
-
-		// default dmp traj
-		DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, extreme_points[0].set_time(dmp_duration));
-		dmp.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
+		Time mj_Ts = milliseconds(50);
 
 		// Initializing variables for linear travel
 		WayPoint initial_waypoint;
@@ -185,14 +182,14 @@ int main(int argc, char *argv[]) {
 		WayPoint next_wp;
 
 		//default mj traj
-		MinimumJerk mj(dmp_Ts, neutral_point, extreme_points[0].set_time(dmp_duration));
+		MinimumJerk mj(mj_Ts, neutral_point, extreme_points[0].set_time(mj_duration));
 		mj.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
 		// Initializing variables for dmp
 		DoF dof = ElbowFE; // default
 		bool traj_selected = false;
 
-		std::string traj_type;
+		TrajType traj_type = traj_mj;
 		std::size_t current_extreme_idx = 0;
 
 		// construct clocks for waiting and trajectory
@@ -200,7 +197,7 @@ int main(int argc, char *argv[]) {
 		Clock ref_traj_clock;
 
 		// set up state machine
-		std::size_t state = 0;
+		Phase state = Backdrive;
 		Time backdrive_time = seconds(1);
 		Time wait_at_neutral_time = seconds(1);
 		Time wait_at_extreme_time = seconds(1);
@@ -222,12 +219,10 @@ int main(int argc, char *argv[]) {
 		print("Press 'Escape' to exit the program.");
 		print("Press 'Enter' to exit the program and save data.");
 
-		print("Press number key for selecting single DoF trajectory.");
-		print("1 = Elbow Flexion/Extension");
-		print("2 = Wrist Pronation/Supination");
-		print("3 = Wrist Flexion/Extension");
-		print("4 = Wrist Radial/Ulnar Deviation");
-		print("Press 'Escape' to exit the program.");
+		print("Choose your trajectory type.");
+		print("Press 'L' for a linear trajectory.");
+		print("Press 'D' for a dmp trajectory.");
+		print("Press 'M' for a minimum jerk trajectory.");
 
 		// start loop
 		LOG(Info) << "Robot Backdrivable.";
@@ -253,7 +248,7 @@ int main(int argc, char *argv[]) {
 
 			// begin switch state
 			switch (state) {
-			case 0: // backdrive
+			case Backdrive: // backdrive
 
 				// update ref, though not being used
 				ref = meii.get_anatomical_joint_positions();
@@ -266,49 +261,13 @@ int main(int argc, char *argv[]) {
 				meii.set_joint_torques(command_torques);
 
 				int number_keypress;
-				//bool save_data = true;
-				if (!dof_selected) {
-
-					// check for number keypress
-					number_keypress = Keyboard::is_any_num_key_pressed();
-
-					if (number_keypress >= 0) {
-						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (number_keypress > 0 && number_keypress <= 4) {
-								dof = (DoF)(number_keypress - 1);
-								dof_selected = true;
-								LOG(Info) << dof_str[dof] << " selected.";
-
-								// depending on DOF, create the start and end points of trajectories
-								neutral_point = neutral_point_set[dof];
-								extreme_points = extreme_points_set[dof];
-								dmp_duration = dmp_durations[dof];
-								print("Press 'L' for a linear trajectory, 'D' for a dmp trajectory, or 'M' for a minimum jerk trajectory.");
-							}
-							keypress_refract_clock.restart();
-						}
-					}
-				}
 
 				// prompt user for input to select which trajectory
-				if (dof_selected && !traj_selected) {
+				if (!traj_selected) {
 
 					// press D for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::D)) {
+					if (Keyboard::is_key_pressed(Key::S)) {
 						traj_selected = true;
-						traj_type = "dmp";
-					}
-
-					// press L for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::L)) {
-						traj_selected = true;
-						traj_type = "linear";
-					}
-
-					// press L for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::M)) {
-						traj_selected = true;
-						traj_type = "min_jerk";
 					}
 
 					// check for exit key
@@ -326,17 +285,16 @@ int main(int argc, char *argv[]) {
 						LOG(Info) << "Initializing RPS Mechanism";
 					}
 
-					dof_selected = false;
 					traj_selected = false;
 
 					ref_traj_clock.restart();
-					state = 1;
+					state = InitRPS;
 					
 					state_clock.restart();
 				}
 				break;
 
-			case 1: // initialize rps                
+			case InitRPS: // initialize rps                
 
 				if (!rps_is_init) {
 					// update ref, though not being used
@@ -359,7 +317,7 @@ int main(int argc, char *argv[]) {
 				if (meii.check_rps_init() || rps_is_init == true) {
 					
 					/*meii.rps_init_par_ref_.stop();*/
-					state = 2;
+					state = Move;
 					if (!rps_is_init) {
 						LOG(Info) << "RPS initialization complete.";
 						meii.set_rps_control_mode(2); // platform height NON-backdrivable   
@@ -371,35 +329,20 @@ int main(int argc, char *argv[]) {
 					
 					// define new waypoints
 					waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
-					waypoints[1] = neutral_point.set_time(dmp_duration);
-
-					// generate new trajectories
-					if (traj_type == "linear"){
-						ref_traj.set_waypoints(2, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+					waypoints[1] = neutral_point.set_time(mj_duration);
+					mj.set_endpoints(waypoints[0], waypoints[1]);
+					if (!mj.trajectory().validate()) {
+						LOG(Warning) << "MJ trajectory invalid.";
+						stop = true;
 					}
-					else if (traj_type == "dmp"){
-						dmp.set_endpoints(waypoints[0], waypoints[1]);
-						if (!dmp.trajectory().validate()) {
-							LOG(Warning) << "DMP trajectory invalid.";
-							stop = true;
-						}
-						ref_traj = dmp.trajectory();
-					}
-					else if (traj_type == "min_jerk"){
-						mj.set_endpoints(waypoints[0], waypoints[1]);
-						if (!mj.trajectory().validate()) {
-							LOG(Warning) << "MJ trajectory invalid.";
-							stop = true;
-						}
-						ref_traj = mj.trajectory();
-					}
+					ref_traj = mj.trajectory();
 
 					ref_traj_clock.restart();
 					state_clock.restart();
 				}
 				break;
 
-			case 2: // go to neutral position
+			case MoveToStart: // go to neutral position
 
 				// update reference from trajectory
 				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
@@ -422,8 +365,7 @@ int main(int argc, char *argv[]) {
 
 				// check for end of trajectory
 				if (ref_traj_clock.get_elapsed_time() > ref_traj.back().when()) {
-					//stop = true; //HERE IS WHERE IT ENDS FOR NOW
-					state = 3;
+					state = Move;
 					ref = ref_traj.back().get_pos();
 					LOG(Info) << "Waiting at neutral position.";
 					state_clock.restart();
@@ -431,7 +373,7 @@ int main(int argc, char *argv[]) {
 
 				break;
 
-			case 3: // wait at neutral position
+			case Move: // wait at neutral position
 
 				// constrain trajectory to be within range
 				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
@@ -460,21 +402,21 @@ int main(int argc, char *argv[]) {
 						LOG(Info) << "Going to extreme position.";
 
 						// generate new trajectories
-						if (traj_type == "linear"){
+						if (traj_type == traj_linear){
 							waypoints[0] = neutral_point.set_time(Time::Zero);
-							waypoints[1] = extreme_points[current_extreme_idx].set_time(dmp_duration);
-							ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+							waypoints[1] = extreme_points[current_extreme_idx].set_time(mj_duration);
+							ref_traj.set_waypotraj_dmp5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 						}
-						else if (traj_type == "dmp"){
-							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+						else if (traj_type == traj_dmp){
+							dmp.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(mj_duration));
 							if (!dmp.trajectory().validate()) {
 								LOG(Warning) << "DMP trajectory invalid.";
 								stop = true;
 							}
 							ref_traj = dmp.trajectory();
 						}
-						else if (traj_type == "min_jerk"){
-							mj.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(dmp_duration));
+						else if (traj_type == traj_mj){
+							mj.set_endpoints(neutral_point.set_time(Time::Zero), extreme_points[current_extreme_idx].set_time(mj_duration));
 							if (!mj.trajectory().validate()) {
 								LOG(Warning) << "MJ trajectory invalid.";
 								stop = true;
@@ -567,21 +509,21 @@ int main(int argc, char *argv[]) {
 					LOG(Info) << "Going to neutral position.";
 
 					// generate new trajectories
-					if (traj_type == "linear"){
+					if (traj_type == traj_linear){
 						waypoints[0] = WayPoint(Time::Zero, ref);
-						waypoints[1] = neutral_point.set_time(dmp_duration);
-						ref_traj.set_waypoints(5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+						waypoints[1] = neutral_point.set_time(mj_duration);
+						ref_traj.set_waypotraj_dmp5, waypoints, Trajectory::Interp::Linear, traj_max_diff);
 					}
-					else if (traj_type == "dmp"){
-						dmp.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(dmp_duration));
+					else if (traj_type == traj_dmp){
+						dmp.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(mj_duration));
 						if (!dmp.trajectory().validate()) {
 							LOG(Warning) << "DMP trajectory invalid.";
 							stop = true;
 						}
 						ref_traj = dmp.trajectory();
 					}
-					else if (traj_type == "min_jerk"){
-						mj.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(dmp_duration));
+					else if (traj_type == traj_mj){
+						mj.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(mj_duration));
 						if (!mj.trajectory().validate()) {
 							LOG(Warning) << "MJ trajectory invalid.";
 							stop = true;
@@ -589,7 +531,7 @@ int main(int argc, char *argv[]) {
 						ref_traj = mj.trajectory();
 					}
 
-					dmp.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(dmp_duration));
+					dmp.set_endpoints(WayPoint(Time::Zero, ref), neutral_point.set_time(mj_duration));
 					if (!dmp.trajectory().validate()) {
 						LOG(Warning) << "DMP trajectory invalid.";
 						stop = true;
