@@ -44,6 +44,9 @@ target_link_libraries(ex_pos_control_nathan MEII)
 add_executable(ex_pos_control_nathan_rob ex_pos_control_nathan_rob.cpp)
 target_link_libraries(ex_pos_control_nathan_rob MEII)
 
+add_executable(ex_dist_observer ex_dist_observer.cpp)
+target_link_libraries(ex_dist_observer MEII)
+
 # if(PHRI_LEARN)
 # 	add_executable(ex_dynamic_motion_primitive ex_dynamic_motion_primitive.cpp)
 # 	target_link_libraries(ex_dynamic_motion_primitive MEII)
