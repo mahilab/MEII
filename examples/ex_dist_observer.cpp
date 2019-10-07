@@ -16,6 +16,7 @@
 #include <MEII/OpenSim/osim_utility.hpp>
 #include <MEII/Control/DisturbanceObserver.hpp>
 #include <vector>
+#include <MEL/Math/Butterworth.hpp>
 
 using namespace mel;
 using namespace meii;
@@ -116,6 +117,7 @@ int main(int argc, char *argv[]) {
 	// construct timer in hybrid mode to avoid using 100% CPU
 	Timer timer(Ts, Timer::Hybrid);
 	timer.set_acceptable_miss_rate(0.05);
+	mel::Time t;
 
 	// construct clock for regulating keypress
 	Clock keypress_refract_clock;
@@ -161,6 +163,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	DisturbanceObserver DO(Ts);
+	Butterworth butt(2,hertz(10),hertz(1000));
+	double d_hat = 0.0;
+	double d_hat_smooth = 0.0;
 
 	// trajectory following
 	if (result.count("single") > 0) {
@@ -469,13 +474,16 @@ int main(int argc, char *argv[]) {
 			}
 
 			DO.update(meii.get_anatomical_joint_velocities()[0],command_torques[0]);
+			d_hat = DO.get_d_hat();
+			d_hat_smooth = butt.update(DO.get_d_hat(),t);
 
 			// write ref to MelShares
 			ms_pos.write_data(aj_positions);
 			ms_vel.write_data(aj_velocities);
 			ms_trq.write_data(command_torques);
 			ms_ref.write_data(ref);
-			ms_dob.write_data({DO.get_d_hat()});
+			ms_dob.write_data({d_hat, d_hat_smooth});
+
 			
 			// update all DAQ output channels
 			q8.update_output();
@@ -505,7 +513,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			// wait for remainder of sample period
-			timer.wait();
+			t = timer.wait();
 		}
 
 		meii.disable();
