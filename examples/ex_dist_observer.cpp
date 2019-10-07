@@ -401,7 +401,7 @@ int main(int argc, char *argv[]) {
 						LOG(Info) << "Moving to Flexed Position";
 
 						// generate new trajectory
-						waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
+						waypoints[0] = WayPoint(Time::Zero, ref);
 						waypoints[1] = extreme_points[0].set_time(mj_duration);
 						mj.set_endpoints(waypoints[0], waypoints[1]);
 						if (!mj.trajectory().validate()) {
@@ -452,7 +452,7 @@ int main(int argc, char *argv[]) {
 					LOG(Info) << "Going to Extended Position.";
 
 					// generate new trajectory
-					waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
+					waypoints[0] = WayPoint(Time::Zero, ref);
 					waypoints[1] = extreme_points[1].set_time(mj_duration);
 					mj.set_endpoints(waypoints[0], waypoints[1]);
 					if (!mj.trajectory().validate()) {
