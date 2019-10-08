@@ -120,7 +120,7 @@ namespace mel {
         void calibrate_auto(volatile std::atomic<bool>& stop_flag);
 
         /// Disables the robot and stops all smooth reference trajectories
-        bool on_disable() override;
+        // bool on_disable() override;
 
         // rps position control functions
         void set_rps_control_mode(int mode);

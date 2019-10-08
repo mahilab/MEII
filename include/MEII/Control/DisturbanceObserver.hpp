@@ -19,6 +19,7 @@
 
 #include <MEII/Utility/Matrix.hpp>
 #include <MEL/Core/Time.hpp>
+#include <MEL/Math/Butterworth.hpp>
 
 namespace meii {
 
@@ -33,7 +34,7 @@ namespace meii {
 		DisturbanceObserver(mel::Time Ts_, double z_0);
 
 		/// Updates the parameters of the Disturbance observer based on the current positions and velocities
-		void update(const double &x_dot, const double &T_prev);
+		void update(const double x, const double x_dot, const double T_prev, const double delta_t,const mel::Time &t);
 
         /// Returns the value of the estimated disturbance
         double get_d_hat() const;
@@ -41,11 +42,13 @@ namespace meii {
 	private:
 
         double c; ///< parameter dictating convergence rate
+		double C; ///< viscous friciton parameter
 		double J; ///< inertia of joint
+		double L; ///< Variable for the DO
         double z; ///< auxilary variable
         double d_hat; ///< estimated disturbance
         mel::Time Ts; ///< sampling rate for update equation
-
+		mel::Butterworth butt;
 	};
 
 } // namespace meii

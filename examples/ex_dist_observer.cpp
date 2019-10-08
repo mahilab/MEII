@@ -151,19 +151,18 @@ int main(int argc, char *argv[]) {
         traj_linear // linear trajectory
     };
 
-	bool save_data = false;
+	bool save_data = true;
     std::string filepath = "example_DO_robot_data_log.csv";
 
 	// construct robot data log
 	std::vector<double> robot_log_row(6);
 	std::vector<std::vector<double>> robot_log;
-	std::vector<std::string> header = { "Time [s]", "ref 1 [rad/s]", "ref 2 [rad/s]",  "ref 3 [rad/s]", "ref 4 [rad/s]", "ref 5 [rad/s]" };
-	if (save_data){
-		csv_write_row(filepath, header);
-	}
+	std::vector<std::string> header = { "Time [s]", "ref 1 [rad]", "pos 1 [rad]", "vel 1 [rad/s]", "Torque 1 [Nm]", "DO Torque [Nm]" };
 
 	DisturbanceObserver DO(Ts);
 	Butterworth butt(2,hertz(10),hertz(1000));
+	double delta_t;
+	double t_last = 0.0;
 	double d_hat = 0.0;
 	double d_hat_smooth = 0.0;
 
@@ -363,6 +362,8 @@ int main(int argc, char *argv[]) {
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
+				// command_torques[0] = command_torques[0] - d_hat_smooth;
+
 				// set anatomical command torques
 				meii.set_anatomical_joint_torques(command_torques);
 
@@ -397,6 +398,8 @@ int main(int argc, char *argv[]) {
 
 				// set anatomical command torques
 				meii.set_anatomical_joint_torques(command_torques);
+
+				// command_torques[0] = command_torques[0] - d_hat_smooth;
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() > mj_duration) {
@@ -473,7 +476,7 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
-			DO.update(meii.get_anatomical_joint_velocities()[0],command_torques[0]);
+			DO.update(aj_positions[0], aj_velocities[0], command_torques[0], delta_t, t);
 			d_hat = DO.get_d_hat();
 			d_hat_smooth = butt.update(DO.get_d_hat(),t);
 
@@ -502,20 +505,23 @@ int main(int argc, char *argv[]) {
 
 			// store the time and ref data to log to a csv
 			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-			for (std::size_t i = 0; i < 5; ++i) {
-				robot_log_row[i + 1] = ref[i];
-			}
+			robot_log_row[1] = ref[0];
+			robot_log_row[2] = aj_positions[0];
+			robot_log_row[3] = aj_velocities[0];
+			robot_log_row[4] = command_torques[0];
+			robot_log_row[5] = d_hat_smooth;
 			robot_log.push_back(robot_log_row);
 
 			// kick watchdog
 			if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
 				stop = true;
 			}
-
+			t_last = t.as_seconds();
 			// wait for remainder of sample period
 			t = timer.wait();
+			delta_t = t.as_seconds()-t_last;
+			
 		}
-
 		meii.disable();
         q8.disable();
 	}
@@ -525,10 +531,10 @@ int main(int argc, char *argv[]) {
 		print("Do you want to save the robot data log? (Y/N)");
 		Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
 		if (key == Key::Y) {
+			csv_write_row(filepath, header);
 			csv_append_rows(filepath, robot_log);
 		}
 	}
-
 	disable_realtime();
 	Keyboard::clear_console_input_buffer();
 	return 0;

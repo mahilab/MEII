@@ -320,17 +320,17 @@ namespace mel {
     }
 
 
-    bool MahiExoII::on_disable() {
+    // bool MahiExoII::on_disable() {
 
-        // disable reference trajectories
-        rps_init_par_ref_.stop();
-        rps_par_ref_.stop();
-        rps_ser_ref_.stop();
-        robot_ref_.stop();
-        anat_ref_.stop();
+    //     // disable reference trajectories
+    //     rps_init_par_ref_.stop();
+    //     rps_par_ref_.stop();
+    //     rps_ser_ref_.stop();
+    //     robot_ref_.stop();
+    //     anat_ref_.stop();
 
-        return Robot::disable();
-    }
+    //     return Robot::disable();
+    // }
 
     //-----------------------------------------------------------------------------
     // PUBLIC POSITION CONTROL FUNCTIONS
