@@ -7,7 +7,7 @@ namespace meii {
 
 	DisturbanceObserver::DisturbanceObserver(mel::Time Ts_):
 		z(0),
-		c(10),
+		c(20),
 		J(0.2084),// + 0.0693),
         C(0.1215),
         d_hat(0),
@@ -19,7 +19,7 @@ namespace meii {
 
     DisturbanceObserver::DisturbanceObserver(mel::Time Ts_, double z_0):
 		z(z_0),
-		c(10),
+		c(20),
 		J(0.2084),// + 0.0693),
         C(0.1215),
         d_hat(0),
@@ -34,7 +34,7 @@ namespace meii {
         double d_hat_unf = z + p;
         d_hat = butt.update(d_hat_unf,t);
         // print(-C*x_dot, T_command, -p);
-        double z_dot = -L*z+L*(-0.3*cos(x)-C*x_dot + T_command - p);
+        double z_dot = -L*z+L*(-C*x_dot - T_command - p);
         
         z = z+z_dot*delta_t;
 	}

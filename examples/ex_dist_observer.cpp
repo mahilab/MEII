@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
 	Options options("ex_pos_control_nathan.exe", "Nathan's Position Control Demo");
 	options.add_options()
 		("c,calibrate", "Calibrates the MAHI Exo-II")
-		("s,single", "MAHI Exo-II follows a trajectory of choice")
-		("i,int", "Enter an interger", value<int>())
+		("s,single", "MAHI Exo-II follows trajectory without AAN")
+		("a,assist", "MAHI Exo-II follows trajectory with AAN")
 		("h,help", "Prints this help message");
 
 	auto result = options.parse(argc, argv);
@@ -48,6 +48,8 @@ int main(int argc, char *argv[]) {
 		print(options.help());
 		return 0;
 	}
+
+	bool AAN = false;
 
 	// enable Windows realtime
 	enable_realtime();
@@ -98,6 +100,10 @@ int main(int argc, char *argv[]) {
 		meii.calibrate_auto(stop);
 		LOG(Info) << "MAHI Exo-II encoders calibrated.";
 		return 0;
+	}
+
+	if (result.count("assist") > 0) {
+		AAN = true;
 	}
 
 	// make MelShares
@@ -167,364 +173,371 @@ int main(int argc, char *argv[]) {
 	double d_hat_smooth = 0.0;
 
 	// trajectory following
-	if (result.count("single") > 0) {
-		LOG(Info) << "MAHI Exo-II Trajectory Following.";
+	LOG(Info) << "MAHI Exo-II Trajectory Following.";
 
-		// setup trajectories
-		std::size_t num_full_cycles = 2;
-		std::size_t current_cycle = 0;
+	// setup trajectories
+	std::size_t num_full_cycles = 2;
+	std::size_t current_cycle = 0;
 
-		std::vector<WayPoint> extreme_points = { WayPoint(Time::Zero,{ -05 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),  // flexed
-			  									  WayPoint(Time::Zero,{ -65 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })}; // extended
+	std::vector<WayPoint> extreme_points = { WayPoint(Time::Zero,{ -05 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),  // flexed
+												WayPoint(Time::Zero,{ -65 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 })}; // extended
 
-        Time mj_duration = seconds(5.0);
+	Time mj_duration = seconds(5.0);
 
-		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
-		Time time_to_start = seconds(3.0);
-		Time mj_Ts = milliseconds(50);
+	std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
+	Time time_to_start = seconds(3.0);
+	Time mj_Ts = milliseconds(50);
 
-		// Initializing variables for linear travel
-		WayPoint initial_waypoint;
-		std::vector<WayPoint> waypoints(2);
-		Trajectory ref_traj;
-		WayPoint current_wp;
-		WayPoint next_wp;
+	// Initializing variables for linear travel
+	WayPoint initial_waypoint;
+	std::vector<WayPoint> waypoints(2);
+	Trajectory ref_traj;
+	WayPoint current_wp;
+	WayPoint next_wp;
 
-		//default mj traj
-		MinimumJerk mj(mj_Ts, extreme_points[0], extreme_points[1].set_time(mj_duration));
-		mj.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
+	//default mj traj
+	MinimumJerk mj(mj_Ts, extreme_points[0], extreme_points[1].set_time(mj_duration));
+	mj.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
 
-		// Initializing variables for dmp
-		DoF dof = ElbowFE; // default
-		bool traj_selected = false;
+	// Initializing variables for dmp
+	DoF dof = ElbowFE; // default
+	bool traj_selected = false;
 
-		TrajType traj_type = traj_mj;
-		std::size_t current_extreme_idx = 0;
+	TrajType traj_type = traj_mj;
+	std::size_t current_extreme_idx = 0;
 
-		// construct clocks for waiting and trajectory
-		Clock state_clock;
-		Clock ref_traj_clock;
+	// construct clocks for waiting and trajectory
+	Clock state_clock;
+	Clock ref_traj_clock;
 
-		// set up state machine
-		Phase state = Backdrive;
-		Time backdrive_time = seconds(1);
-		Time wait_at_extreme_time = seconds(1);
+	// set up state machine
+	Phase state = Backdrive;
+	Time backdrive_time = seconds(1);
+	Time wait_at_extreme_time = seconds(1);
 
-		// create data containers
-		std::vector<double> rj_positions(meii.N_rj_);
-		std::vector<double> rj_velocities(meii.N_rj_);
-		std::vector<double> aj_positions(meii.N_aj_);
-		std::vector<double> aj_velocities(meii.N_aj_);
-		std::vector<double> command_torques(meii.N_aj_, 0.0);
-		std::vector<double> rps_command_torques(meii.N_qs_, 0.0);
-		std::vector<double> ref(meii.N_aj_, 0.0);
+	// create data containers
+	std::vector<double> rj_positions(meii.N_rj_);
+	std::vector<double> rj_velocities(meii.N_rj_);
+	std::vector<double> aj_positions(meii.N_aj_);
+	std::vector<double> aj_velocities(meii.N_aj_);
+	std::vector<double> command_torques(meii.N_aj_, 0.0);
+	std::vector<double> rps_command_torques(meii.N_qs_, 0.0);
+	std::vector<double> ref(meii.N_aj_, 0.0);
 
-		// enable DAQ and exo
-		q8.enable();
-		meii.enable();
+	// enable DAQ and exo
+	q8.enable();
+	meii.enable();
 
-		// prompt user for input
-		print("Press 'Escape' to exit the program.");
-		print("Press 'Enter' to exit the program and save data.");
+	// prompt user for input
+	print("Press 'Escape' to exit the program.");
+	print("Press 'Enter' to exit the program and save data.");
 
-		print("Press 'S' to start the trajectory.");
-		
-		// start loop
-		LOG(Info) << "Robot Backdrivable.";
-		q8.watchdog.start();
-		state_clock.restart();
-		while (!stop) {
+	print("Press 'S' to start the trajectory.");
+	
+	// start loop
+	LOG(Info) << "Robot Backdrivable.";
+	q8.watchdog.start();
+	state_clock.restart();
+	while (!stop) {
 
-			// update all DAQ input channels
-			q8.update_input();
+		// update all DAQ input channels
+		q8.update_input();
 
-			// update MahiExoII kinematics
-			meii.update_kinematics();
+		// update MahiExoII kinematics
+		meii.update_kinematics();
 
-			// store most recent readings from DAQ
-			for (int i = 0; i < meii.N_rj_; ++i) {
-				rj_positions[i] = meii[i].get_position();
-				rj_velocities[i] = meii[i].get_velocity();
+		// store most recent readings from DAQ
+		for (int i = 0; i < meii.N_rj_; ++i) {
+			rj_positions[i] = meii[i].get_position();
+			rj_velocities[i] = meii[i].get_velocity();
+		}
+		for (int i = 0; i < meii.N_aj_; ++i) {
+			aj_positions[i] = meii.get_anatomical_joint_position(i);
+			aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
+		}
+
+		// begin switch state
+		switch (state) {
+		case Backdrive: // backdrive
+
+			// update ref, though not being used
+			ref = meii.get_anatomical_joint_positions();
+
+			for (size_t i = 0; i < meii.N_aj_; i++){
+				command_torques[i] = 0.0;
 			}
-			for (int i = 0; i < meii.N_aj_; ++i) {
-				aj_positions[i] = meii.get_anatomical_joint_position(i);
-				aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
+			// command zero torque
+			meii.set_joint_torques(command_torques);
+
+			// prompt user for input to select which trajectory
+			if (!traj_selected) {
+
+				// press D for dmp trajectory
+				if (Keyboard::is_key_pressed(Key::S)) {
+					traj_selected = true;
+				}
+
+				// check for exit key
+				if (Keyboard::is_key_pressed(Key::Escape)) {
+					stop = true;
+					save_data = false;
+				}
 			}
 
-			// begin switch state
-			switch (state) {
-			case Backdrive: // backdrive
+			// check for wait period to end
+			if (traj_selected) {
+				
+				if (!rps_is_init) {
+					meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
+					LOG(Info) << "Initializing RPS Mechanism";
+				}
 
+				traj_selected = false;
+
+				ref_traj_clock.restart();
+				state = InitRPS;
+				
+				state_clock.restart();
+			}
+			break;
+
+		case InitRPS: // initialize rps                
+
+			if (!rps_is_init) {
 				// update ref, though not being used
 				ref = meii.get_anatomical_joint_positions();
 
-				for (size_t i = 0; i < meii.N_aj_; i++){
+				// calculate commanded torques
+				rps_command_torques = meii.set_rps_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
+				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+			}
+			else {
+				// set zero torque
+				for (size_t i = 0; i < meii.N_aj_; i++) {
 					command_torques[i] = 0.0;
 				}
-
 				// command zero torque
 				meii.set_joint_torques(command_torques);
+			}
 
-				// prompt user for input to select which trajectory
-				if (!traj_selected) {
-
-					// press D for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::S)) {
-						traj_selected = true;
-					}
-
-					// check for exit key
-					if (Keyboard::is_key_pressed(Key::Escape)) {
-						stop = true;
-						save_data = false;
-					}
-				}
-
-				// check for wait period to end
-				if (traj_selected) {
-					
-					if (!rps_is_init) {
-						meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
-						LOG(Info) << "Initializing RPS Mechanism";
-					}
-
-					traj_selected = false;
-
-					ref_traj_clock.restart();
-					state = InitRPS;
-					
-					state_clock.restart();
-				}
-				break;
-
-			case InitRPS: // initialize rps                
-
+			// check for RPS Initialization target reached
+			if (meii.check_rps_init() || rps_is_init == true) {
+				
+				/*meii.rps_init_par_ref_.stop();*/
+				state = MoveExtend;
 				if (!rps_is_init) {
-					// update ref, though not being used
-					ref = meii.get_anatomical_joint_positions();
-
-					// calculate commanded torques
-					rps_command_torques = meii.set_rps_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
-					std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+					LOG(Info) << "RPS initialization complete.";
+					meii.set_rps_control_mode(2); // platform height NON-backdrivable   
 				}
-				else {
-					// set zero torque
-					for (size_t i = 0; i < meii.N_aj_; i++) {
-						command_torques[i] = 0.0;
-					}
-					// command zero torque
-					meii.set_joint_torques(command_torques);
+				
+				rps_is_init = true;
+
+				LOG(Info) << "Going to Extended Position.";
+				
+				// define new waypoints
+				waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
+				waypoints[1] = extreme_points[1].set_time(mj_duration);
+				mj.set_endpoints(waypoints[0], waypoints[1]);
+				if (!mj.trajectory().validate()) {
+					LOG(Warning) << "MJ trajectory invalid.";
+					stop = true;
 				}
+				ref_traj = mj.trajectory();
 
-				// check for RPS Initialization target reached
-				if (meii.check_rps_init() || rps_is_init == true) {
-					
-					/*meii.rps_init_par_ref_.stop();*/
-					state = MoveExtend;
-					if (!rps_is_init) {
-						LOG(Info) << "RPS initialization complete.";
-						meii.set_rps_control_mode(2); // platform height NON-backdrivable   
-					}
-					
-					rps_is_init = true;
+				ref_traj_clock.restart();
+				state_clock.restart();
+			}
+			break;
 
-					LOG(Info) << "Going to Extended Position.";
-					
-					// define new waypoints
-					waypoints[0] = WayPoint(Time::Zero, meii.get_anatomical_joint_positions());
-					waypoints[1] = extreme_points[1].set_time(mj_duration);
-					mj.set_endpoints(waypoints[0], waypoints[1]);
-					if (!mj.trajectory().validate()) {
-						LOG(Warning) << "MJ trajectory invalid.";
-						stop = true;
-					}
-					ref_traj = mj.trajectory();
+		case MoveFlex: // wait at neutral position
+			// update reference from trajectory
+			ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
-					ref_traj_clock.restart();
-					state_clock.restart();
-				}
-				break;
+			// constrain trajectory to be within range
+			for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+			}
 
-			case MoveFlex: // wait at neutral position
-				// update reference from trajectory
-				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
+			// calculate anatomical command torques
+			command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
+			command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+			for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+			}
+			std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
-				// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
-				}
+			if (AAN){
+				command_torques[0] = command_torques[0] - d_hat_smooth;
+			}			
 
-				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
-					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
-				}
-				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+			// set anatomical command torques
+			meii.set_anatomical_joint_torques(command_torques);
 
-				// command_torques[0] = command_torques[0] - d_hat_smooth;
+			// check for wait period to end
+			if (state_clock.get_elapsed_time() > mj_duration) {
+				state = MoveWait;
+				LOG(Info) << "Waiting at Flex Position.";
 
-				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
+				state_clock.restart();
+				ref_traj_clock.restart();
+			}
 
-				// check for wait period to end
-				if (state_clock.get_elapsed_time() > mj_duration) {
-					state = MoveWait;
-					LOG(Info) << "Waiting at Flex Position.";
+			break;
+		
+		case MoveExtend: // go to extreme position
 
-					state_clock.restart();
-					ref_traj_clock.restart();
-				}
+			// update reference from trajectory
+			ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
-				break;
+			// constrain trajectory to be within range
+			for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+			}
+
+			// calculate anatomical command torques
+			command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
+			command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+			for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+			}
+			std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 			
-			case MoveExtend: // go to extreme position
+			if (AAN){
+				command_torques[0] = command_torques[0] - d_hat_smooth;
+			}
 
-				// update reference from trajectory
-				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
+			// set anatomical command torques
+			meii.set_anatomical_joint_torques(command_torques);
 
-				// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
-				}
+			// command_torques[0] = command_torques[0] - d_hat_smooth;
 
-				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
-					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
-				}
-				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
-
-				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
-
-				// command_torques[0] = command_torques[0] - d_hat_smooth;
-
-				// check for wait period to end
-				if (state_clock.get_elapsed_time() > mj_duration) {
-					if (current_cycle < num_full_cycles) {
-						current_cycle++;
-						state = MoveFlex;
-						LOG(Info) << "Moving to Flexed Position";
-
-						// generate new trajectory
-						waypoints[0] = WayPoint(Time::Zero, ref);
-						waypoints[1] = extreme_points[0].set_time(mj_duration);
-						mj.set_endpoints(waypoints[0], waypoints[1]);
-						if (!mj.trajectory().validate()) {
-							LOG(Warning) << "MJ trajectory invalid.";
-							stop = true;
-						}
-						ref_traj = mj.trajectory();
-					}
-					else {
-						state = Backdrive;
-						current_cycle = 0;
-						LOG(Info) << "Trajectory finished.";
-					
-						// prompt user for input
-						print("Press 'Escape' to exit the program.");
-						print("Press 'Enter' to exit the program and save data.");
-
-						print("Press 'S' to start the trajectory.");
-
-						// start loop
-						LOG(Info) << "Robot Backdrivable.";
-					}
-					state_clock.restart();
-					ref_traj_clock.restart();
-				}
-
-				break;
-
-			case MoveWait: // wait at extreme position
-
-				// constrain trajectory to be within range
-				ref = extreme_points[0].get_pos();
-
-				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
-					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
-				}
-				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
-
-				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
-
-				// check for wait period to end
-				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
-					state = MoveExtend;
-					LOG(Info) << "Going to Extended Position.";
+			// check for wait period to end
+			if (state_clock.get_elapsed_time() > mj_duration) {
+				if (current_cycle < num_full_cycles) {
+					current_cycle++;
+					state = MoveFlex;
+					LOG(Info) << "Moving to Flexed Position";
 
 					// generate new trajectory
 					waypoints[0] = WayPoint(Time::Zero, ref);
-					waypoints[1] = extreme_points[1].set_time(mj_duration);
+					waypoints[1] = extreme_points[0].set_time(mj_duration);
 					mj.set_endpoints(waypoints[0], waypoints[1]);
 					if (!mj.trajectory().validate()) {
 						LOG(Warning) << "MJ trajectory invalid.";
 						stop = true;
 					}
 					ref_traj = mj.trajectory();
-				
-					ref_traj_clock.restart();
-					state_clock.restart();
 				}
+				else {
+					state = Backdrive;
+					current_cycle = 0;
+					LOG(Info) << "Trajectory finished.";
+				
+					// prompt user for input
+					print("Press 'Escape' to exit the program.");
+					print("Press 'Enter' to exit the program and save data.");
 
-				break;
+					print("Press 'S' to start the trajectory.");
+
+					// start loop
+					LOG(Info) << "Robot Backdrivable.";
+				}
+				state_clock.restart();
+				ref_traj_clock.restart();
 			}
 
-			DO.update(aj_positions[0], aj_velocities[0], command_torques[0], delta_t, t);
-			d_hat = DO.get_d_hat();
-			d_hat_smooth = butt.update(DO.get_d_hat(),t);
+			break;
 
-			// write ref to MelShares
-			ms_pos.write_data(aj_positions);
-			ms_vel.write_data(aj_velocities);
-			ms_trq.write_data(command_torques);
-			ms_ref.write_data(ref);
-			ms_dob.write_data({d_hat, d_hat_smooth});
+		case MoveWait: // wait at extreme position
 
+			// constrain trajectory to be within range
+			ref = extreme_points[0].get_pos();
+
+			// calculate anatomical command torques
+			command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
+			command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+			for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+			}
+			std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+
+			if (AAN){
+				command_torques[0] = command_torques[0] - d_hat_smooth;
+			}
+
+			// set anatomical command torques
+			meii.set_anatomical_joint_torques(command_torques);
+
+			// check for wait period to end
+			if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
+				state = MoveExtend;
+				LOG(Info) << "Going to Extended Position.";
+
+				// generate new trajectory
+				waypoints[0] = WayPoint(Time::Zero, ref);
+				waypoints[1] = extreme_points[1].set_time(mj_duration);
+				mj.set_endpoints(waypoints[0], waypoints[1]);
+				if (!mj.trajectory().validate()) {
+					LOG(Warning) << "MJ trajectory invalid.";
+					stop = true;
+				}
+				ref_traj = mj.trajectory();
 			
-			// update all DAQ output channels
-			q8.update_output();
-
-			// check for save key
-			if (Keyboard::is_key_pressed(Key::Enter)) {
-				stop = true;
-				save_data = true;
+				ref_traj_clock.restart();
+				state_clock.restart();
 			}
 
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::Escape)) {
-				stop = true;
-				save_data = false;
-			}
-
-			// store the time and ref data to log to a csv
-			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-			robot_log_row[1] = ref[0];
-			robot_log_row[2] = aj_positions[0];
-			robot_log_row[3] = aj_velocities[0];
-			robot_log_row[4] = command_torques[0];
-			robot_log_row[5] = d_hat_smooth;
-			robot_log.push_back(robot_log_row);
-
-			// kick watchdog
-			if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
-				stop = true;
-			}
-			t_last = t.as_seconds();
-			// wait for remainder of sample period
-			t = timer.wait();
-			delta_t = t.as_seconds()-t_last;
-			
+			break;
 		}
-		meii.disable();
-        q8.disable();
+
+		DO.update(aj_positions[0], aj_velocities[0], command_torques[0], delta_t, t);
+		d_hat = DO.get_d_hat();
+		d_hat_smooth = butt.update(DO.get_d_hat(),t);
+
+		// write ref to MelShares
+		ms_pos.write_data(aj_positions);
+		ms_vel.write_data(aj_velocities);
+		ms_trq.write_data(command_torques);
+		ms_ref.write_data(ref);
+		ms_dob.write_data({d_hat, d_hat_smooth});
+
+		
+		// update all DAQ output channels
+		q8.update_output();
+
+		// check for save key
+		if (Keyboard::is_key_pressed(Key::Enter)) {
+			stop = true;
+			save_data = true;
+		}
+
+		// check for exit key
+		if (Keyboard::is_key_pressed(Key::Escape)) {
+			stop = true;
+			save_data = false;
+		}
+
+		// store the time and ref data to log to a csv
+		robot_log_row[0] = timer.get_elapsed_time().as_seconds();
+		robot_log_row[1] = ref[0];
+		robot_log_row[2] = aj_positions[0];
+		robot_log_row[3] = aj_velocities[0];
+		robot_log_row[4] = command_torques[0];
+		robot_log_row[5] = d_hat_smooth;
+		robot_log.push_back(robot_log_row);
+
+		// kick watchdog
+		if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
+			stop = true;
+		}
+		t_last = t.as_seconds();
+		// wait for remainder of sample period
+		t = timer.wait();
+		delta_t = t.as_seconds()-t_last;
+		
 	}
+	meii.disable();
+	q8.disable();
 
 	// save the data if the user wants
 	if (save_data) {
