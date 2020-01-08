@@ -17,7 +17,6 @@ option(TESTS       "Turn ON to build test executable(s)"                        
 
 set(NI_X64_ROOT  "C:/dev/nirlt-linux-x64"       CACHE FILEPATH "Absolute path to NI Linux Realtime GNU toolchain (x64).")
 set(QUANSER_ROOT "C:/Program Files/Quanser"     CACHE FILEPATH "Absolute path to Quanser installation.")
-# set(MEL_ROOT     "C:/Git/MEL"                   CACHE FILEPATH "Absolute path to MEL.")
 set(EIGEN_ROOT   "C:/dev/eigen"                 CACHE FILEPATH "Absolute path to Eigen installation.")
 set(MYO_ROOT     "C:/dev/myo-sdk-win-0.9.0"     CACHE FILEPATH "Absolute path to Myo SDK.")
 
@@ -46,6 +45,7 @@ set(CMAKE_CONFIGURATION_TYPES Release)
 project(MEII)
 
 find_package(MEL REQUIRED)
+find_package(EMG REQUIRED)
 
 # set binary output locations
 if(MOVE_BINS)
@@ -71,7 +71,7 @@ endif()
 #===============================================================================
 
 # MEL Lib and Eigen Lib
-set(INCLUDE_DIRS include ${EIGEN_ROOT})#{MEL_ROOT}/include ${EIGEN_ROOT})
+set(INCLUDE_DIRS include ${EIGEN_ROOT})
 if (MYO)
     list(APPEND INCLUDE_DIRS ${MYO_ROOT}/include)
 endif()
@@ -95,30 +95,10 @@ file(GLOB SRC_CONTROL
     "${CMAKE_SOURCE_DIR}/include/MEII/Control/*.h"
 )
 
-file(GLOB SRC_EMG
-    "${CMAKE_SOURCE_DIR}/src/MEII/EMG/*.cpp"
-    "${CMAKE_SOURCE_DIR}/include/MEII/EMG/*.hpp"
-)
-
-file(GLOB SRC_SIGNAL_PROCESSING
-    "${CMAKE_SOURCE_DIR}/src/MEII/SignalProcessing/*.cpp"
-    "${CMAKE_SOURCE_DIR}/include/MEII/SignalProcessing/*.hpp"
-)
-
-file(GLOB SRC_CLASSIFICATION
-    "${CMAKE_SOURCE_DIR}/src/MEII/Classification/*.cpp"
-    "${CMAKE_SOURCE_DIR}/include/MEII/Classification/*.hpp"
-)
-
 file(GLOB SRC_DAQ
     "${CMAKE_SOURCE_DIR}/src/MEII/Daq/*.cpp"
     "${CMAKE_SOURCE_DIR}/include/MEII/Daq/*.hpp"
     )
-
-file(GLOB SRC_REGRESSION
-    "${CMAKE_SOURCE_DIR}/src/MEII/Regression/*.cpp"
-    "${CMAKE_SOURCE_DIR}/include/MEII/Regression/*.hpp"
-)
 
 file(GLOB SRC_UNITY
     "${CMAKE_SOURCE_DIR}/src/MEII/Unity/*.cpp"
@@ -150,10 +130,6 @@ set(MEII_SOURCE_FILES
     ${SRC_MAHI_EXO_II}
     ${SRC_CONTROL}
     ${SRC_DAQ}
-    # ${SRC_EMG}
-    ${SRC_SIGNAL_PROCESSING}
-    # ${SRC_CLASSIFICATION}
-    # ${SRC_REGRESSION}
     ${SRC_UNITY}
     ${SRC_UTILITY}
 )
@@ -185,11 +161,7 @@ endif()
 # create filters for Visual Studio
 source_group("MahiExoII" FILES ${SRC_MAHI_EXO_II})
 source_group("Control" FILES ${SRC_CONTROL})
-source_group("EMG" FILES ${SRC_EMG})
 source_group("Daq" FILES ${SRC_DAQ})
-source_group("SignalProcessing" FILES ${SRC_SIGNAL_PROCESSING})
-source_group("Classification" FILES ${SRC_CLASSIFICATION})
-source_group("Regression" FILES ${SRC_REGRESSION})
 source_group("Unity" FILES ${SRC_UNITY})
 source_group("Utility" FILES ${SRC_UTILITY})
 source_group("EmgRealTimeControl" FILES ${SRC_EMG_REAL_TIME_CONTROL})
@@ -253,6 +225,7 @@ else()
 endif()
 
 target_link_libraries(MEII MEL::quanser)#${LINK_LIBS})
+target_link_libraries(MEII EMG)
 target_compile_definitions(MEII PRIVATE -DMEII_EXPORTS)
 
 

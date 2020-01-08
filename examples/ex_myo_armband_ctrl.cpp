@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
 	q8.DO.set_disable_values(std::vector<Logic>(8, High));
 	q8.DO.set_expire_values(std::vector<Logic>(8, High));
 	if (!q8.identify(7)) {
-		LOG(Error) << "Incorrect DAQ";
+		LOG(Error) << "Incorrect DAQ";gi
 		return 0;
 	}	
 	Time Ts = milliseconds(1); // sample period for DAQ	

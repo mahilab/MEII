@@ -7,11 +7,10 @@
 #include <MEL/Utility/System.hpp>
 #include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEL/Logging/Log.hpp>
-#include <MEII/EMG/MyoelectricSignal.hpp>
-#include <MEII/EMG/EmgDataCapture.hpp>
+#include <EMG/EMG/MyoelectricSignal.hpp>
+#include <EMG/EMG/EmgDataCapture.hpp>
 
 using namespace mel;
-using namespace meii;
 
 ctrl_bool stop(false);
 bool handler(CtrlEvent event) {
@@ -59,17 +58,10 @@ int main(int argc, char *argv[]) {
     }
     
     // construct single Myoelectric Signal
-    MyoelectricSignal mes(q8.AI.get_channels(emg_channel_numbers)[0]);
+    emg::MyoelectricSignal mes(q8.AI.get_channels(emg_channel_numbers)[0]);
 
     // make MelShares
-    MelShare ms_mes_tkeo_env("mes_tkeo_env");
-
-    // create data log for EMG data
-    DataLogger emg_log(WriterType::Buffered, false);
-    std::vector<std::string> emg_log_header;
-    emg_log_header.push_back("MES TKEO ENV " + stringify(emg_channel_numbers[0]));
-    emg_log.set_header(emg_log_header);
-    std::vector<double> emg_log_row(emg_log_header.size());   
+    MelShare ms_mes_tkeo_env("mes_tkeo_env"); 
 
     // initialize testing conditions
     Time Ts = milliseconds(1); // sample period
@@ -107,7 +99,7 @@ int main(int argc, char *argv[]) {
             if (mes.is_buffer_full()) {
                 if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
                     captured_data = mes.get_tkeo_env_buffer_data(mes_capture_window_size);
-                    selected_data = find_max_window(captured_data, mes_select_window_size);                   
+                    selected_data = emg::find_max_window(captured_data, mes_select_window_size);
                     LOG(Info) << "Added data.";
                     keypress_refract_clock.restart();
                 }

@@ -32,8 +32,8 @@ target_link_libraries(ex_mahiexoii_pos_ctrl MEII)
 # add_executable(ex_matrix ex_matrix.cpp)
 # target_link_libraries(ex_matrix MEII)
 
-# add_executable(ex_myoelectric_signal ex_myoelectric_signal.cpp)
-# target_link_libraries(ex_myoelectric_signal MEII)
+add_executable(ex_myoelectric_signal ex_myoelectric_signal.cpp)
+target_link_libraries(ex_myoelectric_signal MEII)
 
 # add_executable(ex_mes_array ex_mes_array.cpp)
 # target_link_libraries(ex_mes_array MEII)

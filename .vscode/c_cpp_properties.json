@@ -5,6 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "C:/Git/MEL/include",
+                "C:/Git/EMG/include",
                 "C:/Dev/eigen"
             ],
             "defines": [
