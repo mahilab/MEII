@@ -12,7 +12,6 @@
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
 #include <MEL/Math/Integrator.hpp>
-#include <MEII/OpenSim/osim_utility.hpp>
 #include <vector>
 
 using namespace mel;

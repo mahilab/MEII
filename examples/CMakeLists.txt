@@ -1,42 +1,11 @@
-
-# add_executable(ex_melnet_unity ex_melnet_unity.cpp)
-# target_link_libraries(ex_melnet_unity MEL)
-
-# add_executable(ex_melshare_unity ex_melshare_unity.cpp)
-# target_link_libraries(ex_melshare_unity MEL)
-
-# add_executable(ex_classification ex_classification.cpp)
-# target_link_libraries(ex_classification MEII)
-
-# add_executable(ex_regression ex_regression.cpp)
-# target_link_libraries(ex_regression MEII)
-
-# add_executable(ex_emg_active_classification ex_emg_active_classification.cpp)
-# target_link_libraries(ex_emg_active_classification MEII)
-
-# add_executable(ex_emg_active_classification_unity ex_emg_active_classification_unity.cpp)
-# target_link_libraries(ex_emg_active_classification_unity MEII)
-
-# add_executable(ex_emg_direction_classification ex_emg_direction_classification.cpp)
-# target_link_libraries(ex_emg_direction_classification MEII)
-
-# add_executable(ex_emg_triggered_direction_classification ex_emg_triggered_direction_classification.cpp)
-# target_link_libraries(ex_emg_triggered_direction_classification MEII)
-
 add_executable(ex_trajectory ex_trajectory.cpp)
 target_link_libraries(ex_trajectory MEII)
 
 add_executable(ex_mahiexoii_pos_ctrl ex_mahiexoii_pos_ctrl.cpp)
 target_link_libraries(ex_mahiexoii_pos_ctrl MEII)
 
-# add_executable(ex_matrix ex_matrix.cpp)
-# target_link_libraries(ex_matrix MEII)
-
-add_executable(ex_myoelectric_signal ex_myoelectric_signal.cpp)
-target_link_libraries(ex_myoelectric_signal MEII)
-
-# add_executable(ex_mes_array ex_mes_array.cpp)
-# target_link_libraries(ex_mes_array MEII)
+add_executable(ex_matrix ex_matrix.cpp)
+target_link_libraries(ex_matrix MEII)
 
 add_executable(ex_pos_control_nathan ex_pos_control_nathan.cpp)
 target_link_libraries(ex_pos_control_nathan MEII)
@@ -46,16 +15,3 @@ target_link_libraries(ex_pos_control_nathan_rob MEII)
 
 add_executable(ex_dist_observer ex_dist_observer.cpp)
 target_link_libraries(ex_dist_observer MEII)
-
-# if(PHRI_LEARN)
-# 	add_executable(ex_dynamic_motion_primitive ex_dynamic_motion_primitive.cpp)
-# 	target_link_libraries(ex_dynamic_motion_primitive MEII)
-# endif()
-
-# if (MYO)
-# 	add_executable(ex_myo_armband_ctrl ex_myo_armband_ctrl.cpp)
-# 	target_link_libraries(ex_myo_armband_ctrl MEII)
-
-# 	add_executable(ex_myo_regression ex_myo_regression.cpp)
-# 	target_link_libraries(ex_myo_regression MEII)
-# endif()
