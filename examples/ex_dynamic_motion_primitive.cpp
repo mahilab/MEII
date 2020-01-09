@@ -1,5 +1,4 @@
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/PhriLearning/PhriFeatures.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
 #include <MEII/Utility/Matrix.hpp>

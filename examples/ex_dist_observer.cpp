@@ -13,7 +13,6 @@
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
 #include <MEL/Math/Integrator.hpp>
-#include <MEII/OpenSim/osim_utility.hpp>
 #include <MEII/Control/DisturbanceObserver.hpp>
 #include <vector>
 #include <MEL/Math/Butterworth.hpp>

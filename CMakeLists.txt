@@ -59,8 +59,8 @@ target_link_libraries(MEII MEL::quanser)
 # EXAMPLES
 #===============================================================================
 
-if(MEL_EXAMPLES)
-    message("Building MEL examples")
+if(EXAMPLES)
+    message("Building examples")
     add_subdirectory(examples)
 endif()
 
