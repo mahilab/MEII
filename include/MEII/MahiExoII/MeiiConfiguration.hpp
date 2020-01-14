@@ -63,8 +63,6 @@ namespace mel {
     private:
 
         friend class MahiExoII;
-        friend class MahiExoIIEmg;
-        friend class MahiExoIIFrc;
 
         mel::Q8Usb&                                daq_;                ///< DAQ controlling the MahiExoII
         mel::Watchdog&                             watchdog_;           ///< watchdog the MahiExoII is guarded by

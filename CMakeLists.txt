@@ -42,10 +42,6 @@ endif()
 # INCLUDES
 #===============================================================================
 
-# MEL Lib and Eigen Lib
-set(INCLUDE_DIRS include ${EIGEN_ROOT})
-include_directories(${INCLUDE_DIRS})
-
 #===============================================================================
 # FIND PROJECT SOURCE FILES
 #===============================================================================
@@ -65,9 +61,10 @@ target_sources(MEII PRIVATE ${MEII_SOURCE_FILES} ${MEII_HEADER_FILES})
 target_include_directories(MEII
     PUBLIC
         $<INSTALL_INTERFACE:include>
+        ${EIGEN_ROOT}
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     PRIVATE
-        ${PROJECT_SOURCE_DIR}/src                
+        ${PROJECT_SOURCE_DIR}/src
 )
 
 target_link_libraries(MEII MEL::quanser)
