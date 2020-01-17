@@ -15,3 +15,6 @@ target_link_libraries(ex_pos_control_nathan_rob MEII)
 
 add_executable(ex_dist_observer ex_dist_observer.cpp)
 target_link_libraries(ex_dist_observer MEII)
+
+add_executable(ex_rom_demo ex_rom_demo.cpp)
+target_link_libraries(ex_rom_demo MEII)

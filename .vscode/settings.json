@@ -76,7 +76,8 @@
         "mutex": "cpp",
         "numeric": "cpp",
         "queue": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "xcomplex": "cpp"
     },
     "cSpell.enabledLanguageIds": [
         "asciidoc",
