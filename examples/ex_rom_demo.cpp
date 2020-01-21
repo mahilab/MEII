@@ -35,10 +35,8 @@ bool handler(CtrlEvent event) {
     return true;
 }
 
-void to_state(state& current_state_, const state next_state_, WayPoint current_position_, WayPoint new_position_, Time traj_length_, DynamicMotionPrimitive& dmp_, Clock ref_traj_clock_) {
-    current_position_.set_time(seconds(0));
-    new_position_.set_time(traj_length_);
-    dmp_.set_endpoints(current_position_, new_position_);
+void to_state(state& current_state_, const state next_state_, WayPoint current_position_, WayPoint new_position_, Time traj_length_, DynamicMotionPrimitive& dmp_, Clock& ref_traj_clock_) {
+    dmp_.set_endpoints(current_position_.set_time(seconds(0)), new_position_.set_time(traj_length_));
     if (!dmp_.trajectory().validate()) {
         LOG(Warning) << "DMP trajectory invalid.";
         stop = true;
@@ -84,7 +82,6 @@ int main(int argc, char* argv[]) {
     //////////////////////////////////////////////
 
     std::vector<Amplifier> amplifiers;
-    std::vector<double> amp_gains;
     for (uint32 i = 0; i < 2; ++i) {
         amplifiers.push_back(
             Amplifier("meii_amp_" + std::to_string(i),
@@ -129,9 +126,9 @@ int main(int argc, char* argv[]) {
                                                             {0.08, 0.115}};
 
                                      // state 0    // state 1    // state 2    // state 3    // state 4    // state 5    // state 6
-    std::vector<Time> state_times = {seconds(2.0), seconds(2.0), seconds(4.0), seconds(2.0), seconds(1.0), seconds(4.0), seconds(1.0)};
+    std::vector<Time> state_times = {seconds(10.0), seconds(10.0), seconds(10.0), seconds(10.0), seconds(10.0), seconds(10.0), seconds(10.0)};
 
-    std::vector<double> ref;
+    std::vector<double> ref(meii.N_aj_,0.0);
 
     // setup trajectories
 
@@ -161,16 +158,21 @@ int main(int argc, char* argv[]) {
     WayPoint current_position;
     WayPoint new_position;
     Time traj_length;
-    DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, neutral_point.set_time(state_times[to_neutral_0]));
+    DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, bottom_elbow.set_time(state_times[to_neutral_0]));
 	std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
 	dmp.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
     Clock ref_traj_clock;
 
-    std::vector<double> aj_positions;
-    std::vector<double> aj_velocities;
+    if (!dmp.trajectory().validate()) {
+        LOG(Warning) << "DMP trajectory invalid.";
+        stop = true;
+    }
 
-    std::vector<double> command_torques;
-    std::vector<double> rps_command_torques;
+    std::vector<double> aj_positions(meii.N_aj_,0.0);
+    std::vector<double> aj_velocities(meii.N_aj_,0.0);
+
+    std::vector<double> command_torques(meii.N_aj_,0.0);
+    std::vector<double> rps_command_torques(3,0.0);
 
     ref_traj_clock.restart();
 	
@@ -181,8 +183,13 @@ int main(int argc, char* argv[]) {
 	q8.watchdog.start();
 
     // trajectory following
-    if (result.count("single") > 0 || result.count("no_torque") > 0) {
+    if (result.count("multi") > 0 || result.count("no_torque") > 0) {
         LOG(Info) << "Starting Movement.";
+
+        q8.update_input();
+
+        // update MahiExoII kinematics
+        meii.update_kinematics();
 
         WayPoint start_pos(Time::Zero, meii.get_anatomical_joint_positions());
 
@@ -225,6 +232,8 @@ int main(int argc, char* argv[]) {
             }
             std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
+            print(command_torques);
+
             if (result.count("no_torque") > 0){
                 command_torques = {0.0, 0.0, 0.0, 0.0, 0.0};
             }
@@ -232,6 +241,9 @@ int main(int argc, char* argv[]) {
             // set anatomical command torques
             meii.set_anatomical_joint_torques(command_torques);
 
+            // update all DAQ output channels
+            q8.update_output();
+            
             switch (current_state) {
                 case to_neutral_0:
 
@@ -245,7 +257,7 @@ int main(int argc, char* argv[]) {
 
                     if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
                         // if enough time has passed, continue to the next state. See to_state function at top of file for details
-                        to_state(current_state, to_top_elbow, current_position.set_pos(aj_positions), bottom_elbow, state_times[to_top_elbow], dmp, ref_traj_clock);
+                        to_state(current_state, to_top_elbow, current_position.set_pos(aj_positions), top_elbow, state_times[to_top_elbow], dmp, ref_traj_clock);
                     }
                     break;
 
@@ -253,7 +265,7 @@ int main(int argc, char* argv[]) {
 
                     if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
                         // if enough time has passed, continue to the next state. See to_state function at top of file for details
-                        to_state(current_state, to_neutral_1, current_position.set_pos(aj_positions), bottom_elbow, state_times[to_neutral_1], dmp, ref_traj_clock);
+                        to_state(current_state, to_neutral_1, current_position.set_pos(aj_positions), neutral_point, state_times[to_neutral_1], dmp, ref_traj_clock);
                     }
                     break;
 
@@ -261,7 +273,7 @@ int main(int argc, char* argv[]) {
 
                     if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
                         // if enough time has passed, continue to the next state. See to_state function at top of file for details
-                        to_state(current_state, to_top_wrist, current_position.set_pos(aj_positions), bottom_elbow, state_times[to_top_wrist], dmp, ref_traj_clock);
+                        to_state(current_state, to_top_wrist, current_position.set_pos(aj_positions), top_wrist, state_times[to_top_wrist], dmp, ref_traj_clock);
                     }
                     break;
 
@@ -269,7 +281,7 @@ int main(int argc, char* argv[]) {
 
                     if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
                         // if enough time has passed, continue to the next state. See to_state function at top of file for details
-                        to_state(current_state, wrist_circle, current_position.set_pos(aj_positions), bottom_elbow, state_times[wrist_circle], dmp, ref_traj_clock);
+                        to_state(current_state, wrist_circle, current_position.set_pos(aj_positions), top_wrist, state_times[wrist_circle], dmp, ref_traj_clock);
                     }
                     break;
 
@@ -277,7 +289,7 @@ int main(int argc, char* argv[]) {
 
                     if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
                         // if enough time has passed, continue to the next state. See to_state function at top of file for details
-                        to_state(current_state, to_neutral_2, current_position.set_pos(aj_positions), bottom_elbow, state_times[to_neutral_2], dmp, ref_traj_clock);
+                        to_state(current_state, to_neutral_2, current_position.set_pos(aj_positions), neutral_point, state_times[to_neutral_2], dmp, ref_traj_clock);
                     }
                     break;
 
@@ -289,8 +301,8 @@ int main(int argc, char* argv[]) {
                     break;
             }
 
-            // update all DAQ output channels
-            q8.update_output();
+            ms_ref.write_data(ref);
+            ms_pos.write_data(aj_positions);
 
             // check for save key
             if (Keyboard::is_key_pressed(Key::Enter) || Keyboard::is_key_pressed(Key::Escape)) {
@@ -299,6 +311,7 @@ int main(int argc, char* argv[]) {
 
             // kick watchdog
             if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
+                print("Watchdog not kicked or limit exceeded");
                 stop = true;
             }
 
