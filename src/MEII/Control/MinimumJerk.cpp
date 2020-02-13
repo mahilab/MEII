@@ -153,9 +153,9 @@ namespace meii {
 			
 			std::vector<double> traj_current_(path_dim_,0.0);
 
-			for (size_t j = 0; j < path_dim_; j++)
+			for (auto j = 0; j < path_dim_; j++)
 			{
-				for (size_t k = 0; k < a_.size(); k++)
+				for (auto k = 0; k < a_.size(); k++)
 				{
 					traj_current_[j] += a_[k][j] * mel::pow(times_[i], k);
 				}

@@ -27,7 +27,7 @@ namespace meii {
 	}
 
 	bool VirtualInput::update() { 
-		for (std::size_t i = 0; i < get_channel_count(); ++i) {
+		for (auto i = 0; i < get_channel_count(); ++i) {
 			values_[i] = distribution_(generator_);
 		}
 		return true;

@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-            for (std::size_t i = 0; i < meii.N_rj_; ++i) {
+            for (auto i = 0; i < meii.N_rj_; ++i) {
                 robot_log_row[3 * i + 1] = meii[i].get_position();
                 robot_log_row[3 * i + 2] = meii[i].get_velocity();
                 robot_log_row[3 * i + 3] = meii[i].get_torque_command();
@@ -439,7 +439,7 @@ int main(int argc, char *argv[]) {
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-            for (std::size_t i = 0; i < meii.N_rj_; ++i) {
+            for (auto i = 0; i < meii.N_rj_; ++i) {
                 robot_log_row[3 * i + 1] = meii[i].get_position();
                 robot_log_row[3 * i + 2] = meii[i].get_velocity();
                 robot_log_row[3 * i + 3] = meii[i].get_torque_command();

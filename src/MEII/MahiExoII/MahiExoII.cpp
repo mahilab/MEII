@@ -237,7 +237,7 @@ namespace mel {
 
                 std::vector<bool> par_moving = {true, true, true};
                 
-                for (std::size_t i = 0; i < 3; i++) {
+                for (auto i = 0; i < 3; i++) {
                     double torque = 0;
                     int dof_num = i+2;
                     // get positions and velocities
@@ -383,7 +383,7 @@ namespace mel {
             print("ERROR: Cannot call set_ref() before start().");
         }
         else {
-            for (size_t i = 0; i < ref_pos.size(); ++i) {
+            for (auto i = 0; i < ref_pos.size(); ++i) {
                 prev_ref_[i] = calculate_smooth_ref(i, current_time);
             }
             ref_ = ref_pos;
@@ -584,16 +584,16 @@ namespace mel {
         anatomical_joint_positions_[0] = joints_[0].get_position(); // elbow flexion/extension
         anatomical_joint_positions_[1] = joints_[1].get_position(); // forearm pronation/supination
 
-                                                                    // get positions from forward kinematics solver for three wrist anatomical joints 
+        // get positions from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_positions_[2] = q_ser_[0]; // wrist flexion/extension
         anatomical_joint_positions_[3] = q_ser_[1]; // wrist radial/ulnar deviation
         anatomical_joint_positions_[4] = q_ser_[2]; // arm translation
 
-                                                    // get velocities from first two anatomical joints, which have encoders
+        // get velocities from first two anatomical joints, which have encoders
         anatomical_joint_velocities_[0] = joints_[0].get_velocity(); // elbow flexion/extension
         anatomical_joint_velocities_[1] = joints_[1].get_velocity(); // forearm pronation/supination
 
-                                                                        // get velocities from forward kinematics solver for three wrist anatomical joints 
+        // get velocities from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_velocities_[2] = q_ser_dot_[0]; // wrist flexion/extension
         anatomical_joint_velocities_[3] = q_ser_dot_[1]; // wrist radial/ulnar deviation
         anatomical_joint_velocities_[4] = q_ser_dot_[2]; // arm translation
@@ -1016,19 +1016,6 @@ namespace mel {
         Eigen::MatrixXd jac = Eigen::MatrixXd::Zero(N_qs_, N_qs_);
         Eigen::MatrixXd rho = Eigen::MatrixXd::Zero(N_qp_ - N_qs_, N_qs_);
         inverse_rps_kinematics(q_ser_in, q_par_out, qp_out, rho, jac);
-    }
-
-    void MahiExoII::inverse_rps_kinematics(const Eigen::VectorXd& q_ser_in, Eigen::MatrixXd& jac_ik) const {
-        Eigen::VectorXd q_par = Eigen::VectorXd::Zero(N_qs_);
-        Eigen::VectorXd qp = Eigen::VectorXd::Zero(N_qp_);
-        Eigen::MatrixXd rho = Eigen::MatrixXd::Zero(N_qp_ - N_qs_, N_qs_);
-        inverse_rps_kinematics(q_ser_in, q_par, qp, rho, jac_ik);
-    }
-
-    void MahiExoII::inverse_rps_kinematics(const Eigen::VectorXd& q_ser_in, Eigen::VectorXd& q_par_out, Eigen::MatrixXd& jac_ik) const {
-        Eigen::VectorXd qp = Eigen::VectorXd::Zero(N_qp_);
-        Eigen::MatrixXd rho = Eigen::MatrixXd::Zero(N_qp_ - N_qs_, N_qs_);
-        inverse_rps_kinematics(q_ser_in, q_par_out, qp, rho, jac_ik);
     }
 
     void MahiExoII::inverse_rps_kinematics(const Eigen::VectorXd& q_ser_in, Eigen::VectorXd& q_par_out, Eigen::VectorXd& qp_out, Eigen::MatrixXd& rho_ik, Eigen::MatrixXd& jac_ik) const {

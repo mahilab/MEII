@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (auto i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
@@ -436,7 +436,7 @@ int main(int argc, char *argv[]) {
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (auto i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
@@ -519,7 +519,7 @@ int main(int argc, char *argv[]) {
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (auto i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
@@ -547,7 +547,7 @@ int main(int argc, char *argv[]) {
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (auto i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
