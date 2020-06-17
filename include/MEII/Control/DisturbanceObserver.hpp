@@ -15,11 +15,10 @@
 //
 // Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
 
-# pragma once
+#pragma once
 
-#include <MEII/Utility/Matrix.hpp>
-#include <MEL/Core/Time.hpp>
-#include <MEL/Math/Butterworth.hpp>
+#include <Mahi/Util/Timing/Time.hpp>
+#include <Mahi/Util/Math/Butterworth.hpp>
 
 namespace meii {
 
@@ -28,13 +27,13 @@ namespace meii {
 	public:
 
 		/// Constructor
-		DisturbanceObserver(mel::Time Ts_);
+		DisturbanceObserver(mahi::util::Time Ts_);
 
         /// Constructor
-		DisturbanceObserver(mel::Time Ts_, double z_0);
+		DisturbanceObserver(mahi::util::Time Ts_, double z_0);
 
 		/// Updates the parameters of the Disturbance observer based on the current positions and velocities
-		void update(const double x, const double x_dot, const double T_prev, const double delta_t,const mel::Time &t);
+		void update(const double x, const double x_dot, const double T_prev, const double delta_t,const mahi::util::Time &t);
 
         /// Returns the value of the estimated disturbance
         double get_d_hat() const;
@@ -47,8 +46,8 @@ namespace meii {
 		double L; ///< Variable for the DO
         double z; ///< auxilary variable
         double d_hat; ///< estimated disturbance
-        mel::Time Ts; ///< sampling rate for update equation
-		mel::Butterworth butt;
+        mahi::util::Time Ts; ///< sampling rate for update equation
+		mahi::util::Butterworth butt;
 	};
 
 } // namespace meii

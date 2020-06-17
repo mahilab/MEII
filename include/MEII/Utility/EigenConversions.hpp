@@ -15,8 +15,7 @@
 //
 // Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
 
-#ifndef MEII_EIGEN_CONVERSIONS_HPP
-#define MEII_EIGEN_CONVERSIONS_HPP
+#pragma once
 
 #include <Eigen/Dense>
 #include <Eigen/StdVector>
@@ -38,5 +37,3 @@ namespace meii {
     double mat_spectral_norm(const Eigen::MatrixXd& mat);
 
 } // namespace meii
-
-#endif // MEII_EIGEN_CONVERSIONS_HPP

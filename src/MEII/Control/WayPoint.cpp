@@ -1,7 +1,7 @@
 #include <MEII/Control/WayPoint.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 
 namespace meii {
 
@@ -9,13 +9,13 @@ namespace meii {
         path_dim_(0)
     {}
 
-    WayPoint::WayPoint(const mel::Time &time, const std::vector<double> &position) :
+    WayPoint::WayPoint(const Time &time, const std::vector<double> &position) :
         time_(time),
         pos_(position),
         path_dim_(position.size())
     {}
 
-    const mel::Time& WayPoint::when() const {
+    const Time& WayPoint::when() const {
         return time_;
     }
 
@@ -42,7 +42,7 @@ namespace meii {
         return pos_.empty();
     }
 
-    WayPoint WayPoint::set_time(const mel::Time& time) {
+    WayPoint WayPoint::set_time(const Time& time) {
         time_ = time;
 		return *this;
     }

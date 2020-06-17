@@ -1,21 +1,17 @@
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
+#include <Mahi/Util.hpp>
+#include <Mahi/Com.hpp>
+#include <Mahi/Daq.hpp>
+#include <Mahi/Robo.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Utility/System.hpp>
-#include <MEL/Communications/MelShare.hpp>
-#include <MEL/Utility/Options.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Core/Console.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/Csv.hpp>
-#include <MEL/Devices/Windows/Keyboard.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
-#include <MEL/Math/Integrator.hpp>
 #include <vector>
 
-using namespace mel;
+using namespace mahi::util;
+using namespace mahi::com;
+using namespace mahi::daq;
+using namespace mahi::robo;
 using namespace meii;
 
 

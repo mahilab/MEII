@@ -1,9 +1,8 @@
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Utility/System.hpp>
+#include <Mahi/Util.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 using namespace meii;
 
 int main() {
@@ -18,24 +17,24 @@ int main() {
 
     LOG(Info) << "Display waypoints:";
     for (std::size_t j = 0; j < waypoints.size(); ++j) {
-        print(waypoints[j].when());
+        print_var(waypoints[j].when());
         for (std::size_t i = 0; i < waypoints[j].get_dim(); ++i) {
-            print(waypoints[j][i]);
+            print_var(waypoints[j][i]);
         }
         print("");
     }
 
     Time interp_time = seconds(0.5);
-    LOG(Info) << "Linear time interpolation between first two waypoints at " + stringify(interp_time.as_seconds()) + " s:";
+    LOG(Info) << "Linear time interpolation between first two waypoints at " + std::to_string(interp_time.as_seconds()) + " s:";
     WayPoint interp_point = Trajectory::linear_time_interpolate(waypoints[0], waypoints[1], seconds(0.5));
-    print(interp_point.when());
+    print_var(interp_point.when());
     for (std::size_t i = 0; i < interp_point.get_dim(); ++i) {
-        print(interp_point[i]);
+        print_var(interp_point[i]);
     }
     print("");
 
     std::size_t num_waypoints = 11;
-    LOG(Info) << "Generate " + stringify(num_waypoints) + " linearly spaced waypoints between first two waypoints:";
+    LOG(Info) << "Generate " + std::to_string(num_waypoints) + " linearly spaced waypoints between first two waypoints:";
     std::vector<WayPoint> interp_points = Trajectory::linspace_points(waypoints[0], waypoints[1], 11);
     for (std::size_t i = 0; i < interp_points.size(); ++i) {
 		std::cout << interp_points[i];
@@ -50,7 +49,7 @@ int main() {
     print("");
     if (!trajectory.empty() && trajectory.validate()) {
         for (std::size_t i = 0; i < 51; ++i) {
-            print(trajectory.at_time(t));
+            print_var(trajectory.at_time(t));
             t += Ts;
         }
     }

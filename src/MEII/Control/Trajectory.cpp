@@ -1,10 +1,10 @@
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
 #include <algorithm>
-#include <MEL/Math/Functions.hpp>
+#include <Mahi/Util/Math/Functions.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 
 namespace meii {
 
@@ -12,7 +12,7 @@ namespace meii {
         is_empty_(true),
         path_dim_(0),
 		interp_method_(Interp::Linear),
-		max_diff_({ mel::INF })
+		max_diff_({ INF })
     {}
 
     Trajectory::Trajectory(std::size_t path_dim, const std::vector<WayPoint> &waypoints, Interp interp_method, const std::vector<double> &max_diff) :
@@ -50,7 +50,7 @@ namespace meii {
         else if (instant > times_.back()) {
             return waypoints_.back().get_pos();
         }
-        std::size_t after = std::distance(times_.begin(), std::find_if(times_.begin(), times_.end(), [instant](mel::Time t) {return t >= instant; }));
+        std::size_t after = std::distance(times_.begin(), std::find_if(times_.begin(), times_.end(), [instant](Time t) {return t >= instant; }));
         std::size_t before = after > 0 ? after - 1 : after;
         switch (interp_method) {
         case Interp::Linear:
@@ -168,7 +168,7 @@ namespace meii {
             path_dim_ = waypoint.get_dim();
 			//if (!check_max_diff()) {
 			//	LOG(Warning) << "Parameter max_diff reset to default.";
-			//	max_diff_ = { mel::INF };
+			//	max_diff_ = { INF };
 			//	check_max_diff();
 			//}
 			is_empty_ = false;
@@ -281,7 +281,10 @@ namespace meii {
         if (!include_final) {
             n++;
         }
-        std::vector<double> times = linspace(initial.when().as_seconds(), final.when().as_seconds(), n);
+        // std::vector<double> times = linspace(initial.when().as_seconds(), final.when().as_seconds(), n);
+        std::vector<double> times;
+        times.resize(n);
+        linspace(initial.when().as_seconds(), final.when().as_seconds(), times);
         std::vector<WayPoint> interp_points(n);
         for (std::size_t i = 0; i < n; ++i) {
             interp_points[i] = linear_time_interpolate(initial, final, seconds(times[i]));
@@ -295,7 +298,7 @@ namespace meii {
         return interp_points;
     }
 
-    WayPoint Trajectory::linear_time_interpolate(const WayPoint& initial, const WayPoint& final, const mel::Time& t) {
+    WayPoint Trajectory::linear_time_interpolate(const WayPoint& initial, const WayPoint& final, const Time& t) {
         if (initial.empty() || final.empty()) {
             LOG(Error) << "Input points given to Trajectory::linear_time_interpolate() cannot be empty.";
             return { initial };

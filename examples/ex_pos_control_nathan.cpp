@@ -1,20 +1,15 @@
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Utility/System.hpp>
-#include <MEL/Communications/MelShare.hpp>
-#include <MEL/Utility/Options.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/Csv.hpp>
-#include <MEL/Core/Console.hpp>
-#include <MEL/Devices/Windows/Keyboard.hpp>
+#include <Mahi/Util.hpp>
+#include <Mahi/Com.hpp>
+#include <Mahi/Daq.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/MinimumJerk.hpp>
-#include <MEL/Math/Integrator.hpp>
 #include <vector>
 
-using namespace mel;
+using namespace mahi::util;
+using namespace mahi::com;
+using namespace mahi::daq;
 using namespace meii;
 
 
@@ -42,7 +37,7 @@ int main(int argc, char *argv[]) {
 
 	// if -h, print the help option
 	if (result.count("help") > 0) {
-		print(options.help());
+		print_var(options.help());
 		return 0;
 	}
 
@@ -91,7 +86,6 @@ int main(int argc, char *argv[]) {
 		};
 		std::vector<std::string> dof_str = { "ElbowFE", "WristPS", "WristFE", "WristRU" };
 
-
 		bool save_data = false;
 		std::string filepath = "example_meii_robot_data_log.csv";
 
@@ -114,7 +108,7 @@ int main(int argc, char *argv[]) {
 		{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 0.09 }) }
 		};
 		std::vector<Time> dmp_durations = { seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0) };
-		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
+		std::vector<double> traj_max_diff = { 50 * DEG2RAD, 50 * DEG2RAD, 25 * DEG2RAD, 25 * DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
 		Time dmp_Ts = milliseconds(50);
 
@@ -154,7 +148,6 @@ int main(int argc, char *argv[]) {
 		Time wait_at_neutral_time = seconds(1);
 		Time wait_at_extreme_time = seconds(1);
 
-
 		// create data containers
 		std::vector<double> ref = { -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 };
 
@@ -171,7 +164,7 @@ int main(int argc, char *argv[]) {
 
 		// start loop
 		LOG(Info) << "Robot Backdrivable.";
-		/*q8.watchdog.start();*/
+		
 		state_clock.restart();
 		while (!stop) {
 
@@ -184,11 +177,11 @@ int main(int argc, char *argv[]) {
 					if (!dof_selected) {
 
 						// check for number keypress
-						number_keypress = Keyboard::is_any_num_key_pressed();
-						if (number_keypress >= 0) {
+						number_keypress = get_key_nb();
+						if (number_keypress - '0' >= 0) {
 							if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-								if (number_keypress > 0 && number_keypress <= 4) {
-									dof = (DoF)(number_keypress - 1);
+								if ((number_keypress - '0') > 0 && (number_keypress - '0') <= 4) {
+									dof = (DoF)(number_keypress - '0' - 1);
 									dof_selected = true;
 									LOG(Info) << dof_str[dof] << " selected.";
 								}
@@ -197,7 +190,6 @@ int main(int argc, char *argv[]) {
 							}
 						}
 					}
-
 					// depending on DOF, create the start and end points of trajectories
 					neutral_point = neutral_point_set[dof];
 					extreme_points = extreme_points_set[dof];
@@ -205,37 +197,38 @@ int main(int argc, char *argv[]) {
 
 					// prompt user for input to select which trajectory
 					if (dof_selected && !traj_selected) {
+						int key = get_key_nb(); 
 
 						// press D for dmp trajectory
-						if (Keyboard::is_key_pressed(Key::D)) {
+						if (key == 'd') {
 							traj_selected = true;
 							traj_type = "dmp";
 						}
 
 						// press L for dmp trajectory
-						if (Keyboard::is_key_pressed(Key::L)) {
+						if (key == 'l') {
 							traj_selected = true;
 							traj_type = "linear";
 						}
 
 						// press L for dmp trajectory
-						if (Keyboard::is_key_pressed(Key::M)) {
+						if (key == 'm') {
 							traj_selected = true;
 							traj_type = "min_jerk";
 						}
 
 						// check for exit key
-						if (Keyboard::is_key_pressed(Key::Escape)) {
+						if (key == (int)KEY_ENTER) {
 							stop = true;
 							save_data = false;
 						}
 					}
 
-					// Make sure trajectory is valid
-					if (!dmp.trajectory().validate()) {
-						LOG(Warning) << "DMP trajectory invalid.";
-						return 0;
-					}
+					// // Make sure trajectory is valid
+					// if (!dmp.trajectory().validate()) {
+					// 	LOG(Warning) << "DMP trajectory invalid.";
+					// 	return 0;
+					// }
 
 					// check for wait period to end
 					if (traj_selected) {
@@ -290,8 +283,6 @@ int main(int argc, char *argv[]) {
 					break;
 
 				case 2: // wait at extreme position
-
-					// update reference from trajectory
 
 					if (state_clock.get_elapsed_time() > wait_at_extreme_time) {
 
@@ -410,18 +401,15 @@ int main(int argc, char *argv[]) {
 			
 			// write ref to MelShares
 			ms_ref.write_data(ref);
-			
-			// check for save key
-			if (Keyboard::is_key_pressed(Key::Enter)) {
-				stop = true;
+
+            // check for stop key
+            int key_press = -1;
+            key_press = get_key_nb();
+            if (key_press == (int)KEY_ENTER) {
+                stop = true;
+				// save_data = (key_press == (int)KEY_ENTER) ? true : false;
 				save_data = true;
-			}
-			
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::Escape)) {
-				stop = true;
-				save_data = false;
-			}
+            }
 			
 			// store the time and ref data to log to a csv
 			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
@@ -437,15 +425,18 @@ int main(int argc, char *argv[]) {
 		// save the data if the user wants
 		if (save_data) {
 			print("Do you want to save the robot data log? (Y/N)");
-			Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
-			if (key == Key::Y) {
+			int key_pressed = 0;
+			while (key_pressed != 'y' && key_pressed != 'n'){
+				key_pressed = get_key();
+			}
+			if (key_pressed == 'y'){
 				csv_write_row(filepath, header);
             	csv_append_rows(filepath, robot_log);
-			}
+			} 
 		}
 	}
 
 	disable_realtime();
-	Keyboard::clear_console_input_buffer();
+	while (get_key_nb() != 0);
     return 0;
 }

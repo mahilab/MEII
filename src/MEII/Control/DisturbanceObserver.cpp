@@ -1,11 +1,11 @@
 #include <MEII/Control/DisturbanceObserver.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 
 namespace meii {
 
-	DisturbanceObserver::DisturbanceObserver(mel::Time Ts_):
+	DisturbanceObserver::DisturbanceObserver(Time Ts_):
 		z(0),
 		c(20),
 		J(0.2084),// + 0.0693),
@@ -17,7 +17,7 @@ namespace meii {
         Butterworth butt(2,hertz(10),hertz(1000));
     }
 
-    DisturbanceObserver::DisturbanceObserver(mel::Time Ts_, double z_0):
+    DisturbanceObserver::DisturbanceObserver(Time Ts_, double z_0):
 		z(z_0),
 		c(20),
 		J(0.2084),// + 0.0693),
@@ -29,11 +29,10 @@ namespace meii {
         Butterworth butt(2,hertz(10),hertz(1000));
     }
 
-	void DisturbanceObserver::update(const double x, const double x_dot, const double T_command, const double delta_t, const mel::Time &t) {
+	void DisturbanceObserver::update(const double x, const double x_dot, const double T_command, const double delta_t, const Time &t) {
         double p = c*x_dot;
         double d_hat_unf = z + p;
-        d_hat = butt.update(d_hat_unf,t);
-        // print(-C*x_dot, T_command, -p);
+        d_hat = butt.update(d_hat_unf);
         double z_dot = -L*z+L*(-C*x_dot - T_command - p);
         
         z = z+z_dot*delta_t;

@@ -1,7 +1,7 @@
 #include <MEII/Utility/Matrix.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 
 namespace meii {
 

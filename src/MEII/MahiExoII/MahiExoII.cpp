@@ -1,18 +1,19 @@
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Mechatronics/PositionSensor.hpp>
-#include <MEL/Mechatronics/VelocitySensor.hpp>
+#include <MEII/MahiExoII/Joint.hpp>
+#include <MEII/MahiExoII/MeiiConfiguration.hpp>
+#include <Mahi/Daq/Quanser/Q8Usb.hpp>
+#include <Mahi/Util/Math/Functions.hpp>
+#include <Mahi/Util/Timing/Timer.hpp>
 #include <iomanip>
-#include <MEL/Core/Console.hpp>
+#include <Mahi/Util/Print.hpp>
 #include <MEII/Utility/EigenConversions.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
 
+using namespace mahi::util;
+using namespace mahi::daq;
+using namespace mahi::robo;
 
-// using namespace mel;
-
-namespace mel {  
+namespace meii {  
 
     // geometric parameters
     const double MahiExoII::R_ = 0.1044956;
@@ -27,41 +28,37 @@ namespace mel {
     //-------------------------------------------------------------------------
 
     MahiExoII::MahiExoII(MeiiConfiguration configuration, MeiiParameters parameters) :
-        MahiExoII::Exo("mahi_exo_ii"),
+        Device("mahi_exo_ii"),
         config_(configuration),
         params_(parameters)
     {
-        motors_.reserve(N_rj_);
 
         for (int i = 0; i < N_rj_; ++i) {
 
             std::string num = std::to_string(i);
 
-            // construct motors
-            motors_.push_back(Motor("meii_motor_" + num,
-                params_.kt_[i],
-                config_.amplifiers_[i],
-                Limiter(params_.motor_cont_limits_[i],
-                    params_.motor_peak_limits_[i],
-                    params_.motor_i2t_times_[i])));
-
             // set encoder counts
-            config_.encoder_channels_[i].set_units_per_count(2 * PI / params_.encoder_res_[i]);
+            config_.daq_.encoder.units[i] = (2 * PI / params_.encoder_res_[i]);
 
-            // construct joints
-            Joint joint(
-                "meii_joint_" + num,
-                &motors_[i],
-                params_.eta_[i],
-                &config_.encoder_channels_[i],
-                params_.eta_[i],
-                &config_.encoder_channels_[i],
-                params_.eta_[i],
-                std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
-                params_.vel_limits_[i],
-                params_.joint_torque_limits[i]);
+            Joint joint("meii_joint_" + num,
+                        params_.eta_[i],
+                        &EncoderHandle(configuration.daq_.encoder,i),
+                        params_.eta_[i],
+                        configuration.daq_.velocity.velocities[i],
+                        params_.eta_[i],
+                        std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
+                        params_.vel_limits_[i],
+                        params_.joint_torque_limits[i],
+                        params_.kt_[i],
+                        config_.amp_gains_[i],
+                        Limiter(params_.motor_cont_limits_[i],
+                                params_.motor_peak_limits_[i],
+                                params_.motor_i2t_times_[i]),
+                        DOHandle(config_.daq_.DO,config_.enable_channels_[i]),
+                        config_.enable_values_[i],
+                        AOHandle(config_.daq_.AO,config_.current_write_channels_[i]));
 
-            add_joint(joint);
+            meii_joints.push_back(joint);
         }
 
         for (int i = 0; i < N_aj_; i++) {
@@ -95,7 +92,7 @@ namespace mel {
         config_.daq_.enable();
         std::vector<int32> encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
         for (int i = 0; i < N_rj_; i++) {
-            config_.encoder_channels_[i].reset_count(encoder_offsets[i]);
+            config_.daq_.encoder.write(i, encoder_offsets[i]);
         }
         config_.daq_.disable();
         stop = true;
@@ -112,7 +109,7 @@ namespace mel {
         // create needed variables
         std::array<double, 5> zeros = { 0, 0, 0, 0, 0 }; // determined zero positions for each joint
         std::array<int, 5> dir = { 1 , -1, 1, 1, 1 };    // direction to rotate each joint
-        mel::uint32 calibrating_joint = 0;               // joint currently calibrating
+        uint32 calibrating_joint = 0;               // joint currently calibrating
         bool returning = false;                          // bool to track if calibrating joint is return to zero
         double pos_ref = 0;                              // desired position
 
@@ -137,30 +134,30 @@ namespace mel {
         // enable DAQs, zero encoders, and start watchdog
         config_.daq_.enable();
         for (size_t i = 0; i < 5; i++){
-            config_.encoder_channels_[i].zero();
+            config_.daq_.encoder.zero(i);
         }
-        config_.watchdog_.start();
+        config_.daq_.watchdog.start();
 
         // enable MEII
         enable();
 
         // start the clock
-        Timer timer(milliseconds(1), Timer::Hybrid);
+        Timer timer(milliseconds(1), Timer::WaitMode::Hybrid);
         
         // start the calibration control loop
         while (!stop && timer.get_elapsed_time() < timeout) {
 
             // read and reload DAQs
-            config_.daq_.update_input();
-            config_.watchdog_.kick();
+            config_.daq_.read_all();
+            config_.daq_.watchdog.kick();
 
             if (calibrating_joint < 2){
                 // iterate over all joints
                 for (std::size_t i = 0; i < 2; i++) {
 
                     // get positions and velocities
-                    double pos_act = joints_[i].get_position();
-                    double vel_act = joints_[i].get_velocity();
+                    double pos_act = meii_joints[i].get_position();
+                    double vel_act = meii_joints[i].get_velocity();
 
                     double torque = 0;
                     if (i == calibrating_joint) {
@@ -169,7 +166,7 @@ namespace mel {
                             // calculate torque req'd to move the calibrating joint forward at constant speed
                             pos_ref += dir[i] * vel_ref[i] * timer.get_period().as_seconds();
                             torque = robot_joint_pd_controllers_[i].calculate(pos_ref, pos_act, 0, vel_act);
-                            torque = saturate(torque, sat_torques[i]);
+                            torque = clamp(torque, sat_torques[i]);
 
                             // check if the calibrating joint is still moving
                             stored_positions.push_back(pos_act);
@@ -185,10 +182,10 @@ namespace mel {
 
                             // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                             if (!moving) {
-                                config_.encoder_channels_[i].reset_count(encoder_offsets[i]);
+                                config_.daq_.encoder.write(i,encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
-                                pos_ref = joints_[i].get_position();
+                                pos_ref = meii_joints[i].get_position();
                             }
                         }
 
@@ -196,7 +193,7 @@ namespace mel {
                             // calculate torque req'd to retur the calibrating joint back to zero
                             pos_ref -= dir[i] * vel_ref[i] *  timer.get_period().as_seconds();
                             torque = robot_joint_pd_controllers_[i].calculate(pos_ref, pos_act, 0, vel_act);
-                            torque = saturate(torque, sat_torques[i]);
+                            torque = clamp(torque, sat_torques[i]);
 
 
                             if (dir[i] * pos_ref <= dir[i] * neutral_points[i]) {
@@ -204,7 +201,7 @@ namespace mel {
                                 calibrating_joint += 1;
                                 pos_ref = 0;
                                 returning = false;
-                                LOG(Info) << "Joint " << joints_[i].get_name() << " calibrated";
+                                LOG(Info) << "Joint " << meii_joints[i].get_name() << " calibrated";
                             }
                         }
                     }
@@ -216,23 +213,23 @@ namespace mel {
                         else{
                             torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], pos_act, 0, vel_act);
                         }
-                        torque = saturate(torque, sat_torques[i]);
+                        torque = clamp(torque, sat_torques[i]);
                     }
-                    joints_[i].set_torque(torque);
+                    meii_joints[i].set_torque(torque);
                 }
 
                 // set rps joint torques
                 for (std::size_t i = 0; i < 3; ++i) {
-					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, joints_[i + 2].get_position(), 0, joints_[i + 2].get_velocity());
-                    torque = saturate(torque, sat_torques[i]);
-                    joints_[i + 2].set_torque(torque);
+					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, meii_joints[i + 2].get_position(), 0, meii_joints[i + 2].get_velocity());
+                    torque = clamp(torque, sat_torques[i]);
+                    meii_joints[i + 2].set_torque(torque);
 				}
             }
             else{
                 for (size_t i = 0; i < 2; i++){
-                    double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], joints_[i].get_position(), 0, joints_[i].get_velocity());
-                    torque = saturate(torque, sat_torques[i]);
-                    joints_[i].set_torque(torque);
+                    double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], meii_joints[i].get_position(), 0, meii_joints[i].get_velocity());
+                    torque = clamp(torque, sat_torques[i]);
+                    meii_joints[i].set_torque(torque);
                 }
 
                 std::vector<bool> par_moving = {true, true, true};
@@ -241,14 +238,14 @@ namespace mel {
                     double torque = 0;
                     int dof_num = i+2;
                     // get positions and velocities
-                    double pos_act = joints_[dof_num].get_position();
-                    double vel_act = joints_[dof_num].get_velocity();
+                    double pos_act = meii_joints[dof_num].get_position();
+                    double vel_act = meii_joints[dof_num].get_velocity();
                     
                     if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })) {
                         par_pos_ref[i] += dir[dof_num] * vel_ref[dof_num] * timer.get_period().as_seconds();
 
                         torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
-                        torque = saturate(torque, sat_torques[dof_num]);
+                        torque = clamp(torque, sat_torques[dof_num]);
 
                         // check if the calibrating joint is still moving
                         par_stored_positions[i].push_back(pos_act);
@@ -265,9 +262,9 @@ namespace mel {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                config_.encoder_channels_[j+2].reset_count(encoder_offsets[j+2]);
+                                config_.daq_.encoder.write(j+2,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
-                                par_pos_ref[j] = joints_[j+2].get_position();
+                                par_pos_ref[j] = meii_joints[j+2].get_position();
                             }                        
                             par_returning = {true, true, true};
                         }
@@ -278,13 +275,13 @@ namespace mel {
                             // calculate torque req'd to retur the calibrating joint back to zero
                             par_pos_ref[i] -= dir[dof_num] * vel_ref[dof_num] *  timer.get_period().as_seconds();
                             torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
-                            torque = saturate(torque, sat_torques[dof_num]);
+                            torque = clamp(torque, sat_torques[dof_num]);
 
                             if (dir[dof_num] * par_pos_ref[i] <= dir[dof_num] * neutral_points[dof_num]) {
                                 // reset for the next joint
                                 par_returning[i] = false;
                                 par_pos_ref[i] = 0;
-                                LOG(Info) << "Joint " << joints_[dof_num].get_name() << " calibrated";
+                                LOG(Info) << "Joint " << meii_joints[dof_num].get_name() << " calibrated";
                                 if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })){
                                     stop = true;
                                 }
@@ -292,15 +289,15 @@ namespace mel {
                         }
                         else{
                             torque = robot_joint_pd_controllers_[dof_num].calculate(neutral_points[dof_num], pos_act, 0, vel_act);
-                            torque = saturate(torque, sat_torques[dof_num]);
+                            torque = clamp(torque, sat_torques[dof_num]);
                         }
                     }
-                    joints_[dof_num].set_torque(torque);
+                    meii_joints[dof_num].set_torque(torque);
                 }
             }
             
             // write all DAQs
-            config_.daq_.update_output();
+            config_.daq_.write_all();
 
             // check joint velocity limits
             if (any_velocity_limit_exceeded() || any_torque_limit_exceeded()) {
@@ -396,7 +393,7 @@ namespace mel {
             if (ref_[dof] == prev_ref_[dof]) {
                 return ref_[dof];
             }
-            return prev_ref_[dof] + (ref_[dof] - prev_ref_[dof]) * saturate((current_time.as_seconds() - start_time_.as_seconds()) * speed_[dof] / std::abs(ref_[dof] - prev_ref_[dof]), 0.0, 1.0);
+            return prev_ref_[dof] + (ref_[dof] - prev_ref_[dof]) * clamp((current_time.as_seconds() - start_time_.as_seconds()) * speed_[dof] / std::abs(ref_[dof] - prev_ref_[dof]), 0.0, 1.0);
         }
         else {
             print("ERROR: Must give reference point first.");
@@ -426,7 +423,7 @@ namespace mel {
                         command_torques[i] = 0.0;
                     }
                     else {
-                        command_torques[i] = robot_joint_pd_controllers_[i + 2].calculate(smooth_ref, joints_[i + 2].get_position(), 0, joints_[i + 2].get_velocity());
+                        command_torques[i] = robot_joint_pd_controllers_[i + 2].calculate(smooth_ref, meii_joints[i + 2].get_position(), 0, meii_joints[i + 2].get_velocity());
                     }
                 }
             }
@@ -473,7 +470,7 @@ namespace mel {
 
         default: print("WARNING: Invalid rps_control_mode_. Must be 0 or 1. Zero torques commanded.");
             for (int i = 0; i < N_qs_; ++i) {
-                joints_[i + 2].set_torque(0.0);
+                meii_joints[i + 2].set_torque(0.0);
             }
         }
 
@@ -495,7 +492,7 @@ namespace mel {
                 command_torques[0] = 0.0;
             }
             else {
-                command_torques[0] = robot_joint_pd_controllers_[0].calculate(smooth_ref, joints_[0].get_position(), 0, joints_[0].get_velocity());
+                command_torques[0] = robot_joint_pd_controllers_[0].calculate(smooth_ref, meii_joints[0].get_position(), 0, meii_joints[0].get_velocity());
             }
         }
 
@@ -509,7 +506,7 @@ namespace mel {
                 command_torques[1] = 0.0;
             }
             else {
-                command_torques[1] = robot_joint_pd_controllers_[1].calculate(smooth_ref, joints_[1].get_position(), 0, joints_[1].get_velocity());
+                command_torques[1] = robot_joint_pd_controllers_[1].calculate(smooth_ref, meii_joints[1].get_position(), 0, meii_joints[1].get_velocity());
             }
         }
 
@@ -565,8 +562,34 @@ namespace mel {
         return command_torques;
     }
 
+    bool MahiExoII::any_limit_exceeded(){
+        return (any_velocity_limit_exceeded() || any_torque_limit_exceeded());
+    }
 
+    bool MahiExoII::any_velocity_limit_exceeded(){
+        bool exceeded = false;
+        for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
+            if (it->velocity_limit_exceeded())
+                exceeded = true;
+        }
+        return exceeded;
+    }
 
+    bool MahiExoII::any_torque_limit_exceeded(){
+        bool exceeded = false;
+        for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
+            if (it->torque_limit_exceeded())
+                exceeded = true;
+        }
+        return exceeded;
+    }
+
+    void MahiExoII::set_joint_torques(std::vector<double> new_torques) {
+        for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
+            it->set_torque(new_torques[it - meii_joints.begin()]);
+        }
+    }
+    
     //-----------------------------------------------------------------------------
     // PUBLIC KINEMATICS FUNCTIONS
     //-----------------------------------------------------------------------------
@@ -574,15 +597,15 @@ namespace mel {
     void MahiExoII::update_kinematics() {
 
         // update q_par_ (q parallel) with the three prismatic link positions
-        q_par_ << joints_[2].get_position(), joints_[3].get_position(), joints_[4].get_position();
-        q_par_dot_ << joints_[2].get_velocity(), joints_[3].get_velocity(), joints_[4].get_velocity();
+        q_par_ << meii_joints[2].get_position(), meii_joints[3].get_position(), meii_joints[4].get_position();
+        q_par_dot_ << meii_joints[2].get_velocity(), meii_joints[3].get_velocity(), meii_joints[4].get_velocity();
 
         // run forward kinematics solver to update q_ser (q serial) and qp_ (q prime), which contains all 12 RPS positions
         forward_rps_kinematics_velocity(q_par_, q_ser_, qp_, rho_fk_, jac_fk_, q_par_dot_, q_ser_dot_, qp_dot_);
 
         // get positions from first two anatomical joints, which have encoders
-        anatomical_joint_positions_[0] = joints_[0].get_position(); // elbow flexion/extension
-        anatomical_joint_positions_[1] = joints_[1].get_position(); // forearm pronation/supination
+        anatomical_joint_positions_[0] = meii_joints[0].get_position(); // elbow flexion/extension
+        anatomical_joint_positions_[1] = meii_joints[1].get_position(); // forearm pronation/supination
 
                                                                     // get positions from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_positions_[2] = q_ser_[0]; // wrist flexion/extension
@@ -590,8 +613,8 @@ namespace mel {
         anatomical_joint_positions_[4] = q_ser_[2]; // arm translation
 
                                                     // get velocities from first two anatomical joints, which have encoders
-        anatomical_joint_velocities_[0] = joints_[0].get_velocity(); // elbow flexion/extension
-        anatomical_joint_velocities_[1] = joints_[1].get_velocity(); // forearm pronation/supination
+        anatomical_joint_velocities_[0] = meii_joints[0].get_velocity(); // elbow flexion/extension
+        anatomical_joint_velocities_[1] = meii_joints[1].get_velocity(); // forearm pronation/supination
 
                                                                         // get velocities from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_velocities_[2] = q_ser_dot_[0]; // wrist flexion/extension
@@ -610,16 +633,16 @@ namespace mel {
     void MahiExoII::set_anatomical_joint_torques(std::vector<double> new_torques) {
 
         // set torques for first two anatomical joints, which have actuators
-        joints_[0].set_torque(new_torques[0]);
-        joints_[1].set_torque(new_torques[1]);
+        meii_joints[0].set_torque(new_torques[0]);
+        meii_joints[1].set_torque(new_torques[1]);
 
 
         // calculate the spectral norm of the transformation matrix
         Eigen::EigenSolver<Eigen::Matrix3d> eigensolver(jac_fk_.transpose() * jac_fk_, false);
         if (eigensolver.info() != Eigen::Success) {
-            joints_[2].set_torque(0.0);
-            joints_[3].set_torque(0.0);
-            joints_[4].set_torque(0.0);
+            meii_joints[2].set_torque(0.0);
+            meii_joints[3].set_torque(0.0);
+            meii_joints[4].set_torque(0.0);
             //error_code_ = -1;
         }
         Eigen::EigenSolver<Eigen::Matrix3d>::EigenvalueType lambda = eigensolver.eigenvalues();
@@ -660,9 +683,9 @@ namespace mel {
         ser_torques(1) = new_torques[3];
         ser_torques(2) = new_torques[4];
         par_torques = jac_fk_.transpose()*ser_torques;
-        joints_[2].set_torque(par_torques(0));
-        joints_[3].set_torque(par_torques(1));
-        joints_[4].set_torque(par_torques(2));
+        meii_joints[2].set_torque(par_torques(0));
+        meii_joints[3].set_torque(par_torques(1));
+        meii_joints[4].set_torque(par_torques(2));
 
         // store parallel and serial joint torques for data logging
         tau_par_rob_ = par_torques;
@@ -672,7 +695,7 @@ namespace mel {
 
     void MahiExoII::set_rps_par_torques(std::vector<double>& tau_par) {
         for (int i = 0; i < N_qs_; ++i) {
-            joints_[i + 2].set_torque(tau_par[i]);
+            meii_joints[i + 2].set_torque(tau_par[i]);
         }
 
         //tau_par_rob_ = copy_stdvec_to_eigvec(tau_par);
@@ -690,8 +713,8 @@ namespace mel {
         //tau_par = jac_fk_.transpose() * tau_ser_eig;
         tau_par_rob_ = jac_fk_.transpose() * tau_ser_eig;
         for (int i = 0; i < N_qs_; ++i) {
-            //joints_[i + 2]->set_torque(tau_par[i]);
-            joints_[i + 2].set_torque(tau_par_rob_[i]);
+            //meii_joints[i + 2]->set_torque(tau_par[i]);
+            meii_joints[i + 2].set_torque(tau_par_rob_[i]);
         }
         tau_ser_rob_ = -tau_ser_eig;
     }
@@ -824,83 +847,6 @@ namespace mel {
     bool MahiExoII::check_neutral_anat_pos(std::vector<double> goal_anat_pos, std::vector<char> check_dof, bool print_output) const {
         return check_goal_pos(goal_anat_pos, get_anatomical_joint_positions(), check_dof, anat_neutral_err_tol_, print_output);
     }
-
-
-    //-----------------------------------------------------------------------------
-    // PUBLIC DATA LOGGING FUNCTIONS
-    //-----------------------------------------------------------------------------
-
-    /*void MahiExoII::init_robot_log() {
-    robot_log_.add_col("Time [s]")
-    .add_col("MEII Joint 0 Encoder Count [counts]").add_col("MEII Joint 0 Encoder Rate [counts/s]").add_col("MEII Joint 0 Motor Command Current [A]").add_col("MEII Joint 0 Motor Limited Current [A]")
-    .add_col("MEII Joint 1 Encoder Count [counts]").add_col("MEII Joint 1 Encoder Rate [counts/s]").add_col("MEII Joint 1 Motor Command Current [A]").add_col("MEII Joint 1 Motor Limited Current [A]")
-    .add_col("MEII Joint 2 Encoder Count [counts]").add_col("MEII Joint 2 Encoder Rate [counts/s]").add_col("MEII Joint 2 Motor Command Current [A]").add_col("MEII Joint 2 Motor Limited Current [A]")
-    .add_col("MEII Joint 3 Encoder Count [counts]").add_col("MEII Joint 3 Encoder Rate [counts/s]").add_col("MEII Joint 3 Motor Command Current [A]").add_col("MEII Joint 3 Motor Limited Current [A]")
-    .add_col("MEII Joint 4 Encoder Count [counts]").add_col("MEII Joint 4 Encoder Rate [counts/s]").add_col("MEII Joint 4 Motor Command Current [A]").add_col("MEII Joint 4 Motor Limited Current [A]")
-    .add_col("MEII EFE Position [rad]").add_col("MEII EFE Velocity [rad/s]").add_col("MEII EFE Commanded Torque [Nm]")
-    .add_col("MEII FPS Position [rad]").add_col("MEII FPS Velocity [rad/s]").add_col("MEII FPS Commanded Torque [Nm]")
-    .add_col("MEII RPS Theta1 Position [rad]").add_col("MEII RPS Theta2 Position [rad]").add_col("MEII RPS Theta3 Position [rad]")
-    .add_col("MEII RPS L1 Position [m]").add_col("MEII RPS L2 Position [m]").add_col("MEII RPS L3 Position [m]")
-    .add_col("MEII RPS Alpha Position [rad]").add_col("MEII RPS Beta Position [rad]").add_col("MEII RPS Gamma Position [rad]")
-    .add_col("MEII RPS X Position [m]").add_col("MEII RPS Y Position [m]").add_col("MEII RPS Z Position [m]")
-    .add_col("MEII RPS Theta1 Velocity [rad/s]").add_col("MEII RPS Theta2 Velocity [rad/s]").add_col("MEII RPS Theta3 Velocity [rad/s]")
-    .add_col("MEII RPS L1 Velocity [m/s]").add_col("MEII RPS L2 Velocity [m/s]").add_col("MEII RPS L3 Velocity [m/s]")
-    .add_col("MEII RPS Alpha Velocity [rad/s]").add_col("MEII RPS Beta Velocity [rad/s]").add_col("MEII RPS Gamma Velocity [rad/s]")
-    .add_col("MEII RPS X Velocity [m/s]").add_col("MEII RPS Y Velocity [m/s]").add_col("MEII RPS Z Velocity [m/s]")
-    .add_col("MEII RPS L1 Force [N]").add_col("MEII RPS L2 Force [N]").add_col("MEII RPS L3 Force [N]")
-    .add_col("MEII RPS Alpha Torque [Nm]").add_col("MEII RPS Beta Torque [Nm]").add_col("MEII RPS X Force [N]");
-    }*/
-
-    /*void MahiExoII::log_robot_row(double time) {
-
-    std::vector<double> row;
-    row.push_back(time);
-    row.push_back(static_cast<Encoder*>(joints_[0].position_sensor_)->get_encoder_counts());
-    row.push_back(static_cast<Encoder*>(joints_[0].position_sensor_)->get_encoder_rate());
-    row.push_back(static_cast<Motor*>(actuators_[0]).get_current_command());
-    row.push_back(static_cast<Motor*>(actuators_[0]).get_current_limited());
-    row.push_back(static_cast<Encoder*>(joints_[1].position_sensor_)->get_encoder_counts());
-    row.push_back(static_cast<Encoder*>(joints_[1].position_sensor_)->get_encoder_rate());
-    row.push_back(static_cast<Motor*>(actuators_[1]).get_current_command());
-    row.push_back(static_cast<Motor*>(actuators_[1]).get_current_limited());
-    row.push_back(static_cast<Encoder*>(joints_[2].position_sensor_)->get_encoder_counts());
-    row.push_back(static_cast<Encoder*>(joints_[2].position_sensor_)->get_encoder_rate());
-    row.push_back(static_cast<Motor*>(actuators_[2]).get_current_command());
-    row.push_back(static_cast<Motor*>(actuators_[2]).get_current_limited());
-    row.push_back(static_cast<Encoder*>(joints_[3].position_sensor_)->get_encoder_counts());
-    row.push_back(static_cast<Encoder*>(joints_[3].position_sensor_)->get_encoder_rate());
-    row.push_back(static_cast<Motor*>(actuators_[3]).get_current_command());
-    row.push_back(static_cast<Motor*>(actuators_[3]).get_current_limited());
-    row.push_back(static_cast<Encoder*>(joints_[4].position_sensor_)->get_encoder_counts());
-    row.push_back(static_cast<Encoder*>(joints_[4].position_sensor_)->get_encoder_rate());
-    row.push_back(static_cast<Motor*>(actuators_[4])->get_current_command());
-    row.push_back(static_cast<Motor*>(actuators_[4])->get_current_limited());
-    row.push_back(joints_[0].get_position());
-    row.push_back(joints_[0].get_velocity());
-    row.push_back(joints_[0].get_torque());
-    row.push_back(joints_[1].get_position());
-    row.push_back(joints_[1].get_velocity());
-    row.push_back(joints_[1].get_torque());
-    for (int i = 0; i < N_qp_; ++i) {
-    row.push_back(qp_[i]);
-    }
-    for (int i = 0; i < N_qp_; ++i) {
-    row.push_back(qp_dot_[i]);
-    }
-    for (int i = 0; i < N_qs_; ++i) {
-    row.push_back(tau_par_rob_[i]);
-    }
-    for (int i = 0; i < N_qs_; ++i) {
-    row.push_back(tau_ser_rob_[i]);
-    }
-    robot_log_.add_row(row);
-    }*/
-
-    /*void MahiExoII::save_and_clear_robot_log(std::string filename, std::string directory, bool timestamp) {
-    robot_log_.save_and_clear_data(filename, directory, timestamp);
-    robot_log_ = DataLog("robot_log", false);
-    }*/
-
 
     //-----------------------------------------------------------------------------
     // PRIVATE KINEMATICS FUNCTIONS
@@ -1143,7 +1089,7 @@ namespace mel {
                     }
                 }
             }
-            err = c*mel::sqrt(err);
+            err = c*sqrt(err);
 
             // while iterator
             it++;
@@ -1200,28 +1146,28 @@ namespace mel {
 
     void MahiExoII::phi_update(const Eigen::VectorXd& qp, Eigen::VectorXd& phi) const {
 
-        phi << qp[3] * mel::sin(qp[0]) - qp[9] - r_*mel::cos(alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::sin(alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])),
-            R_*mel::cos(alpha5_) - qp[10] - a56_*mel::sin(alpha5_) - qp[3] * mel::cos(alpha5_)*mel::cos(qp[0]) - r_*mel::cos(alpha13_)*mel::cos(qp[7])*mel::cos(qp[8]) + r_*mel::cos(qp[7])*mel::sin(alpha13_)*mel::sin(qp[8]),
-            a56_*mel::cos(alpha5_) - qp[11] + R_*mel::sin(alpha5_) - qp[3] * mel::sin(alpha5_)*mel::cos(qp[0]) - r_*mel::cos(alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin(alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])),
-            qp[4] * mel::sin(qp[1]) - qp[9] - r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])),
-            R_*mel::cos(alpha5_ - (2 * PI) / 3) - qp[10] - a56_*mel::sin(alpha5_ - (2 * PI) / 3) - qp[4] * mel::cos(alpha5_ - (2 * PI) / 3)*mel::cos(qp[1]) - r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos(alpha13_ - (2 * PI) / 3) + r_*mel::cos(qp[7])*mel::sin(qp[8])*mel::sin(alpha13_ - (2 * PI) / 3),
-            a56_*mel::cos(alpha5_ - (2 * PI) / 3) - qp[11] + R_*mel::sin(alpha5_ - (2 * PI) / 3) - qp[4] * mel::cos(qp[1])*mel::sin(alpha5_ - (2 * PI) / 3) - r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])),
-            qp[5] * mel::sin(qp[2]) - qp[9] - r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])),
-            R_*mel::cos((2 * PI) / 3 + alpha5_) - qp[10] - a56_*mel::sin((2 * PI) / 3 + alpha5_) - qp[5] * mel::cos((2 * PI) / 3 + alpha5_)*mel::cos(qp[2]) - r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos((2 * PI) / 3 + alpha13_) + r_*mel::cos(qp[7])*mel::sin(qp[8])*mel::sin((2 * PI) / 3 + alpha13_),
-            a56_*mel::cos((2 * PI) / 3 + alpha5_) - qp[11] + R_*mel::sin((2 * PI) / 3 + alpha5_) - qp[5] * mel::cos(qp[2])*mel::sin((2 * PI) / 3 + alpha5_) - r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8]));
+        phi << qp[3] * sin(qp[0]) - qp[9] - r_*cos(alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*sin(alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])),
+        R_*cos(alpha5_) - qp[10] - a56_*sin(alpha5_) - qp[3] * cos(alpha5_)*cos(qp[0]) - r_*cos(alpha13_)*cos(qp[7])*cos(qp[8]) + r_*cos(qp[7])*sin(alpha13_)*sin(qp[8]),
+        a56_*cos(alpha5_) - qp[11] + R_*sin(alpha5_) - qp[3] * sin(alpha5_)*cos(qp[0]) - r_*cos(alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin(alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])),
+        qp[4] * sin(qp[1]) - qp[9] - r_*cos(alpha13_ - (2 * PI) / 3)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*sin(alpha13_ - (2 * PI) / 3)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])),
+        R_*cos(alpha5_ - (2 * PI) / 3) - qp[10] - a56_*sin(alpha5_ - (2 * PI) / 3) - qp[4] * cos(alpha5_ - (2 * PI) / 3)*cos(qp[1]) - r_*cos(qp[7])*cos(qp[8])*cos(alpha13_ - (2 * PI) / 3) + r_*cos(qp[7])*sin(qp[8])*sin(alpha13_ - (2 * PI) / 3),
+        a56_*cos(alpha5_ - (2 * PI) / 3) - qp[11] + R_*sin(alpha5_ - (2 * PI) / 3) - qp[4] * cos(qp[1])*sin(alpha5_ - (2 * PI) / 3) - r_*cos(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])),
+        qp[5] * sin(qp[2]) - qp[9] - r_*cos((2 * PI) / 3 + alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*sin((2 * PI) / 3 + alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])),
+        R_*cos((2 * PI) / 3 + alpha5_) - qp[10] - a56_*sin((2 * PI) / 3 + alpha5_) - qp[5] * cos((2 * PI) / 3 + alpha5_)*cos(qp[2]) - r_*cos(qp[7])*cos(qp[8])*cos((2 * PI) / 3 + alpha13_) + r_*cos(qp[7])*sin(qp[8])*sin((2 * PI) / 3 + alpha13_),
+        a56_*cos((2 * PI) / 3 + alpha5_) - qp[11] + R_*sin((2 * PI) / 3 + alpha5_) - qp[5] * cos(qp[2])*sin((2 * PI) / 3 + alpha5_) - r_*cos((2 * PI) / 3 + alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin((2 * PI) / 3 + alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8]));
     }
 
     void MahiExoII::phi_d_qp_update(const Eigen::VectorXd& qp, Eigen::MatrixXd& phi_d_qp) const {
 
-        phi_d_qp << qp[3] * mel::cos(qp[0]), 0, 0, mel::sin(qp[0]), 0, 0, -r_*mel::cos(alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin(alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[6])*mel::cos(alpha13_)*mel::cos(qp[7])*mel::cos(qp[8]) - r_*mel::cos(qp[6])*mel::cos(qp[7])*mel::sin(alpha13_)*mel::sin(qp[8]), r_*mel::sin(alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::cos(alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), -1, 0, 0,
-            qp[3] * mel::cos(alpha5_)*mel::sin(qp[0]), 0, 0, -mel::cos(alpha5_)*mel::cos(qp[0]), 0, 0, 0, r_*mel::cos(alpha13_)*mel::cos(qp[8])*mel::sin(qp[7]) - r_*mel::sin(alpha13_)*mel::sin(qp[7])*mel::sin(qp[8]), r_*mel::cos(alpha13_)*mel::cos(qp[7])*mel::sin(qp[8]) + r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::sin(alpha13_), 0, -1, 0,
-            qp[3] * mel::sin(alpha5_)*mel::sin(qp[0]), 0, 0, -mel::sin(alpha5_)*mel::cos(qp[0]), 0, 0, r_*mel::cos(alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) + r_*mel::sin(alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[7])*mel::sin(qp[6])*mel::sin(alpha13_)*mel::sin(qp[8]) - r_*mel::cos(alpha13_)*mel::cos(qp[7])*mel::cos(qp[8])*mel::sin(qp[6]), r_*mel::sin(alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::cos(alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), 0, 0, -1,
-            0, qp[4] * mel::cos(qp[1]), 0, 0, mel::sin(qp[1]), 0, -r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[6])*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos(alpha13_ - (2 * PI) / 3) - r_*mel::cos(qp[6])*mel::cos(qp[7])*mel::sin(qp[8])*mel::sin(alpha13_ - (2 * PI) / 3), r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), -1, 0, 0,
-            0, qp[4] * mel::cos(alpha5_ - (2 * PI) / 3)*mel::sin(qp[1]), 0, 0, -mel::cos(alpha5_ - (2 * PI) / 3)*mel::cos(qp[1]), 0, 0, r_*mel::cos(qp[8])*mel::cos(alpha13_ - (2 * PI) / 3)*mel::sin(qp[7]) - r_*mel::sin(qp[7])*mel::sin(qp[8])*mel::sin(alpha13_ - (2 * PI) / 3), r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::sin(alpha13_ - (2 * PI) / 3) + r_*mel::cos(qp[7])*mel::cos(alpha13_ - (2 * PI) / 3)*mel::sin(qp[8]), 0, -1, 0,
-            0, qp[4] * mel::sin(alpha5_ - (2 * PI) / 3)*mel::sin(qp[1]), 0, 0, -mel::cos(qp[1])*mel::sin(alpha5_ - (2 * PI) / 3), 0, r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) + r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[7])*mel::sin(qp[6])*mel::sin(qp[8])*mel::sin(alpha13_ - (2 * PI) / 3) - r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos(alpha13_ - (2 * PI) / 3)*mel::sin(qp[6]), r_*mel::sin(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::cos(alpha13_ - (2 * PI) / 3)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), 0, 0, -1,
-            0, 0, qp[5] * mel::cos(qp[2]), 0, 0, mel::sin(qp[2]), -r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[6])*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos((2 * PI) / 3 + alpha13_) - r_*mel::cos(qp[6])*mel::cos(qp[7])*mel::sin(qp[8])*mel::sin((2 * PI) / 3 + alpha13_), r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) - r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), -1, 0, 0,
-            0, 0, qp[5] * mel::cos((2 * PI) / 3 + alpha5_)*mel::sin(qp[2]), 0, 0, -mel::cos((2 * PI) / 3 + alpha5_)*mel::cos(qp[2]), 0, r_*mel::cos(qp[8])*mel::cos((2 * PI) / 3 + alpha13_)*mel::sin(qp[7]) - r_*mel::sin(qp[7])*mel::sin(qp[8])*mel::sin((2 * PI) / 3 + alpha13_), r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::sin((2 * PI) / 3 + alpha13_) + r_*mel::cos(qp[7])*mel::cos((2 * PI) / 3 + alpha13_)*mel::sin(qp[8]), 0, -1, 0,
-            0, 0, qp[5] * mel::sin((2 * PI) / 3 + alpha5_)*mel::sin(qp[2]), 0, 0, -mel::cos(qp[2])*mel::sin((2 * PI) / 3 + alpha5_), r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::sin(qp[6])*mel::sin(qp[8]) - mel::cos(qp[6])*mel::cos(qp[8])*mel::sin(qp[7])) + r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::cos(qp[8])*mel::sin(qp[6]) + mel::cos(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), r_*mel::cos(qp[7])*mel::sin(qp[6])*mel::sin(qp[8])*mel::sin((2 * PI) / 3 + alpha13_) - r_*mel::cos(qp[7])*mel::cos(qp[8])*mel::cos((2 * PI) / 3 + alpha13_)*mel::sin(qp[6]), r_*mel::sin((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::sin(qp[8]) + mel::cos(qp[8])*mel::sin(qp[6])*mel::sin(qp[7])) - r_*mel::cos((2 * PI) / 3 + alpha13_)*(mel::cos(qp[6])*mel::cos(qp[8]) - mel::sin(qp[6])*mel::sin(qp[7])*mel::sin(qp[8])), 0, 0, -1;
+        phi_d_qp << qp[3] * cos(qp[0]), 0, 0, sin(qp[0]), 0, 0, -r_*cos(alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin(alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[6])*cos(alpha13_)*cos(qp[7])*cos(qp[8]) - r_*cos(qp[6])*cos(qp[7])*sin(alpha13_)*sin(qp[8]), r_*sin(alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*cos(alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), -1, 0, 0,
+        qp[3] * cos(alpha5_)*sin(qp[0]), 0, 0, -cos(alpha5_)*cos(qp[0]), 0, 0, 0, r_*cos(alpha13_)*cos(qp[8])*sin(qp[7]) - r_*sin(alpha13_)*sin(qp[7])*sin(qp[8]), r_*cos(alpha13_)*cos(qp[7])*sin(qp[8]) + r_*cos(qp[7])*cos(qp[8])*sin(alpha13_), 0, -1, 0,
+        qp[3] * sin(alpha5_)*sin(qp[0]), 0, 0, -sin(alpha5_)*cos(qp[0]), 0, 0, r_*cos(alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) + r_*sin(alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[7])*sin(qp[6])*sin(alpha13_)*sin(qp[8]) - r_*cos(alpha13_)*cos(qp[7])*cos(qp[8])*sin(qp[6]), r_*sin(alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*cos(alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), 0, 0, -1,
+        0, qp[4] * cos(qp[1]), 0, 0, sin(qp[1]), 0, -r_*cos(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[6])*cos(qp[7])*cos(qp[8])*cos(alpha13_ - (2 * PI) / 3) - r_*cos(qp[6])*cos(qp[7])*sin(qp[8])*sin(alpha13_ - (2 * PI) / 3), r_*sin(alpha13_ - (2 * PI) / 3)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*cos(alpha13_ - (2 * PI) / 3)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), -1, 0, 0,
+        0, qp[4] * cos(alpha5_ - (2 * PI) / 3)*sin(qp[1]), 0, 0, -cos(alpha5_ - (2 * PI) / 3)*cos(qp[1]), 0, 0, r_*cos(qp[8])*cos(alpha13_ - (2 * PI) / 3)*sin(qp[7]) - r_*sin(qp[7])*sin(qp[8])*sin(alpha13_ - (2 * PI) / 3), r_*cos(qp[7])*cos(qp[8])*sin(alpha13_ - (2 * PI) / 3) + r_*cos(qp[7])*cos(alpha13_ - (2 * PI) / 3)*sin(qp[8]), 0, -1, 0,
+        0, qp[4] * sin(alpha5_ - (2 * PI) / 3)*sin(qp[1]), 0, 0, -cos(qp[1])*sin(alpha5_ - (2 * PI) / 3), 0, r_*cos(alpha13_ - (2 * PI) / 3)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) + r_*sin(alpha13_ - (2 * PI) / 3)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[7])*sin(qp[6])*sin(qp[8])*sin(alpha13_ - (2 * PI) / 3) - r_*cos(qp[7])*cos(qp[8])*cos(alpha13_ - (2 * PI) / 3)*sin(qp[6]), r_*sin(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*cos(alpha13_ - (2 * PI) / 3)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), 0, 0, -1,
+        0, 0, qp[5] * cos(qp[2]), 0, 0, sin(qp[2]), -r_*cos((2 * PI) / 3 + alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*sin((2 * PI) / 3 + alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[6])*cos(qp[7])*cos(qp[8])*cos((2 * PI) / 3 + alpha13_) - r_*cos(qp[6])*cos(qp[7])*sin(qp[8])*sin((2 * PI) / 3 + alpha13_), r_*sin((2 * PI) / 3 + alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) - r_*cos((2 * PI) / 3 + alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), -1, 0, 0,
+        0, 0, qp[5] * cos((2 * PI) / 3 + alpha5_)*sin(qp[2]), 0, 0, -cos((2 * PI) / 3 + alpha5_)*cos(qp[2]), 0, r_*cos(qp[8])*cos((2 * PI) / 3 + alpha13_)*sin(qp[7]) - r_*sin(qp[7])*sin(qp[8])*sin((2 * PI) / 3 + alpha13_), r_*cos(qp[7])*cos(qp[8])*sin((2 * PI) / 3 + alpha13_) + r_*cos(qp[7])*cos((2 * PI) / 3 + alpha13_)*sin(qp[8]), 0, -1, 0,
+        0, 0, qp[5] * sin((2 * PI) / 3 + alpha5_)*sin(qp[2]), 0, 0, -cos(qp[2])*sin((2 * PI) / 3 + alpha5_), r_*cos((2 * PI) / 3 + alpha13_)*(sin(qp[6])*sin(qp[8]) - cos(qp[6])*cos(qp[8])*sin(qp[7])) + r_*sin((2 * PI) / 3 + alpha13_)*(cos(qp[8])*sin(qp[6]) + cos(qp[6])*sin(qp[7])*sin(qp[8])), r_*cos(qp[7])*sin(qp[6])*sin(qp[8])*sin((2 * PI) / 3 + alpha13_) - r_*cos(qp[7])*cos(qp[8])*cos((2 * PI) / 3 + alpha13_)*sin(qp[6]), r_*sin((2 * PI) / 3 + alpha13_)*(cos(qp[6])*sin(qp[8]) + cos(qp[8])*sin(qp[6])*sin(qp[7])) - r_*cos((2 * PI) / 3 + alpha13_)*(cos(qp[6])*cos(qp[8]) - sin(qp[6])*sin(qp[7])*sin(qp[8])), 0, 0, -1;
     }
 
     std::vector<uint8> MahiExoII::select_q_invert(std::vector<uint8> select_q) const {
@@ -1243,13 +1189,29 @@ namespace mel {
             if (check_dof.at(i)) {
                 if (std::abs(goal_pos.at(i) - current_pos.at(i)) > std::abs(error_tol.at(i))) {
                     if (print_output && goal_reached) {
-                        std::cout << "Joint " << std::to_string(i) << " error is " << (std::abs(goal_pos.at(i) - current_pos.at(i))*mel::RAD2DEG) << std::endl;
+                        std::cout << "Joint " << std::to_string(i) << " error is " << (std::abs(goal_pos.at(i) - current_pos.at(i))*RAD2DEG) << std::endl;
                     }
                     goal_reached = false;
                 }
             }
         }
         return goal_reached;
+    }
+
+    std::vector<double> copy_eigvec_to_stdvec(const Eigen::VectorXd& eigen_vec) {
+        std::vector<double> std_vec(eigen_vec.size());
+        for (int i = 0; i < eigen_vec.size(); ++i) {
+            std_vec[i] = eigen_vec[i];
+        }
+        return std_vec;
+    }
+
+    Eigen::VectorXd copy_stdvec_to_eigvec(const std::vector<double>& std_vec) {
+        Eigen::VectorXd eigen_vec(std_vec.size());
+        for (size_t i = 0; i < std_vec.size(); ++i) {
+            eigen_vec[i] = std_vec[i];
+        }
+        return eigen_vec;
     }
 
 } // namespace meii

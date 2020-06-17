@@ -1,7 +1,8 @@
 #include <MEII/Utility/EigenConversions.hpp>
-#include <MEL/Logging/Log.hpp>
+#include <Mahi/Util/Logging/Log.hpp>
+#include <Mahi/Util/Print.hpp>
 
-using namespace mel;
+using namespace mahi::util;
 
 namespace meii {
 

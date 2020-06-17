@@ -1,25 +1,12 @@
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Utility/System.hpp>
-#include <MEL/Communications/MelShare.hpp>
-#include <MEL/Utility/Options.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Core/Console.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/Csv.hpp>
-#include <MEL/Devices/Windows/Keyboard.hpp>
-#include <MEII/Control/Trajectory.hpp>
-#include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/Control/MinimumJerk.hpp>
-#include <MEL/Math/Integrator.hpp>
-#include <MEII/Control/DisturbanceObserver.hpp>
-#include <vector>
-#include <MEL/Math/Butterworth.hpp>
+#include <Mahi/Util.hpp>
+#include <Mahi/Robo.hpp>
+#include <Mahi/Daq.hpp>
 
-using namespace mel;
 using namespace meii;
-
+using namespace mahi::util;
+using namespace mahi::daq;
+using namespace mahi::robo;
 
 // create global stop variable CTRL-C handler function
 ctrl_bool stop(false);

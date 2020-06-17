@@ -1,7 +1,6 @@
 #include <MEII/Control/DynamicMotionPrimitive.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEII/Utility/Matrix.hpp>
 #include <MEL/Logging/Log.hpp>
 #include <MEL/Logging/DataLogger.hpp>
 #include <MEL/Core/Timer.hpp>

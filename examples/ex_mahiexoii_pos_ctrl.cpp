@@ -1,37 +1,14 @@
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Utility/System.hpp>
-#include <MEL/Communications/MelShare.hpp>
-#include <MEL/Utility/Options.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Logging/Csv.hpp>
-#include <MEL/Core/Console.hpp>
-#include <MEL/Devices/Windows/Keyboard.hpp>
-#include <vector>
 #include <MEII/Control/Trajectory.hpp>
+#include <Mahi/Daq.hpp>
+#include <Mahi/Util.hpp>
+#include <Mahi/Com.hpp>
 
-using namespace mel;
 using namespace meii;
 
-//DiscreteTrajectory generate_meii_anat_traj(const std::vector<double>& initial_pos, const std::vector<double>& final_pos) {
-//
-//    if (initial_pos.size() != MahiExoII::N_aj_) {
-//        LOG(Warning) << "Size of initial position given to Trajectory::generate_meii_anat_traj() did not match number of MEII anatomical joints. Returning empty trajectory.";
-//        return DiscreteTrajectory();
-//    }
-//    if (final_pos.size() != MahiExoII::N_aj_) {
-//        LOG(Warning) << "Size of final position given to Trajectory::generate_meii_anat_traj() did not match number of MEII anatomical joints. Returning empty trajectory.";
-//        return DiscreteTrajectory();
-//    }
-//
-//
-//    DiscreteTrajectory trajectory;
-//
-//
-//    return trajectory;
-//}
+using namespace mahi::daq;
+using namespace mahi::util;
+using namespace mahi::com;
 
 // create global stop variable CTRL-C handler function
 ctrl_bool stop(false);
@@ -55,7 +32,7 @@ int main(int argc, char *argv[]) {
     auto result = options.parse(argc, argv);
 
     if (result.count("help") > 0) {
-        print(options.help());
+        print_var(options.help());
         return 0;
     }
 
@@ -67,38 +44,20 @@ int main(int argc, char *argv[]) {
 
     // make Q8 USB and configure
     Q8Usb q8;
-	q8.open();
-    q8.DO.set_enable_values(std::vector<Logic>(8, High));
-    q8.DO.set_disable_values(std::vector<Logic>(8, High));
-    q8.DO.set_expire_values(std::vector<Logic>(8, High));
-    if (!q8.identify(7)) {
-        LOG(Error) << "Incorrect DAQ";
-        return 0;
-    }
+
+    std::vector<TTL> idle_values(8,TTL_HIGH);
+    q8.DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
+    q8.DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+    q8.DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);
 
     // create MahiExoII and bind Q8 channels to it
-    std::vector<Amplifier> amplifiers;
-    std::vector<double> amp_gains;
-    for (uint32 i = 0; i < 2; ++i) {
-        amplifiers.push_back(
-            Amplifier("meii_amp_" + std::to_string(i),
-                Low,
-                q8.DO[i + 1],
-                1.8,
-                q8.AO[i + 1])
-        );
-    }
-    for (uint32 i = 2; i < 5; ++i) {
-        amplifiers.push_back(
-            Amplifier("meii_amp_" + std::to_string(i),
-                Low,
-                q8.DO[i + 1],
-                0.184,
-                q8.AO[i + 1])
-        );
-    }
-    MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], amplifiers);
-    MahiExoII meii(config);   
+    MeiiConfiguration config(q8, // daq q8
+                             {1, 2, 3, 4, 5}, // encoder channels (encoder)
+                             {1, 2, 3, 4, 5}, // enable channels (DO)
+                             {1, 2, 3, 4, 5}, // current write channels (AO)
+                             {TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW}, // enable values for motors
+                             {1.8, 1.8, 0.184, 0.184, 0.184}); // amplifier gains (A/V)
+    MahiExoII meii(config);
 
     // calibrate - manually zero the encoders (right arm supinated)
     if (result.count("calibrate") > 0) {       
@@ -120,9 +79,6 @@ int main(int argc, char *argv[]) {
         "MEII RPS L2 Position [m]", "MEII RPS L2 Velocity [m/s]", "MEII RPS L2 Commanded Force [N]",
         "MEII RPS L3 Position [m]", "MEII RPS L3 Velocity [m/s]", "MEII RPS L3 Commanded Force [N]" };
     // robot_log.set_header(log_header);
-    if (save_data){
-        csv_write_row(filepath, header);
-    }
     // robot_log.set_record_format(DataFormat::Default, 12);
     
 
@@ -179,15 +135,15 @@ int main(int argc, char *argv[]) {
         while (!stop) {
 
             // update all DAQ input channels
-            q8.update_input();
+            q8.read_all();
 
             // update MahiExoII kinematics
             meii.update_kinematics();
 
             // store most recent readings from DAQ
             for (int i = 0; i < meii.N_rj_; ++i) {
-                rj_positions[i] = meii[i].get_position();
-                rj_velocities[i] = meii[i].get_velocity();
+                rj_positions[i] = meii.meii_joints[i].get_position();
+                rj_velocities[i] = meii.meii_joints[i].get_velocity();
             }
             for (int i = 0; i < meii.N_aj_; ++i) {
                 aj_positions[i] = meii.get_anatomical_joint_position(i);
@@ -235,7 +191,7 @@ int main(int argc, char *argv[]) {
 
                 // update and saturate setpoint
                 for (int i = 0; i < meii.N_aj_; ++i) {
-                    setpoint_rad[i] = saturate(setpoint_rad[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+                    setpoint_rad[i] = clamp(setpoint_rad[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
                 }
                 meii.anat_ref_.set_ref(setpoint_rad, timer.get_elapsed_time());
 
@@ -253,7 +209,7 @@ int main(int argc, char *argv[]) {
             ms_trq.write_data(command_torques);
 
             // update all DAQ output channels
-            q8.update_output();
+            q8.write_all();
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
@@ -265,13 +221,10 @@ int main(int argc, char *argv[]) {
             robot_log.push_back(robot_log_row);
 
             // check for save key
-            if (Keyboard::is_key_pressed(Key::Enter)) {
-                stop = true;
-                save_data = true;
-            }
-
-            // check for exit key
-            if (Keyboard::is_key_pressed(Key::Escape)) {
+            // check for stop key
+            int key_press = -1;
+            key_press = get_key_nb();
+            if (key_press == (int)KEY_ENTER || key_press == (int)KEY_ESCAPE) {
                 stop = true;
             }
 
@@ -298,7 +251,7 @@ int main(int argc, char *argv[]) {
         { 0.08, 0.115 } };
 
         // create discrete trajectory at with certain max velocities
-        std::vector<double> traj_max_diff = { 10 * mel::DEG2RAD, 10 * mel::DEG2RAD, 5 * mel::DEG2RAD, 5 * mel::DEG2RAD, 0.01 };
+        std::vector<double> traj_max_diff = { 10 * DEG2RAD, 10 * DEG2RAD, 5 * DEG2RAD, 5 * DEG2RAD, 0.01 };
         //Trajectory::Point initial_waypoint(seconds(0), { -35 * DEG2RAD, 0, 0, 0, 0.10 });
         //Trajectory::Point final_waypoint(seconds(3), { -5 * DEG2RAD, 0, 0, 0, 0.10 });
         WayPoint initial_waypoint;
@@ -342,7 +295,7 @@ int main(int argc, char *argv[]) {
         while (!stop) {
 
             // update all DAQ input channels
-            q8.update_input();
+            q8.read_all();
 
             // update MahiExoII kinematics
             meii.update_kinematics();
@@ -405,7 +358,7 @@ int main(int argc, char *argv[]) {
 
                 // constraint trajectory to be within range
                 for (int i = 0; i < meii.N_aj_; ++i) {
-                    ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+                    ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
                 }
 
                 // calculate anatomical command torques
@@ -435,7 +388,7 @@ int main(int argc, char *argv[]) {
             ms_ref.write_data(ref);
 
             // update all DAQ output channels
-            q8.update_output();
+            q8.write_all();
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
@@ -446,20 +399,12 @@ int main(int argc, char *argv[]) {
             }
             robot_log.push_back(robot_log_row);
 
-            // check for save key
-            if (Keyboard::is_key_pressed(Key::Enter)) {
-                stop = true;
-                save_data = true;
-            }
-
-            // check for exit key
-            if (Keyboard::is_key_pressed(Key::Escape)) {
+            // check for stop key
+            int key_press = -1;
+            key_press = get_key_nb();
+            if (key_press == (int)KEY_ENTER || key_press == (int)KEY_ESCAPE) {
                 stop = true;
             }
-
-            // kick watchdog
-            if (!q8.watchdog.kick() || meii.any_limit_exceeded())
-                stop = true;
 
             // wait for remainder of sample period
             timer.wait();
@@ -468,18 +413,22 @@ int main(int argc, char *argv[]) {
         meii.disable();
         q8.disable();
     }
-
     
+    disable_realtime();
 
-    if (save_data) {
-        print("Do you want to save the robot data log? (Y/N)");
-        Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
-        if (key == Key::Y) {
-            csv_append_rows("example_meii_robot_data_log.csv", robot_log);
-        }
+    print("Do you want to save the robot data log? (Y/N)");
+    int key_pressed = 0;
+    while (key_pressed != 'y' && key_pressed != 'n'){
+        key_pressed = get_key();
     }
 
-    disable_realtime();
+    if (key_pressed == 'y'){
+        csv_write_row(filepath, header);
+        csv_append_rows("example_meii_robot_data_log.csv", robot_log);
+    } 
+
+    while (get_key_nb() != 0);
+
     return 0;
 }
 

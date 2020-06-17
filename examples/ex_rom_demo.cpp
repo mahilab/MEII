@@ -2,20 +2,17 @@
 #include <MEII/Control/MinimumJerk.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEL/Communications/MelShare.hpp>
-#include <MEL/Core/Console.hpp>
-#include <MEL/Core/Timer.hpp>
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
-#include <MEL/Devices/Windows/Keyboard.hpp>
-#include <MEL/Logging/Csv.hpp>
-#include <MEL/Logging/Log.hpp>
-#include <MEL/Math/Functions.hpp>
-#include <MEL/Math/Integrator.hpp>
-#include <MEL/Utility/Options.hpp>
-#include <MEL/Utility/System.hpp>
+#include <Mahi/Com.hpp>
+#include <Mahi/Util.hpp>
+#include <Mahi/Daq.hpp>
+#include <Mahi/Robo.hpp>
+#include <Mahi/Com.hpp>
 #include <vector>
 
-using namespace mel;
+using namespace mahi::util;
+using namespace mahi::daq;
+using namespace mahi::robo;
+using namespace mahi::com;
 using namespace meii;
 
 enum state {
@@ -63,17 +60,23 @@ int main(int argc, char* argv[]) {
 
     // if -h, print the help option
     if (result.count("help") > 0) {
-        print(options.help());
+        print_var(options.help());
         return 0;
     }
+
+    // enable Windows realtime
+    enable_realtime();
+
     /////////////////////////////////
     // construct Q8 USB and configure
     /////////////////////////////////
     Q8Usb q8;
     q8.open();
-    q8.DO.set_enable_values(std::vector<Logic>(8, High));
-    q8.DO.set_disable_values(std::vector<Logic>(8, High));
-    q8.DO.set_expire_values(std::vector<Logic>(8, High));
+
+    std::vector<TTL> idle_values(8,TTL_HIGH);
+    q8.DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
+    q8.DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+    q8.DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);
 
     Time Ts = milliseconds(1);  // sample period for DAQ
 
@@ -83,25 +86,13 @@ int main(int argc, char* argv[]) {
     // create MahiExoII and bind Q8 channels to it
     //////////////////////////////////////////////
 
-    std::vector<Amplifier> amplifiers;
-    std::vector<double> amp_gains;
-    for (uint32 i = 0; i < 2; ++i) {
-        amplifiers.push_back(
-            Amplifier("meii_amp_" + std::to_string(i),
-                      Low,
-                      q8.DO[i + 1],
-                      1.8,
-                      q8.AO[i + 1]));
-    }
-    for (uint32 i = 2; i < 5; ++i) {
-        amplifiers.push_back(
-            Amplifier("meii_amp_" + std::to_string(i),
-                      Low,
-                      q8.DO[i + 1],
-                      0.184,
-                      q8.AO[i + 1]));
-    }
-    MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], amplifiers);
+
+    MeiiConfiguration config(q8, // daq q8
+                             {1, 2, 3, 4, 5}, // encoder channels (encoder)
+                             {1, 2, 3, 4, 5}, // enable channels (DO)
+                             {1, 2, 3, 4, 5}, // current write channels (AO)
+                             {TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW}, // enable values for motors
+                             {1.8, 1.8, 0.184, 0.184, 0.184}); // amplifier gains (A/V)
     MahiExoII meii(config);
 
     bool rps_is_init = false;
@@ -162,7 +153,7 @@ int main(int argc, char* argv[]) {
     WayPoint new_position;
     Time traj_length;
     DynamicMotionPrimitive dmp(dmp_Ts, neutral_point, neutral_point.set_time(state_times[to_neutral_0]));
-	std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
+	std::vector<double> traj_max_diff = { 50 * DEG2RAD, 50 * DEG2RAD, 25 * DEG2RAD, 25 * DEG2RAD, 0.1 };
 	dmp.set_trajectory_params(Trajectory::Interp::Linear, traj_max_diff);
     Clock ref_traj_clock;
 
@@ -190,7 +181,7 @@ int main(int argc, char* argv[]) {
 
         while (!stop) {
             // update all DAQ input channels
-            q8.update_input();
+            q8.read_all();
 
             // update MahiExoII kinematics
             meii.update_kinematics();
@@ -207,19 +198,19 @@ int main(int argc, char* argv[]) {
 			else {
                 ref[0] = neutral_point.get_pos()[0];
                 ref[1] = neutral_point.get_pos()[1];
-                ref[2] = 15.0 * DEG2RAD * mel::sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
-                ref[3] = 15.0 * DEG2RAD * mel::cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
+                ref[2] = 15.0 * DEG2RAD * sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
+                ref[3] = 15.0 * DEG2RAD * cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
                 ref[4] = neutral_point.get_pos()[4];
             }
 
             // constrain trajectory to be within range
             for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-                ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+                ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
             }
 
             // calculate anatomical command torques
-            command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], aj_positions[0], 0, meii[0].get_velocity());
-            command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], aj_positions[1], 0, meii[1].get_velocity());
+            command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], aj_positions[0], 0, meii.meii_joints[0].get_velocity());
+            command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], aj_positions[1], 0, meii.meii_joints[1].get_velocity());
             for (std::size_t i = 0; i < meii.N_qs_; ++i) {
                 rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], aj_positions[i + 2], 0, aj_velocities[i + 2]);
             }
@@ -290,12 +281,7 @@ int main(int argc, char* argv[]) {
             }
 
             // update all DAQ output channels
-            q8.update_output();
-
-            // check for save key
-            if (Keyboard::is_key_pressed(Key::Enter) || Keyboard::is_key_pressed(Key::Escape)) {
-                stop = true;
-            }
+            q8.write_all();
 
             // kick watchdog
             if (!q8.watchdog.kick() || meii.any_limit_exceeded()) {
@@ -310,6 +296,10 @@ int main(int argc, char* argv[]) {
         q8.disable();
     }
 
-    Keyboard::clear_console_input_buffer();
+    // clear console buffer
+    while (get_key_nb() != 0);
+
+    disable_realtime();
+
     return 0;
 }

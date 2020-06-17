@@ -1,8 +1,8 @@
 #include <MEII/MahiExoII/MeiiConfiguration.hpp>
 
-// using namespace mel;
+using namespace mahi::daq;
 
-namespace mel {
+namespace meii {
 
     //==============================================================================
     // CLASS DEFINTIONS
@@ -11,28 +11,17 @@ namespace mel {
     // MEII configuration without AI channels
     MeiiConfiguration::MeiiConfiguration(
         Q8Usb& daq,
-        Watchdog& watchdog,
-        const std::vector<QuanserEncoder::Channel>& encoder_channels,
-        const std::vector<Amplifier>& amplifiers) :
+        const std::vector<mahi::daq::ChanNum> encoder_channels,
+        const std::vector<mahi::daq::ChanNum> enable_channels,
+        const std::vector<mahi::daq::ChanNum> current_write_channels,
+        const std::vector<mahi::daq::TTL>     enable_values,
+        const std::vector<double>             amp_gains) :
         daq_(daq),
-        watchdog_(watchdog),
         encoder_channels_(encoder_channels),
-        amplifiers_(amplifiers)
-    {
-    }
-
-    // MEII configuration with AI channels
-    MeiiConfiguration::MeiiConfiguration(
-        Q8Usb& daq,
-        Watchdog& watchdog,
-        const std::vector<QuanserEncoder::Channel>& encoder_channels,
-        const std::vector<Amplifier>& amplifiers,
-        const std::vector<AnalogInput::Channel>& ai_channels) :
-        daq_(daq),
-        watchdog_(watchdog),
-        encoder_channels_(encoder_channels),
-        amplifiers_(amplifiers),
-        ai_channels_(ai_channels)
+        enable_channels_(enable_channels),
+        current_write_channels_(current_write_channels),
+        enable_values_(enable_values),
+        amp_gains_(amp_gains)
     {
     }
 

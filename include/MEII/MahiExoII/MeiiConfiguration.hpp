@@ -15,18 +15,16 @@
 //
 // Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
 
-#ifndef MEII_MEII_CONFIGURATION_HPP
-#define MEII_MEII_CONFIGURATION_HPP
+#pragma once
 
-#include <MEL/Daq/Quanser/Q8Usb.hpp>
-#include <MEL/Daq/Encoder.hpp>
-#include <MEL/Daq/Input.hpp>
-#include <MEL/Daq/Output.hpp>
-#include <MEL/Daq/Watchdog.hpp>
-#include <MEL/Mechatronics/Amplifier.hpp>
+#include <Mahi/Daq/Quanser/Q8Usb.hpp>
+#include <Mahi/Daq/Quanser/QuanserEncoder.hpp>
+// #include <Mahi/Daq/Input.hpp>
+// #include <Mahi/Daq/Output.hpp>
+#include <Mahi/Daq/Watchdog.hpp>
 #include <vector>
 
-namespace mel {
+namespace meii {
 
     //==============================================================================
     // FORWARD DECLARATIONS
@@ -45,36 +43,22 @@ namespace mel {
 
         /// Constructor for standard configuration
         MeiiConfiguration(
-            mel::Q8Usb& daq,
-            mel::Watchdog& watchdog,
-            const std::vector<QuanserEncoder::Channel>& encoder_channels,
-            const std::vector<mel::Amplifier>& amplifiers);
-
-        /// Constructor for EMG or Force Sensor configuration
-        MeiiConfiguration(
-            mel::Q8Usb& daq,
-            mel::Watchdog& watchdog,
-            const std::vector<QuanserEncoder::Channel>& encoder_channels,
-            const std::vector<mel::Amplifier>& amplifiers,
-            const std::vector<mel::AnalogInput::Channel>& ai_channels);
-
-
+            mahi::daq::Q8Usb& daq,
+            const std::vector<mahi::daq::ChanNum> encoder_channels,
+            const std::vector<mahi::daq::ChanNum> enable_channels,
+            const std::vector<mahi::daq::ChanNum> current_write_channels,
+            const std::vector<mahi::daq::TTL>     enable_values,
+            const std::vector<double>             amp_gains);
 
     private:
 
         friend class MahiExoII;
 
-        mel::Q8Usb&                                daq_;                ///< DAQ controlling the MahiExoII
-        mel::Watchdog&                             watchdog_;           ///< watchdog the MahiExoII is guarded by
-        std::vector<QuanserEncoder::Channel>       encoder_channels_;   ///< encoder channels that measure motor positions
-        std::vector<mel::Amplifier>                amplifiers_;         ///< amplifiers used to control robot motors
-        std::vector<mel::AnalogInput::Channel>     ai_channels_;        ///< analog input channels that measure EMG
-
+        mahi::daq::Q8Usb&                     daq_;                    // DAQ controlling the MahiExoII
+        const std::vector<mahi::daq::ChanNum> encoder_channels_;       // encoder channels that measure motor positions
+        const std::vector<mahi::daq::ChanNum> enable_channels_;        // DO channels that enable/disable motors
+        const std::vector<mahi::daq::ChanNum> current_write_channels_; // AI channels that write current to amps
+        const std::vector<mahi::daq::TTL>     enable_values_;          // enable values for the amplifiers to enable the motors
+        const std::vector<double>             amp_gains_;               // aplifier gain to convert volts to amps
     };
 } // namespace meii
-
-#endif // MEII_MEII_CONFIGURATION_HPP
-
-  //==============================================================================
-  // CLASS DOCUMENTATION
-  //==============================================================================
