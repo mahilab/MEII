@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
 		};
 		std::vector<std::string> dof_str = { "ElbowFE", "WristPS", "WristFE", "WristRU" };
 
-		bool save_data = false;
+		bool save_data = true;
 		std::string filepath = "example_meii_robot_data_log.csv";
 
 		// construct robot data log
@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
 						}
 
 						// check for exit key
-						if (key == (int)KEY_ENTER) {
+						if (key == 13) {
 							stop = true;
 							save_data = false;
 						}
@@ -405,7 +405,7 @@ int main(int argc, char *argv[]) {
             // check for stop key
             int key_press = -1;
             key_press = get_key_nb();
-            if (key_press == (int)KEY_ENTER) {
+            if (key_press == 13) {
                 stop = true;
 				// save_data = (key_press == (int)KEY_ENTER) ? true : false;
 				save_data = true;

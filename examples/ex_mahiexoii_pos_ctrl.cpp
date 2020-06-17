@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
             // check for stop key
             int key_press = -1;
             key_press = get_key_nb();
-            if (key_press == (int)KEY_ENTER || key_press == (int)KEY_ESCAPE) {
+            if (key_press == 13) {
                 stop = true;
             }
 
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
             // check for stop key
             int key_press = -1;
             key_press = get_key_nb();
-            if (key_press == (int)KEY_ENTER || key_press == (int)KEY_ESCAPE) {
+            if (key_press == 13) {
                 stop = true;
             }
 
