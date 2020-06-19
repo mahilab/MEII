@@ -142,8 +142,8 @@ int main(int argc, char *argv[]) {
 
             // store most recent readings from DAQ
             for (int i = 0; i < meii.N_rj_; ++i) {
-                rj_positions[i] = meii.meii_joints[i].get_position();
-                rj_velocities[i] = meii.meii_joints[i].get_velocity();
+                rj_positions[i] = meii.meii_joints[i]->get_position();
+                rj_velocities[i] = meii.meii_joints[i]->get_velocity();
             }
             for (int i = 0; i < meii.N_aj_; ++i) {
                 aj_positions[i] = meii.get_anatomical_joint_position(i);
@@ -214,9 +214,9 @@ int main(int argc, char *argv[]) {
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
             for (std::size_t i = 0; i < meii.N_rj_; ++i) {
-                robot_log_row[3 * i + 1] = meii[i].get_position();
-                robot_log_row[3 * i + 2] = meii[i].get_velocity();
-                robot_log_row[3 * i + 3] = meii[i].get_torque_command();
+                robot_log_row[3 * i + 1] = meii[i]->get_position();
+                robot_log_row[3 * i + 2] = meii[i]->get_velocity();
+                robot_log_row[3 * i + 3] = meii[i]->get_torque_command();
             }
             robot_log.push_back(robot_log_row);
 
@@ -302,8 +302,8 @@ int main(int argc, char *argv[]) {
 
             // store most recent readings from DAQ
             for (int i = 0; i < meii.N_rj_; ++i) {
-                rj_positions[i] = meii[i].get_position();
-                rj_velocities[i] = meii[i].get_velocity();
+                rj_positions[i] = meii[i]->get_position();
+                rj_velocities[i] = meii[i]->get_velocity();
             }
             for (int i = 0; i < meii.N_aj_; ++i) {
                 aj_positions[i] = meii.get_anatomical_joint_position(i);
@@ -362,8 +362,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 // calculate anatomical command torques
-                command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-                command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+                command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0]->get_position(), 0, meii[0]->get_velocity());
+                command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1]->get_position(), 0, meii[1]->get_velocity());
                 // command_torques[0] = 0;
                 // command_torques[1] = 0;
                 for (int i = 0; i < meii.N_qs_; ++i) {
@@ -393,9 +393,9 @@ int main(int argc, char *argv[]) {
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
             for (std::size_t i = 0; i < meii.N_rj_; ++i) {
-                robot_log_row[3 * i + 1] = meii[i].get_position();
-                robot_log_row[3 * i + 2] = meii[i].get_velocity();
-                robot_log_row[3 * i + 3] = meii[i].get_torque_command();
+                robot_log_row[3 * i + 1] = meii[i]->get_position();
+                robot_log_row[3 * i + 2] = meii[i]->get_velocity();
+                robot_log_row[3 * i + 3] = meii[i]->get_torque_command();
             }
             robot_log.push_back(robot_log_row);
 

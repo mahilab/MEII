@@ -80,6 +80,10 @@
         "concepts": "cpp",
         "optional": "cpp",
         "cstdarg": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "clocale": "cpp",
+        "resumable": "cpp",
+        "forward_list": "cpp",
+        "variant": "cpp"
     }
 }

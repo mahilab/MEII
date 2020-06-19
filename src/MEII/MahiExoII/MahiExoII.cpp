@@ -27,9 +27,10 @@ namespace meii {
     // CONSTRUCTOR / DESTRUCTOR
     //-------------------------------------------------------------------------
 
-    MahiExoII::MahiExoII(MeiiConfiguration configuration, MeiiParameters parameters) :
+    MahiExoII::MahiExoII(MeiiConfiguration configuration, const bool is_virtual, MeiiParameters parameters) :
         Device("mahi_exo_ii"),
         config_(configuration),
+        m_is_virtual(is_virtual),
         params_(parameters)
     {
 
@@ -40,23 +41,30 @@ namespace meii {
             // set encoder counts
             config_.daq_.encoder.units[i] = (2 * PI / params_.encoder_res_[i]);
 
-            Joint joint("meii_joint_" + num,
-                        params_.eta_[i],
-                        &EncoderHandle(configuration.daq_.encoder,i),
-                        params_.eta_[i],
-                        configuration.daq_.velocity.velocities[i],
-                        params_.eta_[i],
-                        std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
-                        params_.vel_limits_[i],
-                        params_.joint_torque_limits[i],
-                        params_.kt_[i],
-                        config_.amp_gains_[i],
-                        Limiter(params_.motor_cont_limits_[i],
-                                params_.motor_peak_limits_[i],
-                                params_.motor_i2t_times_[i]),
-                        DOHandle(config_.daq_.DO,config_.enable_channels_[i]),
-                        config_.enable_values_[i],
-                        AOHandle(config_.daq_.AO,config_.current_write_channels_[i]));
+            auto ms_trq = std::make_shared<mahi::com::MelShare>(std::string("ms_torque_") + std::to_string(i+1));
+            auto ms_pos = std::make_shared<mahi::com::MelShare>(std::string("ms_posvel_") + std::to_string(i+1));
+
+            auto joint = std::make_shared<Joint>("meii_joint_" + num,
+                                                 params_.eta_[i],
+                                                 &EncoderHandle(configuration.daq_.encoder,i),
+                                                 params_.eta_[i],
+                                                 configuration.daq_.velocity.velocities[i],
+                                                 params_.eta_[i],
+                                                 std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
+                                                 params_.vel_limits_[i],
+                                                 params_.joint_torque_limits[i],
+                                                 params_.kt_[i],
+                                                 config_.amp_gains_[i],
+                                                 Limiter(params_.motor_cont_limits_[i],
+                                                            params_.motor_peak_limits_[i],
+                                                            params_.motor_i2t_times_[i]),
+                                                 DOHandle(config_.daq_.DO,config_.enable_channels_[i]),
+                                                 config_.enable_values_[i],
+                                                 AOHandle(config_.daq_.AO,config_.current_write_channels_[i]),
+                                                 m_is_virtual,
+                                                 ms_trq,
+                                                 ms_pos,
+                                                 rest_positions[i]);
 
             meii_joints.push_back(joint);
         }
@@ -80,6 +88,28 @@ namespace meii {
         if (is_enabled()) {
             disable();
         }
+    }
+
+    bool MahiExoII::on_enable() {
+        for(auto it = meii_joints.begin(); it != meii_joints.end(); ++it){
+            if (!(*it)->enable()){
+                LOG(Error) << "Failed to enable joints. Disabling MEII.";
+                disable();
+                return false;
+            } 
+        }
+        return true;
+    }
+
+    bool MahiExoII::on_disable() {
+        bool successful = true;
+        for(auto it = meii_joints.begin(); it != meii_joints.end(); ++it){
+            if (!(*it)->disable()){
+                LOG(Error) << "Failed to disable joints. Take proper precautions before handling.";
+                successful = false;
+            } 
+        }
+        return successful;
     }
 
     //-----------------------------------------------------------------------------
@@ -156,8 +186,8 @@ namespace meii {
                 for (std::size_t i = 0; i < 2; i++) {
 
                     // get positions and velocities
-                    double pos_act = meii_joints[i].get_position();
-                    double vel_act = meii_joints[i].get_velocity();
+                    double pos_act = meii_joints[i]->get_position();
+                    double vel_act = meii_joints[i]->get_velocity();
 
                     double torque = 0;
                     if (i == calibrating_joint) {
@@ -185,7 +215,7 @@ namespace meii {
                                 config_.daq_.encoder.write(i,encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
-                                pos_ref = meii_joints[i].get_position();
+                                pos_ref = meii_joints[i]->get_position();
                             }
                         }
 
@@ -201,7 +231,7 @@ namespace meii {
                                 calibrating_joint += 1;
                                 pos_ref = 0;
                                 returning = false;
-                                LOG(Info) << "Joint " << meii_joints[i].get_name() << " calibrated";
+                                LOG(Info) << "Joint " << meii_joints[i]->get_name() << " calibrated";
                             }
                         }
                     }
@@ -215,21 +245,21 @@ namespace meii {
                         }
                         torque = clamp(torque, sat_torques[i]);
                     }
-                    meii_joints[i].set_torque(torque);
+                    meii_joints[i]->set_torque(torque);
                 }
 
                 // set rps joint torques
                 for (std::size_t i = 0; i < 3; ++i) {
-					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, meii_joints[i + 2].get_position(), 0, meii_joints[i + 2].get_velocity());
+					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, meii_joints[i + 2]->get_position(), 0, meii_joints[i + 2]->get_velocity());
                     torque = clamp(torque, sat_torques[i]);
-                    meii_joints[i + 2].set_torque(torque);
+                    meii_joints[i + 2]->set_torque(torque);
 				}
             }
             else{
                 for (size_t i = 0; i < 2; i++){
-                    double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], meii_joints[i].get_position(), 0, meii_joints[i].get_velocity());
+                    double torque = robot_joint_pd_controllers_[i].calculate(neutral_points[i], meii_joints[i]->get_position(), 0, meii_joints[i]->get_velocity());
                     torque = clamp(torque, sat_torques[i]);
-                    meii_joints[i].set_torque(torque);
+                    meii_joints[i]->set_torque(torque);
                 }
 
                 std::vector<bool> par_moving = {true, true, true};
@@ -238,8 +268,8 @@ namespace meii {
                     double torque = 0;
                     int dof_num = i+2;
                     // get positions and velocities
-                    double pos_act = meii_joints[dof_num].get_position();
-                    double vel_act = meii_joints[dof_num].get_velocity();
+                    double pos_act = meii_joints[dof_num]->get_position();
+                    double vel_act = meii_joints[dof_num]->get_velocity();
                     
                     if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })) {
                         par_pos_ref[i] += dir[dof_num] * vel_ref[dof_num] * timer.get_period().as_seconds();
@@ -264,7 +294,7 @@ namespace meii {
                             for (size_t j = 0; j < 3; j++){
                                 config_.daq_.encoder.write(j+2,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
-                                par_pos_ref[j] = meii_joints[j+2].get_position();
+                                par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
                             par_returning = {true, true, true};
                         }
@@ -281,7 +311,7 @@ namespace meii {
                                 // reset for the next joint
                                 par_returning[i] = false;
                                 par_pos_ref[i] = 0;
-                                LOG(Info) << "Joint " << meii_joints[dof_num].get_name() << " calibrated";
+                                LOG(Info) << "Joint " << meii_joints[dof_num]->get_name() << " calibrated";
                                 if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })){
                                     stop = true;
                                 }
@@ -292,7 +322,7 @@ namespace meii {
                             torque = clamp(torque, sat_torques[dof_num]);
                         }
                     }
-                    meii_joints[dof_num].set_torque(torque);
+                    meii_joints[dof_num]->set_torque(torque);
                 }
             }
             
@@ -423,7 +453,7 @@ namespace meii {
                         command_torques[i] = 0.0;
                     }
                     else {
-                        command_torques[i] = robot_joint_pd_controllers_[i + 2].calculate(smooth_ref, meii_joints[i + 2].get_position(), 0, meii_joints[i + 2].get_velocity());
+                        command_torques[i] = robot_joint_pd_controllers_[i + 2].calculate(smooth_ref, meii_joints[i + 2]->get_position(), 0, meii_joints[i + 2]->get_velocity());
                     }
                 }
             }
@@ -470,7 +500,7 @@ namespace meii {
 
         default: print("WARNING: Invalid rps_control_mode_. Must be 0 or 1. Zero torques commanded.");
             for (int i = 0; i < N_qs_; ++i) {
-                meii_joints[i + 2].set_torque(0.0);
+                meii_joints[i + 2]->set_torque(0.0);
             }
         }
 
@@ -492,7 +522,7 @@ namespace meii {
                 command_torques[0] = 0.0;
             }
             else {
-                command_torques[0] = robot_joint_pd_controllers_[0].calculate(smooth_ref, meii_joints[0].get_position(), 0, meii_joints[0].get_velocity());
+                command_torques[0] = robot_joint_pd_controllers_[0].calculate(smooth_ref, meii_joints[0]->get_position(), 0, meii_joints[0]->get_velocity());
             }
         }
 
@@ -506,7 +536,7 @@ namespace meii {
                 command_torques[1] = 0.0;
             }
             else {
-                command_torques[1] = robot_joint_pd_controllers_[1].calculate(smooth_ref, meii_joints[1].get_position(), 0, meii_joints[1].get_velocity());
+                command_torques[1] = robot_joint_pd_controllers_[1].calculate(smooth_ref, meii_joints[1]->get_position(), 0, meii_joints[1]->get_velocity());
             }
         }
 
@@ -569,7 +599,7 @@ namespace meii {
     bool MahiExoII::any_velocity_limit_exceeded(){
         bool exceeded = false;
         for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
-            if (it->velocity_limit_exceeded())
+            if ((*it)->velocity_limit_exceeded())
                 exceeded = true;
         }
         return exceeded;
@@ -578,7 +608,7 @@ namespace meii {
     bool MahiExoII::any_torque_limit_exceeded(){
         bool exceeded = false;
         for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
-            if (it->torque_limit_exceeded())
+            if ((*it)->torque_limit_exceeded())
                 exceeded = true;
         }
         return exceeded;
@@ -586,7 +616,7 @@ namespace meii {
 
     void MahiExoII::set_joint_torques(std::vector<double> new_torques) {
         for (auto it = meii_joints.begin(); it != meii_joints.end(); ++it) {
-            it->set_torque(new_torques[it - meii_joints.begin()]);
+            (*it)->set_torque(new_torques[it - meii_joints.begin()]);
         }
     }
     
@@ -595,17 +625,17 @@ namespace meii {
     //-----------------------------------------------------------------------------
 
     void MahiExoII::update_kinematics() {
-
         // update q_par_ (q parallel) with the three prismatic link positions
-        q_par_ << meii_joints[2].get_position(), meii_joints[3].get_position(), meii_joints[4].get_position();
-        q_par_dot_ << meii_joints[2].get_velocity(), meii_joints[3].get_velocity(), meii_joints[4].get_velocity();
+
+        q_par_ << meii_joints[2]->get_position(), meii_joints[3]->get_position(), meii_joints[4]->get_position();
+        q_par_dot_ << meii_joints[2]->get_velocity(), meii_joints[3]->get_velocity(), meii_joints[4]->get_velocity();
 
         // run forward kinematics solver to update q_ser (q serial) and qp_ (q prime), which contains all 12 RPS positions
         forward_rps_kinematics_velocity(q_par_, q_ser_, qp_, rho_fk_, jac_fk_, q_par_dot_, q_ser_dot_, qp_dot_);
-
+        
         // get positions from first two anatomical joints, which have encoders
-        anatomical_joint_positions_[0] = meii_joints[0].get_position(); // elbow flexion/extension
-        anatomical_joint_positions_[1] = meii_joints[1].get_position(); // forearm pronation/supination
+        anatomical_joint_positions_[0] = meii_joints[0]->get_position(); // elbow flexion/extension
+        anatomical_joint_positions_[1] = meii_joints[1]->get_position(); // forearm pronation/supination
 
                                                                     // get positions from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_positions_[2] = q_ser_[0]; // wrist flexion/extension
@@ -613,8 +643,8 @@ namespace meii {
         anatomical_joint_positions_[4] = q_ser_[2]; // arm translation
 
                                                     // get velocities from first two anatomical joints, which have encoders
-        anatomical_joint_velocities_[0] = meii_joints[0].get_velocity(); // elbow flexion/extension
-        anatomical_joint_velocities_[1] = meii_joints[1].get_velocity(); // forearm pronation/supination
+        anatomical_joint_velocities_[0] = meii_joints[0]->get_velocity(); // elbow flexion/extension
+        anatomical_joint_velocities_[1] = meii_joints[1]->get_velocity(); // forearm pronation/supination
 
                                                                         // get velocities from forward kinematics solver for three wrist anatomical joints 
         anatomical_joint_velocities_[2] = q_ser_dot_[0]; // wrist flexion/extension
@@ -633,16 +663,16 @@ namespace meii {
     void MahiExoII::set_anatomical_joint_torques(std::vector<double> new_torques) {
 
         // set torques for first two anatomical joints, which have actuators
-        meii_joints[0].set_torque(new_torques[0]);
-        meii_joints[1].set_torque(new_torques[1]);
+        meii_joints[0]->set_torque(new_torques[0]);
+        meii_joints[1]->set_torque(new_torques[1]);
 
 
         // calculate the spectral norm of the transformation matrix
         Eigen::EigenSolver<Eigen::Matrix3d> eigensolver(jac_fk_.transpose() * jac_fk_, false);
         if (eigensolver.info() != Eigen::Success) {
-            meii_joints[2].set_torque(0.0);
-            meii_joints[3].set_torque(0.0);
-            meii_joints[4].set_torque(0.0);
+            meii_joints[2]->set_torque(0.0);
+            meii_joints[3]->set_torque(0.0);
+            meii_joints[4]->set_torque(0.0);
             //error_code_ = -1;
         }
         Eigen::EigenSolver<Eigen::Matrix3d>::EigenvalueType lambda = eigensolver.eigenvalues();
@@ -683,9 +713,10 @@ namespace meii {
         ser_torques(1) = new_torques[3];
         ser_torques(2) = new_torques[4];
         par_torques = jac_fk_.transpose()*ser_torques;
-        meii_joints[2].set_torque(par_torques(0));
-        meii_joints[3].set_torque(par_torques(1));
-        meii_joints[4].set_torque(par_torques(2));
+        // std::cout << par_torques(0) << ", " << par_torques(1) << ", " << par_torques(2) << "\n";
+        meii_joints[2]->set_torque(par_torques(0));
+        meii_joints[3]->set_torque(par_torques(1));
+        meii_joints[4]->set_torque(par_torques(2));
 
         // store parallel and serial joint torques for data logging
         tau_par_rob_ = par_torques;
@@ -695,7 +726,7 @@ namespace meii {
 
     void MahiExoII::set_rps_par_torques(std::vector<double>& tau_par) {
         for (int i = 0; i < N_qs_; ++i) {
-            meii_joints[i + 2].set_torque(tau_par[i]);
+            meii_joints[i + 2]->set_torque(tau_par[i]);
         }
 
         //tau_par_rob_ = copy_stdvec_to_eigvec(tau_par);
@@ -714,7 +745,7 @@ namespace meii {
         tau_par_rob_ = jac_fk_.transpose() * tau_ser_eig;
         for (int i = 0; i < N_qs_; ++i) {
             //meii_joints[i + 2]->set_torque(tau_par[i]);
-            meii_joints[i + 2].set_torque(tau_par_rob_[i]);
+            meii_joints[i + 2]->set_torque(tau_par_rob_[i]);
         }
         tau_ser_rob_ = -tau_ser_eig;
     }

@@ -90,33 +90,15 @@ namespace meii {
 
         };
 
-        // struct Joint {
-        //     mahi::robo::DcMotor* motor; /// pointer to the motor corresponding to the joint
-        //     mahi::daq::EncoderHandle* position_sensor; /// pointer to the encoder for the position sensor corresponding to the joint
-        //     mahi::daq::EncoderHandle* velocity_sensor; /// pointer to the encoder for the velocity sensor corresponding to the joint
-
-        //     double position; /// current position of the joint of the robot
-        //     double velocity; /// current velocity of the joint of the robot
-        //     double torque; /// current torque of the joint of the robot
-
-        //     double position_transmission; /// transmission ratio describing the multiplicative gain in position from PositionSensor space to Joint space, joint_position = position_transmission * sensed_position
-        //     double velocity_transmission; /// transmission
-        //     double torque_transmission; /// transmission ratio describing the multiplicative gain in torque from Joint space to Actuator space, actuator torque = actuator transmission * joint torque
-            
-        //     std::array<double,2> position_limits;
-        //     double velocity_limit;
-        //     double torque_limit;
-        // } ;
-
     public:
 
         /// Constructor
-        MahiExoII(MeiiConfiguration configuration, MeiiParameters parameters = MeiiParameters());
+        MahiExoII(MeiiConfiguration configuration, const bool is_virtual = false, MeiiParameters parameters = MeiiParameters());
 
         /// Destructor
         ~MahiExoII();
 
-        Joint& operator[](size_t joint_number){return meii_joints[joint_number];}
+        Joint* operator[](size_t joint_number){return meii_joints[joint_number].get();}
 
         void set_joint_torques(std::vector<double> new_torques);
 
@@ -127,7 +109,9 @@ namespace meii {
         void calibrate_auto(volatile std::atomic<bool>& stop_flag);
 
         /// Disables the robot and stops all smooth reference trajectories
-        // bool on_disable() override;
+        bool on_disable() override;
+
+        bool on_enable() override;
 
         // rps position control functions
         void set_rps_control_mode(int mode);
@@ -231,12 +215,14 @@ namespace meii {
 
         double get_anatomical_joint_velocity(int index) const {return anatomical_joint_velocities_[index];};
 
-        std::vector<Joint> meii_joints;
+        std::vector<std::shared_ptr<Joint>> meii_joints;
 
         MeiiConfiguration config_;
         const MeiiParameters params_;
 
         mahi::robo::DcMotor motors; ///< vector of motors belonging to MahiExoII
+
+        const bool m_is_virtual;
 
         // rps position controllers
         SmoothReferenceTrajectory rps_init_par_ref_;
@@ -288,6 +274,8 @@ namespace meii {
         std::vector<double> anatomical_joint_positions_;
         std::vector<double> anatomical_joint_velocities_;
         std::vector<double> anatomical_joint_torques_;
+
+        const std::vector<double> rest_positions = {-45*DEG2RAD, 0, 0.0952, 0.0952, 0.0952};
 
         // rps position control
         int rps_control_mode_ = 0; /// 0 = robot joint space (parallel), 1 = anatomical joint space (serial) with platform height backdrivable, 2 = anatomical joint space (serial) with all joints active

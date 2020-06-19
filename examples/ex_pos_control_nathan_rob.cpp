@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
 	// if -h, print the help option
 	if (result.count("help") > 0) {
-		print(options.help());
+		print_var(options.help());
 		return 0;
 	}
 
@@ -52,38 +52,21 @@ int main(int argc, char *argv[]) {
 	// construct Q8 USB and configure    
 	Q8Usb q8;
 	q8.open();
-	q8.DO.set_enable_values(std::vector<Logic>(8, High));
-	q8.DO.set_disable_values(std::vector<Logic>(8, High));
-	q8.DO.set_expire_values(std::vector<Logic>(8, High));
-	if (!q8.identify(7)) {
-		LOG(Error) << "Incorrect DAQ";
-		return 0;
-	}
+	std::vector<TTL> idle_values(8,TTL_HIGH);
+	q8.DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
+	q8.DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+	q8.DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
+
 	Time Ts = milliseconds(1); // sample period for DAQ
 
 	// create MahiExoII and bind Q8 channels to it
-	std::vector<Amplifier> amplifiers;
-	std::vector<double> amp_gains;
-	for (uint32 i = 0; i < 2; ++i) {
-		amplifiers.push_back(
-			Amplifier("meii_amp_" + std::to_string(i),
-				Low,
-				q8.DO[i + 1],
-				1.8,
-				q8.AO[i + 1])
-		);
-	}
-	for (uint32 i = 2; i < 5; ++i) {
-		amplifiers.push_back(
-			Amplifier("meii_amp_" + std::to_string(i),
-				Low,
-				q8.DO[i + 1],
-				0.184,
-				q8.AO[i + 1])
-		);
-	}
-	MeiiConfiguration config(q8, q8.watchdog, q8.encoder[{1, 2, 3, 4, 5}], amplifiers);
-	MahiExoII meii(config);
+    MeiiConfiguration config(q8, // daq q8
+                             {1, 2, 3, 4, 5}, // encoder channels (encoder)
+                             {1, 2, 3, 4, 5}, // enable channels (DO)
+                             {1, 2, 3, 4, 5}, // current write channels (AO)
+                             {TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW}, // enable values for motors
+                             {1.8, 1.8, 0.184, 0.184, 0.184}); // amplifier gains (A/V)
+    MahiExoII meii(config);
 
 	bool rps_is_init = false;
 
@@ -156,7 +139,7 @@ int main(int argc, char *argv[]) {
 			{ WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 15 * DEG2RAD, 0.09 }), WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD,-15 * DEG2RAD, 0.09 }) }
 		};
 		std::vector<Time> dmp_durations = { seconds(5.0), seconds(5.0), seconds(5.0), seconds(5.0) };
-		std::vector<double> traj_max_diff = { 50 * mel::DEG2RAD, 50 * mel::DEG2RAD, 25 * mel::DEG2RAD, 25 * mel::DEG2RAD, 0.1 };
+		std::vector<double> traj_max_diff = { 50 * DEG2RAD, 50 * DEG2RAD, 25 * DEG2RAD, 25 * DEG2RAD, 0.1 };
 		Time time_to_start = seconds(3.0);
 		Time dmp_Ts = milliseconds(50);
 
@@ -227,15 +210,15 @@ int main(int argc, char *argv[]) {
 		while (!stop) {
 
 			// update all DAQ input channels
-			q8.update_input();
+			q8.read_all();
 
 			// update MahiExoII kinematics
 			meii.update_kinematics();
 
 			// store most recent readings from DAQ
 			for (int i = 0; i < meii.N_rj_; ++i) {
-				rj_positions[i] = meii[i].get_position();
-				rj_velocities[i] = meii[i].get_velocity();
+				rj_positions[i] = meii.meii_joints[i]->get_position();
+				rj_velocities[i] = meii.meii_joints[i]->get_velocity();
 			}
 			for (int i = 0; i < meii.N_aj_; ++i) {
 				aj_positions[i] = meii.get_anatomical_joint_position(i);
@@ -261,12 +244,12 @@ int main(int argc, char *argv[]) {
 				if (!dof_selected) {
 
 					// check for number keypress
-					number_keypress = Keyboard::is_any_num_key_pressed();
+					number_keypress = get_key_nb();
 
-					if (number_keypress >= 0) {
+					if (number_keypress - '0' >= 0) {
 						if (keypress_refract_clock.get_elapsed_time() > keypress_refract_time) {
-							if (number_keypress > 0 && number_keypress <= 4) {
-								dof = (DoF)(number_keypress - 1);
+							if ((number_keypress - '0') > 0 && (number_keypress - '0') <= 4) {
+								dof = (DoF)((number_keypress - '0') - 1);
 								dof_selected = true;
 								LOG(Info) << dof_str[dof] << " selected.";
 
@@ -283,27 +266,28 @@ int main(int argc, char *argv[]) {
 
 				// prompt user for input to select which trajectory
 				if (dof_selected && !traj_selected) {
+					int key = get_key_nb();
 
 					// press D for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::D)) {
+					if (key == 'd') {
 						traj_selected = true;
 						traj_type = "dmp";
 					}
 
 					// press L for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::L)) {
+					if (key == 'l') {
 						traj_selected = true;
 						traj_type = "linear";
 					}
 
 					// press L for dmp trajectory
-					if (Keyboard::is_key_pressed(Key::M)) {
+					if (key == 'm') {
 						traj_selected = true;
 						traj_type = "min_jerk";
 					}
 
 					// check for exit key
-					if (Keyboard::is_key_pressed(Key::Escape)) {
+					if (key == 13) {
 						stop = true;
 						save_data = false;
 					}
@@ -397,12 +381,12 @@ int main(int argc, char *argv[]) {
 
 				// constrain trajectory to be within range
 				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
+				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
 				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
@@ -426,12 +410,12 @@ int main(int argc, char *argv[]) {
 
 				// constrain trajectory to be within range
 				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
+				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
 				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
@@ -509,12 +493,12 @@ int main(int argc, char *argv[]) {
 
 				// constrain trajectory to be within range
 				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
+				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
 				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
@@ -537,12 +521,12 @@ int main(int argc, char *argv[]) {
 
 					// constrain trajectory to be within range
 				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
-					ref[i] = saturate(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
+					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
-				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii[0].get_position(), 0, meii[0].get_velocity());
-				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii[1].get_position(), 0, meii[1].get_velocity());
+				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
+				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
 				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
@@ -600,19 +584,16 @@ int main(int argc, char *argv[]) {
 			ms_ref.write_data(ref);
 			
 			// update all DAQ output channels
-			q8.update_output();
+			q8.write_all();
 
-			// check for save key
-			if (Keyboard::is_key_pressed(Key::Enter)) {
-				stop = true;
+            // check for stop key
+            int key_press = -1;
+            key_press = get_key_nb();
+            if (key_press == 13) {
+                stop = true;
+				// save_data = (key_press == (int)KEY_ENTER) ? true : false;
 				save_data = true;
-			}
-
-			// check for exit key
-			if (Keyboard::is_key_pressed(Key::Escape)) {
-				stop = true;
-				save_data = false;
-			}
+            }
 
 			// store the time and ref data to log to a csv
 			robot_log_row[0] = timer.get_elapsed_time().as_seconds();
@@ -637,13 +618,17 @@ int main(int argc, char *argv[]) {
 	// save the data if the user wants
 	if (save_data) {
 		print("Do you want to save the robot data log? (Y/N)");
-		Key key = Keyboard::wait_for_any_keys({ Key::Y, Key::N });
-		if (key == Key::Y) {
-			csv_append_rows(filepath, robot_log);
+		int key_pressed = 0;
+		while (key_pressed != 'y' && key_pressed != 'n'){
+			key_pressed = get_key();
 		}
+		if (key_pressed == 'y'){
+			csv_write_row(filepath, header);
+			csv_append_rows(filepath, robot_log);
+		} 
 	}
 
 	disable_realtime();
-	Keyboard::clear_console_input_buffer();
+	while (get_key_nb() != 0);
 	return 0;
 }

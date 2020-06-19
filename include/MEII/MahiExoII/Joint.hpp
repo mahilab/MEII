@@ -19,6 +19,7 @@
 
 #include <Mahi/Robo/Mechatronics/DcMotor.hpp>
 #include <Mahi/Daq/Handle.hpp>
+#include <Mahi/Com/MelShare.hpp>
 #include <array>
 #include <memory>
 
@@ -45,16 +46,20 @@ public:
           mahi::robo::Limiter limiter,
           mahi::daq::DOHandle motor_enable_handle,
           mahi::daq::TTL motor_enable_value,
-          mahi::daq::AOHandle amp_write_handle);
+          mahi::daq::AOHandle amp_write_handle,
+          const bool is_virtual,
+          std::shared_ptr<mahi::com::MelShare> ms_trq,
+          std::shared_ptr<mahi::com::MelShare> ms_pos,
+          const double rest_pos);
 
     /// returns motor name
     std::string get_name() {return m_name;};
     
     /// Converts PositionSensor position to Joint position
-    double get_position() {return m_position_transmission*m_position_sensor->get_pos();};
+    double get_position();
 
     /// Converts PositionSensor velocity to Joint velocity
-    double get_velocity() {return m_velocity_transmission*m_velocity_sensor;};
+    double get_velocity();
 
     /// Returns the currently set joint torque
     double get_torque_command() {return m_torque;};
@@ -78,7 +83,6 @@ public:
     /// and returns true if either exceeded, false otherwise
     bool any_limit_exceeded();
 
-private:
     /// Enables the joint's position sensor, velocity sensor, and actuator
     bool enable();
 
@@ -105,6 +109,11 @@ private:
     double m_motor_kt; // motor gian in T/A
     double m_amp_gain; // amplifier gain A/V
 
+    const double m_rest_pos; // value to send if there is no melshare available
+
+    std::shared_ptr<mahi::com::MelShare> ms_torque; // melshare to send torque to simulation
+    std::shared_ptr<mahi::com::MelShare> ms_posvel; // melshare to receive position and velocity from simulation
+
     mahi::robo::Limiter m_limiter; // limiter that handles the limiting of the joint based on I^2t values
 
     mahi::daq::DOHandle m_motor_enable_handle; // DO channel used to control if motor is enabled/disabled
@@ -113,14 +122,16 @@ private:
 
     bool saturate_;  // command torques will be saturated at the torque limit if this is true
 
+    const bool m_is_virtual; // determines whether information is read from/sent to the daq or the melshare
+
     double m_torque_limit;  // the absolute limit on torque that should be allowed to the Joint
 
     std::array<double, 2> m_position_limits; // the [min, max] position limits of the Joint
     double m_velocity_limit;  // the absolute limit on the Joint's velocity
 
-    bool has_torque_limit_    = false;  // whether or not the Joint should enforce torque limits
-    bool has_position_limits_ = false;  // whether or not the Joint should check position limits
-    bool has_velocity_limit_  = false;  // whether or not the Joint should check velocity limits
+    bool has_torque_limit_    = true;  // whether or not the Joint should enforce torque limits
+    bool has_position_limits_ = true;  // whether or not the Joint should check position limits
+    bool has_velocity_limit_  = true;  // whether or not the Joint should check velocity limits
 
     bool m_enabled = false;
 };
