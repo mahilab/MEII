@@ -180,13 +180,13 @@ int main(int argc, char *argv[]) {
 		Time wait_at_extreme_time = seconds(1);
 
 		// create data containers
-		std::vector<double> rj_positions(meii.N_rj_);
-		std::vector<double> rj_velocities(meii.N_rj_);
-		std::vector<double> aj_positions(meii.N_aj_);
-		std::vector<double> aj_velocities(meii.N_aj_);
-		std::vector<double> command_torques(meii.N_aj_, 0.0);
-		std::vector<double> rps_command_torques(meii.N_qs_, 0.0);
-		std::vector<double> ref(meii.N_aj_, 0.0);
+		std::vector<double> rj_positions(meii.n_rj);
+		std::vector<double> rj_velocities(meii.n_rj);
+		std::vector<double> aj_positions(meii.n_aj);
+		std::vector<double> aj_velocities(meii.n_aj);
+		std::vector<double> command_torques(meii.n_aj, 0.0);
+		std::vector<double> rps_command_torques(meii.n_qs, 0.0);
+		std::vector<double> ref(meii.n_aj, 0.0);
 
 		// enable DAQ and exo
 		q8.enable();
@@ -216,11 +216,11 @@ int main(int argc, char *argv[]) {
 			meii.update_kinematics();
 
 			// store most recent readings from DAQ
-			for (int i = 0; i < meii.N_rj_; ++i) {
+			for (int i = 0; i < meii.n_rj; ++i) {
 				rj_positions[i] = meii.meii_joints[i]->get_position();
 				rj_velocities[i] = meii.meii_joints[i]->get_velocity();
 			}
-			for (int i = 0; i < meii.N_aj_; ++i) {
+			for (int i = 0; i < meii.n_aj; ++i) {
 				aj_positions[i] = meii.get_anatomical_joint_position(i);
 				aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
 			}
@@ -232,12 +232,12 @@ int main(int argc, char *argv[]) {
 				// update ref, though not being used
 				ref = meii.get_anatomical_joint_positions();
 
-				for (size_t i = 0; i < meii.N_aj_; i++){
+				for (size_t i = 0; i < meii.n_aj; i++){
 					command_torques[i] = 0.0;
 				}
 
 				// command zero torque
-				meii.set_joint_torques(command_torques);
+				meii.set_robot_raw_joint_torques(command_torques);
 
 				int number_keypress;
 				//bool save_data = true;
@@ -318,16 +318,16 @@ int main(int argc, char *argv[]) {
 					ref = meii.get_anatomical_joint_positions();
 
 					// calculate commanded torques
-					rps_command_torques = meii.set_rps_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
+					rps_command_torques = meii.set_robot_smooth_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
 					std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 				}
 				else {
 					// set zero torque
-					for (size_t i = 0; i < meii.N_aj_; i++) {
+					for (size_t i = 0; i < meii.n_aj; i++) {
 						command_torques[i] = 0.0;
 					}
 					// command zero torque
-					meii.set_joint_torques(command_torques);
+					meii.set_robot_raw_joint_torques(command_torques);
 				}
 
 				// check for RPS Initialization target reached
@@ -337,7 +337,6 @@ int main(int argc, char *argv[]) {
 					state = 2;
 					if (!rps_is_init) {
 						LOG(Info) << "RPS initialization complete.";
-						meii.set_rps_control_mode(2); // platform height NON-backdrivable   
 					}
 					
 					rps_is_init = true;
@@ -380,20 +379,20 @@ int main(int argc, char *argv[]) {
 				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
 				// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				for (std::size_t i = 0; i < meii.n_aj; ++i) {
 					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (std::size_t i = 0; i < meii.n_qs; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
 				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
+				meii.set_anatomical_raw_joint_torques(command_torques);
 
 				// check for end of trajectory
 				if (ref_traj_clock.get_elapsed_time() > ref_traj.back().when()) {
@@ -409,20 +408,20 @@ int main(int argc, char *argv[]) {
 			case 3: // wait at neutral position
 
 				// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				for (std::size_t i = 0; i < meii.n_aj; ++i) {
 					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (std::size_t i = 0; i < meii.n_qs; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
 				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
+				meii.set_anatomical_raw_joint_torques(command_torques);
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() > wait_at_neutral_time) {
@@ -492,20 +491,20 @@ int main(int argc, char *argv[]) {
 				ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
 				// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				for (std::size_t i = 0; i < meii.n_aj; ++i) {
 					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (std::size_t i = 0; i < meii.n_qs; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
 				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
+				meii.set_anatomical_raw_joint_torques(command_torques);
 
 				// check for end of trajectory
 				if (ref_traj_clock.get_elapsed_time() > ref_traj.back().when()) {
@@ -520,20 +519,20 @@ int main(int argc, char *argv[]) {
 			case 5: // wait at extreme position
 
 					// constrain trajectory to be within range
-				for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+				for (std::size_t i = 0; i < meii.n_aj; ++i) {
 					ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
 				}
 
 				// calculate anatomical command torques
 				command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.meii_joints[0]->get_position(), 0, meii.meii_joints[0]->get_velocity());
 				command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.meii_joints[1]->get_position(), 0, meii.meii_joints[1]->get_velocity());
-				for (std::size_t i = 0; i < meii.N_qs_; ++i) {
+				for (std::size_t i = 0; i < meii.n_qs; ++i) {
 					rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
 				}
 				std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
 				// set anatomical command torques
-				meii.set_anatomical_joint_torques(command_torques);
+				meii.set_anatomical_raw_joint_torques(command_torques);
 
 				// check for wait period to end
 				if (state_clock.get_elapsed_time() > wait_at_extreme_time) {

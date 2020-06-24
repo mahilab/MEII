@@ -36,23 +36,16 @@ namespace meii {
             //                    JOINT 0             JOINT 1             JOINT 2             JOINT 3             JOINT 4
             kt_{                       0.127,        0.0603,           0.175,           0.175,           0.175 }, // [Nm/A]
             motor_cont_limits_{          6.0,          3.17,           0.626,           0.626,           0.626 }, // [A]
-            motor_peak_limits_{         18.0,          18.0,             1.8,             1.8,             1.8 },   // [A]
+            motor_peak_limits_{         18.0,          18.0,             1.8,             1.8,             1.8 }, // [A]
             motor_i2t_times_{   seconds(2.0),  seconds(2.0),    seconds(2.0),    seconds(2.0),    seconds(2.0) }, // [s]
             eta_{                 0.42 / 4.5,     0.0662864, 0.23*INCH2METER, 0.23*INCH2METER, 0.23*INCH2METER }, // [inch/inch] or [m]
-            encoder_res_{               2048,          2048,            2048,            2048,            2048 },  // [counts/rev]
+            encoder_res_{               2048,          2048,            2048,            2048,            2048 }, // [counts/rev]
             pos_limits_min_{ -91.5 * DEG2RAD, -99 * DEG2RAD,           0.050,           0.050,           0.050 }, // [rad] or [m]
             pos_limits_max_{   3.0 * DEG2RAD, 108 * DEG2RAD,           0.133,           0.133,           0.133 }, // [rad] or [m]
             vel_limits_{       250 * DEG2RAD, 300 * DEG2RAD,             0.4,             0.4,             0.4 }, // [rad/s] or [m/s]
             joint_torque_limits{        10.0,          10.0,            50.0,            50.0,            50.0 }, // [Nm] or [N]
             kin_friction_{               0.0,           0.0,             0.0,             0.0,             0.0 }  // [Nm] or [N]
-        {
-            //calib_mat_[0] = { 0.45676,   0.37263,   2.84454, -95.32922,  -1.60986,  93.56974 };
-            //calib_mat_[1] = { -10.00557, 107.83272,   2.80461, -54.50607,   2.67834, -55.04209 };
-            //calib_mat_[2] = { 133.67479,   5.88886, 131.55424,   5.44438, 134.55104,   5.69414 };
-            //calib_mat_[3] = { -0.02942,   0.74195,  -2.11485,  -0.48201,   2.19007,  -0.27703 };
-            //calib_mat_[4] = { 2.49045,   0.12279,  -1.26019,   0.59413,  -1.30218,  -0.70275 };
-            //calib_mat_[5] = { 0.07348,  -1.36804,   0.08441,  -1.41171,   0.05780,  -1.37930 };
-        }
+        { }
 
 
 
@@ -78,8 +71,6 @@ namespace meii {
         std::array<double, 5> joint_torque_limits;
         /// joint kinetic friction [Nm] or [N]
         std::array<double, 5> kin_friction_;
-        /// AtiMini45 sensor calibration matrix
-        //mel::array_2D<double, 6, 6> calib_mat_;
     };
 
 } // namespace meii

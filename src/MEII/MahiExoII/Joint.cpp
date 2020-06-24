@@ -108,7 +108,7 @@ void Joint::set_torque(double new_torque) {
             m_amp_write_handle.set_volts(command_voltage);
         }
         else{
-            ms_torque->write_data({m_torque/2});
+            ms_torque->write_data({m_torque});
         }
     }
 }

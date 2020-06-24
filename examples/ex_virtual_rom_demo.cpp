@@ -36,6 +36,10 @@ void to_state(state& current_state_, const state next_state_, WayPoint current_p
     current_position_.set_time(seconds(0));
     new_position_.set_time(traj_length_);
     mj_.set_endpoints(current_position_, new_position_);
+    // for (size_t i = 0; i < int(traj_length_.as_seconds()/0.025); i++){
+    //     std::cout << i*0.025 << ": " << mj_.trajectory().at_time(seconds(i*0.025))[0] << "\n";
+    // }
+    
     if (!mj_.trajectory().validate()) {
         LOG(Warning) << "Minimum Jerk trajectory invalid.";
         stop = true;
@@ -70,8 +74,6 @@ int main(int argc, char* argv[]) {
     // enable Windows realtime
     enable_realtime();
 
-    double scale_factor = 1;
-
     /////////////////////////////////
     // construct Q8 USB and configure
     /////////////////////////////////
@@ -100,6 +102,7 @@ int main(int argc, char* argv[]) {
                              {1, 2, 3, 4, 5}, // current write channels (AO)
                              {TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW}, // enable values for motors
                              {1.8, 1.8, 0.184, 0.184, 0.184}); // amplifier gains (A/V)
+
     MahiExoII meii(config, is_virtual);
 
     bool rps_is_init = false;
@@ -129,13 +132,13 @@ int main(int argc, char* argv[]) {
                                      // state 0    // state 1    // state 2    // state 3    // state 4    // state 5    // state 6
     std::vector<Time> state_times = {seconds(2.0), seconds(2.0), seconds(4.0), seconds(2.0), seconds(1.0), seconds(4.0), seconds(1.0)};
 
-    std::vector<double> ref;
-
     // setup trajectories
 
     double t = 0;
 
     Time mj_Ts = milliseconds(50);
+
+    std::vector<double> ref;
 
     // waypoints                                   Elbow F/E       Forearm P/S   Wrist F/E     Wrist R/U     LastDoF
     WayPoint neutral_point = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.09});
@@ -177,9 +180,10 @@ int main(int argc, char* argv[]) {
 	
 	// enable DAQ and exo
 	if(!is_virtual) q8.enable();
-	meii.enable();
 	
-	if(!is_virtual) q8.watchdog.start();
+    meii.enable();
+	
+	if(!is_virtual) q8.watchdog.start();    
 
     // trajectory following
     if (result.count("multi") > 0 || result.count("no_torque") > 0) {
@@ -198,105 +202,60 @@ int main(int argc, char* argv[]) {
             if(!is_virtual) q8.read_all();
 
             // update MahiExoII kinematics
-            
             meii.update_kinematics();
-
-            for (int i = 0; i < meii.N_aj_; ++i) {
-                aj_positions[i] = meii.get_anatomical_joint_position(i);
-                aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
-            }
 
             if (current_state != wrist_circle) {
                 // update reference from trajectory
-                ref = mj.trajectory().at_time(seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor));
+                ref = mj.trajectory().at_time(ref_traj_clock.get_elapsed_time());
             } 
 			else {
                 ref[0] = neutral_point.get_pos()[0];
                 ref[1] = neutral_point.get_pos()[1];
-                ref[2] = 15.0 * DEG2RAD * sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle] / scale_factor);
-                ref[3] = 15.0 * DEG2RAD * cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle] / scale_factor);
+                ref[2] = 15.0 * DEG2RAD * sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
+                ref[3] = 15.0 * DEG2RAD * cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
                 ref[4] = neutral_point.get_pos()[4];
             }
 
             // constrain trajectory to be within range
-            for (std::size_t i = 0; i < meii.N_aj_; ++i) {
+            for (std::size_t i = 0; i < meii.n_aj; ++i) {
                 ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
             }
             
             // calculate anatomical command torques
-            command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], aj_positions[0], 0, meii.meii_joints[0]->get_velocity());
-            command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], aj_positions[1], 0, meii.meii_joints[1]->get_velocity());
-            for (std::size_t i = 0; i < meii.N_qs_; ++i) {
-                rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], aj_positions[i + 2], 0, aj_velocities[i + 2]);
-            }
-            std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
-
             if (result.count("no_torque") > 0){
                 command_torques = {0.0, 0.0, 0.0, 0.0, 0.0};
+                meii.set_anatomical_raw_joint_torques(command_torques);
+            }
+            else{
+                command_torques = meii.set_anat_pos_ctrl_torques(ref);
             }
 
-            // std::cout << "time: " << t/scale_factor << ", ref: " << ref[0] << ", pos: " << aj_positions[0] << ", vel: " << aj_velocities[0] << ", trq:" << command_torques[0] << std::endl;
-            // std::cout << command_torques[2] << ", " << command_torques[3] << ", " << command_torques[4] << "\n";
-            // std::cout << command_torques << "\n";
-            
-            // set anatomical command torques
-            meii.set_anatomical_joint_torques(command_torques);
+            // if enough time has passed, continue to the next state. See to_state function at top of file for details
+            if (ref_traj_clock.get_elapsed_time() > state_times[current_state]) {
 
-            switch (current_state) {
-                case to_neutral_0:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                switch (current_state) {
+                    case to_neutral_0:
                         to_state(current_state, to_bottom_elbow, neutral_point, bottom_elbow, state_times[to_bottom_elbow], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case to_bottom_elbow:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                        break;
+                    case to_bottom_elbow:
                         to_state(current_state, to_top_elbow, bottom_elbow, top_elbow, state_times[to_top_elbow], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case to_top_elbow:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                        break;
+                    case to_top_elbow:
                         to_state(current_state, to_neutral_1, top_elbow, neutral_point, state_times[to_neutral_1], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case to_neutral_1:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                        break;
+                    case to_neutral_1:
                         to_state(current_state, to_top_wrist, neutral_point, top_wrist, state_times[to_top_wrist], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case to_top_wrist:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                        break;
+                    case to_top_wrist:
                         to_state(current_state, wrist_circle, top_wrist, top_wrist, state_times[wrist_circle], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case wrist_circle:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
-                        // if enough time has passed, continue to the next state. See to_state function at top of file for details
+                        break;
+                    case wrist_circle:
                         to_state(current_state, to_neutral_2, top_wrist, neutral_point, state_times[to_neutral_2], mj, ref_traj_clock);
-                    }
-                    break;
-
-                case to_neutral_2:
-
-                    if (seconds(ref_traj_clock.get_elapsed_time().as_seconds()/scale_factor) > state_times[current_state]) {
+                        break;
+                    case to_neutral_2:
                         stop = true;
-                    }
-                    break;
+                        break;
+                }
             }
 
             // update all DAQ output channels
@@ -307,9 +266,8 @@ int main(int argc, char* argv[]) {
             if (kick_failure || meii.any_limit_exceeded()) {
                 stop = true;
             }
-            
+
             ms_ref.write_data(ref);
-            ms_pos.write_data(aj_positions);
 
             // wait for remainder of sample period
             t = timer.wait().as_seconds();
@@ -319,10 +277,10 @@ int main(int argc, char* argv[]) {
         if(!is_virtual) q8.disable();
     }
 
+    disable_realtime();
+
     // clear console buffer
     while (get_key_nb() != 0);
-
-    disable_realtime();
 
     return 0;
 }

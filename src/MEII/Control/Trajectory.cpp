@@ -54,6 +54,7 @@ namespace meii {
         std::size_t before = after > 0 ? after - 1 : after;
         switch (interp_method) {
         case Interp::Linear:
+            // std::cout <<instant.as_seconds() << ": " << before << ", " << waypoints_[before][0] << " -- " << after << ", " << waypoints_[after][0] << "\n";
             return linear_time_interpolate(waypoints_[before], waypoints_[after], instant).get_pos();
             break;
         default:
@@ -319,7 +320,7 @@ namespace meii {
         for (std::size_t i = 0; i < initial.get_dim(); ++i) {
             interp_point[i] = initial[i] + (t.as_seconds() - initial.when().as_seconds()) * (final[i] - initial[i]) / (final.when().as_seconds() - initial.when().as_seconds());
         }
-
+        // std::cout << t.as_seconds() << ": " << (interp_point[0]) <<  ", " << final[0] << ", " << initial[0] << "\n";
         return interp_point;
     }
 
