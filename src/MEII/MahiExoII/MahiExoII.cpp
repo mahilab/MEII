@@ -157,7 +157,7 @@ namespace meii {
             print("ERROR: ref_pos is wrong size for the trajectory");
         }
         else {
-            for (size_t i = 0; i < ref_pos.size(); ++i) {
+            for (auto i = 0; i < ref_pos.size(); ++i) {
                 prev_ref_[i] = calculate_smooth_ref(i, current_time);
             }
             ref_ = ref_pos;

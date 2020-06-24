@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.in": "cmake",
         "vector": "cpp",
         "algorithm": "cpp",
         "array": "cpp",
@@ -77,6 +78,7 @@
         "queue": "cpp",
         "set": "cpp",
         "xcomplex": "cpp",
+<<<<<<< HEAD
         "concepts": "cpp",
         "optional": "cpp",
         "cstdarg": "cpp",
@@ -86,4 +88,46 @@
         "forward_list": "cpp",
         "variant": "cpp"
     }
+=======
+        "clocale": "cpp",
+        "cstdarg": "cpp",
+        "cwctype": "cpp",
+        "stack": "cpp",
+        "xfunctional": "cpp",
+        "*.tcc": "cpp",
+        "concepts": "cpp"
+    },
+    "cSpell.enabledLanguageIds": [
+        "asciidoc",
+        "c",
+        "csharp",
+        "css",
+        "git-commit",
+        "go",
+        "handlebars",
+        "html",
+        "jade",
+        "java",
+        "javascript",
+        "javascriptreact",
+        "json",
+        "jsonc",
+        "latex",
+        "less",
+        "markdown",
+        "php",
+        "plaintext",
+        "pug",
+        "python",
+        "restructuredtext",
+        "rust",
+        "scala",
+        "scss",
+        "text",
+        "typescript",
+        "typescriptreact",
+        "yaml",
+        "yml"
+    ]
+>>>>>>> 42a9caa1168424b943d9d0028d680f98f5978319
 }
