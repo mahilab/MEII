@@ -67,8 +67,11 @@ set(SRC_MEII
     src/MEII/Control/Trajectory.cpp
     src/MEII/Control/Waypoint.cpp
     src/MEII/MahiExoII/Joint.cpp
+    src/MEII/MahiExoII/JointHardware.cpp
+    src/MEII/MahiExoII/JointVirtual.cpp
     src/MEII/MahiExoII/MahiExoII.cpp
-    src/MEII/MahiExoII/MeiiConfiguration.cpp)
+    src/MEII/MahiExoII/MahiExoIIHardware.cpp
+    src/MEII/MahiExoII/MahiExoIIVirtual.cpp)
 
 file(GLOB_RECURSE INC_MEII "include/*.hpp")
 

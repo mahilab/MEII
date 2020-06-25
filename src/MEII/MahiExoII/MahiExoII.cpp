@@ -1,6 +1,5 @@
 #include <MEII/MahiExoII/MahiExoII.hpp>
 #include <MEII/MahiExoII/Joint.hpp>
-#include <MEII/MahiExoII/MeiiConfiguration.hpp>
 #include <Mahi/Daq/Quanser/Q8Usb.hpp>
 #include <Mahi/Util/Math/Functions.hpp>
 #include <Mahi/Util/Timing/Timer.hpp>
@@ -23,47 +22,10 @@ namespace meii {
 
     ///////////////////////// STANDARD CLASS FUNCTIONS AND PARAMS /////////////////////////
 
-    MahiExoII::MahiExoII(MeiiConfiguration configuration, const bool is_virtual, MeiiParameters parameters) :
+    MahiExoII::MahiExoII(MeiiParameters parameters) :
         Device("mahi_exo_ii"),
-        config_(configuration),
-        m_is_virtual(is_virtual),
         params_(parameters)
     {
-
-        for (int i = 0; i < n_rj; ++i) {
-
-            std::string num = std::to_string(i);
-
-            // set encoder counts
-            config_.daq_.encoder.units[i] = (2 * PI / params_.encoder_res_[i]);
-
-            auto ms_trq = std::make_shared<mahi::com::MelShare>(std::string("ms_torque_") + std::to_string(i+1));
-            auto ms_pos = std::make_shared<mahi::com::MelShare>(std::string("ms_posvel_") + std::to_string(i+1));
-
-            auto joint = std::make_shared<Joint>("meii_joint_" + num,
-                                                 params_.eta_[i],
-                                                 &EncoderHandle(configuration.daq_.encoder,i),
-                                                 params_.eta_[i],
-                                                 configuration.daq_.velocity.velocities[i],
-                                                 params_.eta_[i],
-                                                 std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
-                                                 params_.vel_limits_[i],
-                                                 params_.joint_torque_limits[i],
-                                                 params_.kt_[i],
-                                                 config_.amp_gains_[i],
-                                                 Limiter(params_.motor_cont_limits_[i],
-                                                            params_.motor_peak_limits_[i],
-                                                            params_.motor_i2t_times_[i]),
-                                                 DOHandle(config_.daq_.DO,config_.enable_channels_[i]),
-                                                 config_.enable_values_[i],
-                                                 AOHandle(config_.daq_.AO,config_.current_write_channels_[i]),
-                                                 m_is_virtual,
-                                                 ms_trq,
-                                                 ms_pos,
-                                                 rest_positions[i]);
-
-            meii_joints.push_back(joint);
-        }
 
         for (int i = 0; i < n_aj; i++) {
             m_anatomical_joint_positions.push_back(0.0);
@@ -107,12 +69,12 @@ namespace meii {
 
     void MahiExoII::calibrate(volatile std::atomic<bool>& stop) {
         //enable DAQ
-        config_.daq_.enable();
+        daq_enable();
         std::vector<int32> encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
         for (int i = 0; i < n_rj; i++) {
-            config_.daq_.encoder.write(i, encoder_offsets[i]);
+            daq_encoder_write(i, encoder_offsets[i]);
         }
-        config_.daq_.disable();
+        daq_disable();
         stop = true;
     }
 
@@ -671,11 +633,11 @@ namespace meii {
         Time timeout = seconds(45); // max amout of time we will allow calibration to occur for
 
         // enable DAQs, zero encoders, and start watchdog
-        config_.daq_.enable();
+        daq_enable();
         for (size_t i = 0; i < 5; i++){
-            config_.daq_.encoder.zero(i);
+            daq_encoder_write(i,0);
         }
-        config_.daq_.watchdog.start();
+        daq_watchdog_start();
 
         // enable MEII
         enable();
@@ -687,8 +649,8 @@ namespace meii {
         while (!stop && timer.get_elapsed_time() < timeout) {
 
             // read and reload DAQs
-            config_.daq_.read_all();
-            config_.daq_.watchdog.kick();
+            daq_read_all();
+            daq_watchdog_kick();
 
             if (calibrating_joint < 2){
                 // iterate over all joints
@@ -721,7 +683,7 @@ namespace meii {
 
                             // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                             if (!moving) {
-                                config_.daq_.encoder.write(i,encoder_offsets[i]);
+                                daq_encoder_write(i,encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
                                 pos_ref = meii_joints[i]->get_position();
@@ -801,7 +763,7 @@ namespace meii {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                config_.daq_.encoder.write(j+2,encoder_offsets[j+2]);
+                                daq_encoder_write(j+2,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
                                 par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
@@ -836,7 +798,7 @@ namespace meii {
             }
             
             // write all DAQs
-            config_.daq_.write_all();
+            daq_write_all();
 
             // check joint velocity limits
             if (any_velocity_limit_exceeded() || any_torque_limit_exceeded()) {
@@ -852,7 +814,7 @@ namespace meii {
         disable();
 
         // disable DAQ
-        config_.daq_.disable();
+        daq_disable();
     }
 
     ///////////////////////////////////////////////////

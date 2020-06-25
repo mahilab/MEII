@@ -1,7 +1,7 @@
 // MIT License
 //
-// MEII - MAHI Exo-II Extension of MEL, the MAHI Exoskeleton Library
-// Copyright (c) 2018 Mechatronics and Haptic Interfaces Lab - Rice University
+// MEII - MAHI Exo-II Library
+// Copyright (c) 2020 Mechatronics and Haptic Interfaces Lab - Rice University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -17,12 +17,11 @@
 
 #pragma once
 
-#include <MEII/MahiExoII/MeiiConfiguration.hpp>
 #include <MEII/MahiExoII/MeiiParameters.hpp>
 #include <MEII/MahiExoII/Joint.hpp>
-#include <Mahi/Robo/Mechatronics/DcMotor.hpp>
 #include <Mahi/Robo/Control/PdController.hpp>
 #include <Mahi/Util/Timing/Time.hpp>
+#include <Mahi/Util/Device.hpp>
 #include <array>
 #include <vector>
 #include <atomic>
@@ -39,7 +38,7 @@ namespace meii {
     
     public:
         /// Constructor
-        MahiExoII(MeiiConfiguration configuration, const bool is_virtual = false, MeiiParameters parameters = MeiiParameters());
+        MahiExoII(MeiiParameters parameters = MeiiParameters());
         /// Destructor
         ~MahiExoII();
         /// returns a pointer to robot joint [i]
@@ -54,16 +53,11 @@ namespace meii {
         bool on_enable() override;
 
         std::vector<std::shared_ptr<Joint>> meii_joints; // vector of shared pointer of meii joints
-        MeiiConfiguration config_;                       // meii configuration, consisting of daq, parameters, etc
         const MeiiParameters params_;                    // parameters used to control the meii
 
         std::string name_;                 // name of the MEII based on the device
         static const std::size_t n_aj = 5; // number of anatomical joints
         static const std::size_t n_rj = 5; // number of robotic joints
-
-    private:
-        const bool m_is_virtual; // bool representing whether the exo is working with sim or hardware
-        const std::vector<double> rest_positions = {-45*DEG2RAD, 0, 0.0952, 0.0952, 0.0952}; // rest positions for joints when the robot should be virtual, but there is no virtual MEII available
 
     ///////////////////////// SMOOTH REFERENCE TRAJECTORY CLASS AND INSTANCES /////////////////////////
 
@@ -312,5 +306,26 @@ namespace meii {
         std::vector<double> copy_eigvec_to_stdvec(const Eigen::VectorXd& eigen_vec);
         /// converts a std vector to an eigen vector
         Eigen::VectorXd copy_stdvec_to_eigvec(const std::vector<double>& std_vec);
+
+    //////////////// PURE VIRTUAL FUNCTIONS FOR DERIVED CLASSES ////////////////
+    public:
+        /// enables the daq
+        virtual bool daq_enable()=0;
+        /// disables the daq
+        virtual bool daq_disable()=0;
+        /// opens the daq
+        virtual bool daq_open()=0;
+        /// closes the daq
+        virtual bool daq_close()=0;
+        /// starts the watchdog on the daq
+        virtual bool daq_watchdog_start()=0;
+        /// starts the watchdog on the daq
+        virtual bool daq_watchdog_kick()=0;
+        /// reads all from the daq
+        virtual bool daq_read_all()=0;
+        /// writes all from the daq
+        virtual bool daq_write_all()=0;
+        /// sets encoders to input position (in counts)
+        virtual bool daq_encoder_write(int index, mahi::util::int32 encoder_offset)=0;
     };
 } // namespace meii

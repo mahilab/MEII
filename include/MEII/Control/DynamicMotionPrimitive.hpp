@@ -1,7 +1,7 @@
 // MIT License
 //
-// MEII - MAHI Exo-II Extension of MEL, the MAHI Exoskeleton Library
-// Copyright (c) 2018 Mechatronics and Haptic Interfaces Lab - Rice University
+// MEII - MAHI Exo-II Library
+// Copyright (c) 2020 Mechatronics and Haptic Interfaces Lab - Rice University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
