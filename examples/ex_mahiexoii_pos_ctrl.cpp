@@ -1,4 +1,6 @@
 #include <MEII/MahiExoII/MahiExoII.hpp>
+#include <MEII/MahiExoII/MahiExoIIVirtual.hpp>
+#include <MEII/MahiExoII/MahiExoIIHardware.hpp>
 #include <MEII/Control/Trajectory.hpp>
 #include <Mahi/Daq.hpp>
 #include <Mahi/Util.hpp>
@@ -25,6 +27,7 @@ int main(int argc, char *argv[]) {
     Options options("ex_mahiexoii_pos_ctrl.exe", "MahiExoII Position Control Demo");
     options.add_options()
         ("c,calibrate",  "Calibrates the MAHI Exo-II")
+        ("v,virtual", "example is virtual and will communicate with the unity sim")
         ("s,setpoint",   "Runs the MAHI Exo-II MelScope setpoint control demo")
         ("t,trajectory", "Runs the MAHI Exo-II trajectory following demo")
         ("h,help", "Prints this help message");
@@ -42,26 +45,30 @@ int main(int argc, char *argv[]) {
     // register ctrl-c handler
     register_ctrl_handler(handler);   
 
-    // make Q8 USB and configure
-    Q8Usb q8;
+    /////////////////////////////////
+    // construct and config MEII   //
+    /////////////////////////////////
+    std::shared_ptr<MahiExoII> meii = nullptr;
+    std::shared_ptr<Q8Usb> q8 = nullptr;
+    
+    if(result.count("virtual") > 0){
+        meii = std::make_shared<MahiExoIIVirtual>();
+    }
+    else{
+        q8 = std::make_shared<Q8Usb>();
+        q8->open();
+        std::vector<TTL> idle_values(8,TTL_HIGH);
+        q8->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
+        q8->DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+        q8->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
+        MeiiConfigurationHardware config_hw(*q8); 
+        meii = std::make_shared<MahiExoIIHardware>(config_hw);
+    }
 
-    std::vector<TTL> idle_values(8,TTL_HIGH);
-    q8.DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
-    q8.DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
-    q8.DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);
-
-    // create MahiExoII and bind Q8 channels to it
-    MeiiConfiguration config(q8, // daq q8
-                             {1, 2, 3, 4, 5}, // encoder channels (encoder)
-                             {1, 2, 3, 4, 5}, // enable channels (DO)
-                             {1, 2, 3, 4, 5}, // current write channels (AO)
-                             {TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW, TTL_LOW}, // enable values for motors
-                             {1.8, 1.8, 0.184, 0.184, 0.184}); // amplifier gains (A/V)
-    MahiExoII meii(config);
 
     // calibrate - manually zero the encoders (right arm supinated)
     if (result.count("calibrate") > 0) {       
-        meii.calibrate(stop);
+        meii->calibrate(stop);
         LOG(Info) << "MAHI Exo-II encoders calibrated.";
         return 0;
     }
@@ -96,8 +103,8 @@ int main(int argc, char *argv[]) {
 
         // create initial setpoint and ranges
         std::vector<double> setpoint_deg = { -35, 0, 0, 0, 0.10 };
-        std::vector<double> setpoint_rad(meii.n_aj);
-        for (size_t i = 0; i < meii.n_aj - 1; ++i) {
+        std::vector<double> setpoint_rad(meii->n_aj);
+        for (size_t i = 0; i < meii->n_aj - 1; ++i) {
             setpoint_rad[i] = setpoint_deg[i] * DEG2RAD;
         }
         std::vector<std::vector<double>> setpoint_rad_ranges = { { -90 * DEG2RAD, 0 * DEG2RAD },
@@ -106,58 +113,59 @@ int main(int argc, char *argv[]) {
         { -15 * DEG2RAD, 15 * DEG2RAD },
         { 0.08, 0.115 } };
         ms_sp.write_data(setpoint_deg);
-
-        MahiExoII::SmoothReferenceTrajectory anat_ref_;
+        
+        MahiExoII::SmoothReferenceTrajectory anat_ref_(meii->anat_joint_speed, setpoint_rad);
 
         // set up state machine
         std::size_t state = 0;
         Time backdrive_time = seconds(3);
 
         // create data containers
-        std::vector<double> rj_positions(meii.n_rj);
-        std::vector<double> rj_velocities(meii.n_rj);
-        std::vector<double> aj_positions(meii.n_aj);
-        std::vector<double> aj_velocities(meii.n_aj);
-        std::vector<double> command_torques(meii.n_aj, 0.0);
-        std::vector<double> rps_command_torques(meii.n_qs, 0.0);
+        std::vector<double> rj_positions(meii->n_rj);
+        std::vector<double> rj_velocities(meii->n_rj);
+        std::vector<double> aj_positions(meii->n_aj);
+        std::vector<double> aj_velocities(meii->n_aj);
+        std::vector<double> command_torques(meii->n_aj, 0.0);
+        std::vector<double> rps_command_torques(meii->n_qs, 0.0);
 
         // enable DAQ and exo
-        q8.enable();
-        meii.enable();
+        meii->daq_enable();
+        meii->enable();
 
         // construct timer in hybrid mode to avoid using 100% CPU
         Timer timer(milliseconds(1), Timer::Hybrid);
 
         // start loop
         LOG(Info) << "Robot Backdrivable.";
-        q8.watchdog.start();
+        meii->daq_watchdog_start();
         while (!stop) {
 
             // update all DAQ input channels
-            q8.read_all();
+            meii->daq_read_all();
 
             // update MahiExoII kinematics
-            meii.update_kinematics();
+            meii->update_kinematics();
 
             // store most recent readings from DAQ
-            for (int i = 0; i < meii.n_rj; ++i) {
-                rj_positions[i] = meii.meii_joints[i]->get_position();
-                rj_velocities[i] = meii.meii_joints[i]->get_velocity();
+            for (int i = 0; i < meii->n_rj; ++i) {
+                rj_positions[i] = meii->get_robot_joint_position(i);
+                rj_velocities[i] = meii->get_robot_joint_velocity(i);
             }
-            for (int i = 0; i < meii.n_aj; ++i) {
-                aj_positions[i] = meii.get_anatomical_joint_position(i);
-                aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
+            for (int i = 0; i < meii->n_aj; ++i) {
+                aj_positions[i] = meii->get_anatomical_joint_position(i);
+                aj_velocities[i] = meii->get_anatomical_joint_velocity(i);
             }
 
             switch (state) {
             case 0: // backdrive
 
                 // command zero torque
-                meii.set_robot_raw_joint_torques(command_torques);
+                meii->set_robot_raw_joint_torques(command_torques);
 
                 // check for wait period to end
                 if (timer.get_elapsed_time() >= backdrive_time) {
-                    meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
+                    meii->rps_init_par_ref_.start(meii->get_wrist_parallel_positions(), timer.get_elapsed_time());
+                    // print("{}, {}, {}",meii->get_wrist_parallel_positions()[0],meii->get_wrist_parallel_positions()[1],meii->get_wrist_parallel_positions()[2]);
                     state = 1;
                     LOG(Info) << "Initializing RPS Mechanism.";
                 }
@@ -166,13 +174,17 @@ int main(int argc, char *argv[]) {
             case 1: // initialize rps                
 
                 // calculate commanded torques
-                rps_command_torques = meii.set_robot_smooth_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
+                rps_command_torques = meii->set_robot_smooth_pos_ctrl_torques(meii->rps_init_par_ref_, timer.get_elapsed_time());
                 std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
+                // print("{}, {}, {}",meii->rps_init_par_ref_.calculate_smooth_ref(0, timer.get_elapsed_time()),
+                                //    meii->rps_init_par_ref_.calculate_smooth_ref(1, timer.get_elapsed_time()),
+                                //    meii->rps_init_par_ref_.calculate_smooth_ref(2, timer.get_elapsed_time()));
+                // print("{}, {}, {}",rps_command_torques[2],rps_command_torques[3],rps_command_torques[4]);
 
                 // check for RPS Initialization target reached
-                if (meii.check_rps_init()) {
+                if (meii->check_rps_init()) {
                     LOG(Info) << "RPS initialization complete.";
-                    anat_ref_.start(setpoint_rad, meii.get_anatomical_joint_positions(), timer.get_elapsed_time());
+                    anat_ref_.start(setpoint_rad, meii->get_anatomical_joint_positions(), timer.get_elapsed_time());
                     state = 2;
                 }
                 break;
@@ -187,13 +199,13 @@ int main(int argc, char *argv[]) {
                 setpoint_rad[4] = setpoint_deg[4];
 
                 // update and saturate setpoint
-                for (int i = 0; i < meii.n_aj; ++i) {
+                for (int i = 0; i < meii->n_aj; ++i) {
                     setpoint_rad[i] = clamp(setpoint_rad[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
                 }
                 anat_ref_.set_ref(setpoint_rad, timer.get_elapsed_time());
 
                 // calculate commanded torques
-                command_torques = meii.set_anat_smooth_pos_ctrl_torques(anat_ref_, timer.get_elapsed_time());
+                command_torques = meii->set_anat_smooth_pos_ctrl_torques(anat_ref_, timer.get_elapsed_time());
 
                 break;
             }
@@ -204,14 +216,14 @@ int main(int argc, char *argv[]) {
             ms_trq.write_data(command_torques);
 
             // update all DAQ output channels
-            q8.write_all();
+            meii->daq_write_all();
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-            for (std::size_t i = 0; i < meii.n_rj; ++i) {
-                robot_log_row[3 * i + 1] = meii.get_robot_joint_position(i);
-                robot_log_row[3 * i + 2] = meii.get_robot_joint_velocity(i);
-                robot_log_row[3 * i + 3] = meii.get_robot_joint_command_torque(i);
+            for (std::size_t i = 0; i < meii->n_rj; ++i) {
+                robot_log_row[3 * i + 1] = meii->get_robot_joint_position(i);
+                robot_log_row[3 * i + 2] = meii->get_robot_joint_velocity(i);
+                robot_log_row[3 * i + 3] = meii->get_robot_joint_command_torque(i);
             }
             robot_log.push_back(robot_log_row);
 
@@ -224,7 +236,7 @@ int main(int argc, char *argv[]) {
             }
 
             // kick watchdog
-            if (!q8.watchdog.kick() || meii.any_limit_exceeded())
+            if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded())
                 stop = true;
 
             // wait for remainder of sample period
@@ -266,54 +278,54 @@ int main(int argc, char *argv[]) {
         Time backdrive_time = seconds(3);
 
         // create data containers
-        std::vector<double> rj_positions(meii.n_rj);
-        std::vector<double> rj_velocities(meii.n_rj);
-        std::vector<double> aj_positions(meii.n_aj);
-        std::vector<double> aj_velocities(meii.n_aj);
-        std::vector<double> command_torques(meii.n_aj, 0.0);
-        std::vector<double> rps_command_torques(meii.n_qs, 0.0);
-        std::vector<double> ref(meii.n_aj, 0.0);
+        std::vector<double> rj_positions(meii->n_rj);
+        std::vector<double> rj_velocities(meii->n_rj);
+        std::vector<double> aj_positions(meii->n_aj);
+        std::vector<double> aj_velocities(meii->n_aj);
+        std::vector<double> command_torques(meii->n_aj, 0.0);
+        std::vector<double> rps_command_torques(meii->n_qs, 0.0);
+        std::vector<double> ref(meii->n_aj, 0.0);
 
         // enable DAQ and exo
-        q8.enable();
-        meii.enable();
+        meii->daq_enable();
+        meii->enable();
 
         // construct timer in hybrid mode to avoid using 100% CPU
         Timer timer(milliseconds(1), Timer::Hybrid);
 
         // start loop
         LOG(Info) << "Robot Backdrivable.";
-        q8.watchdog.start();
+        meii->daq_watchdog_start();
         while (!stop) {
 
             // update all DAQ input channels
-            q8.read_all();
+            meii->daq_read_all();
 
             // update MahiExoII kinematics
-            meii.update_kinematics();
+            meii->update_kinematics();
 
             // store most recent readings from DAQ
-            for (int i = 0; i < meii.n_rj; ++i) {
-                rj_positions[i] = meii.get_robot_joint_position(i);
-                rj_velocities[i] = meii.get_robot_joint_velocity(i);
+            for (int i = 0; i < meii->n_rj; ++i) {
+                rj_positions[i] = meii->get_robot_joint_position(i);
+                rj_velocities[i] = meii->get_robot_joint_velocity(i);
             }
-            for (int i = 0; i < meii.n_aj; ++i) {
-                aj_positions[i] = meii.get_anatomical_joint_position(i);
-                aj_velocities[i] = meii.get_anatomical_joint_velocity(i);
+            for (int i = 0; i < meii->n_aj; ++i) {
+                aj_positions[i] = meii->get_anatomical_joint_position(i);
+                aj_velocities[i] = meii->get_anatomical_joint_velocity(i);
             }
 
             switch (state) {
             case 0: // backdrive
 
                 // update ref, though not being used
-                ref = meii.get_anatomical_joint_positions();
+                ref = meii->get_anatomical_joint_positions();
 
                 // command zero torque
-                meii.set_robot_raw_joint_torques(command_torques);
+                meii->set_robot_raw_joint_torques(command_torques);
 
                 // check for wait period to end
                 if (timer.get_elapsed_time() >= backdrive_time) {
-                    meii.rps_init_par_ref_.start(meii.get_wrist_parallel_positions(), timer.get_elapsed_time());
+                    meii->rps_init_par_ref_.start(meii->get_wrist_parallel_positions(), timer.get_elapsed_time());
                     state = 1;
                     LOG(Info) << "Initializing RPS Mechanism.";
                 }
@@ -322,22 +334,22 @@ int main(int argc, char *argv[]) {
             case 1: // initialize rps                
 
                 // update ref, though not being used
-                ref = meii.get_anatomical_joint_positions();
+                ref = meii->get_anatomical_joint_positions();
 
                 // calculate commanded torques
-                rps_command_torques = meii.set_robot_smooth_pos_ctrl_torques(meii.rps_init_par_ref_, timer.get_elapsed_time());
+                rps_command_torques = meii->set_robot_smooth_pos_ctrl_torques(meii->rps_init_par_ref_, timer.get_elapsed_time());
                 std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
 
                 // check for RPS Initialization target reached
-                if (meii.check_rps_init()) {
+                if (meii->check_rps_init()) {
                     LOG(Info) << "RPS initialization complete.";
-                    //anat_ref_.start(setpoint_rad, meii.get_anatomical_joint_positions(), timer.get_elapsed_time());
+                    //anat_ref_.start(setpoint_rad, meii->get_anatomical_joint_positions(), timer.get_elapsed_time());
                     state = 2;
-                    // command_torques = std::vector<double>(meii.n_aj, 0.0);
-                    meii.set_anatomical_raw_joint_torques(command_torques);
+                    // command_torques = std::vector<double>(meii->n_aj, 0.0);
+                    meii->set_anatomical_raw_joint_torques(command_torques);
                     initial_waypoint = WayPoint(seconds(0.0), aj_positions);
                     waypoints[0] = initial_waypoint;
-                    ref_traj.set_waypoints(meii.n_aj, waypoints, Trajectory::Interp::Linear, traj_max_diff);
+                    ref_traj.set_waypoints(meii->n_aj, waypoints, Trajectory::Interp::Linear, traj_max_diff);
                     ref_traj_clock.restart();
                 }
                 break;
@@ -348,17 +360,17 @@ int main(int argc, char *argv[]) {
                 ref = ref_traj.at_time(ref_traj_clock.get_elapsed_time());
 
                 // constraint trajectory to be within range
-                for (int i = 0; i < meii.n_aj; ++i) {
+                for (int i = 0; i < meii->n_aj; ++i) {
                     ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
                 }
 
                 // calculate anatomical command torques
-                command_torques[0] = meii.anatomical_joint_pd_controllers_[0].calculate(ref[0], meii.get_anatomical_joint_position(0), 0, meii.get_anatomical_joint_velocity(0));
-                command_torques[1] = meii.anatomical_joint_pd_controllers_[1].calculate(ref[1], meii.get_anatomical_joint_position(1), 0, meii.get_anatomical_joint_velocity(1));
+                command_torques[0] = meii->anatomical_joint_pd_controllers_[0].calculate(ref[0], meii->get_anatomical_joint_position(0), 0, meii->get_anatomical_joint_velocity(0));
+                command_torques[1] = meii->anatomical_joint_pd_controllers_[1].calculate(ref[1], meii->get_anatomical_joint_position(1), 0, meii->get_anatomical_joint_velocity(1));
                 // command_torques[0] = 0;
                 // command_torques[1] = 0;
-                for (int i = 0; i < meii.n_qs; ++i) {
-                    rps_command_torques[i] = meii.anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii.get_anatomical_joint_position(i + 2), 0, meii.get_anatomical_joint_velocity(i + 2));
+                for (int i = 0; i < meii->n_qs; ++i) {
+                    rps_command_torques[i] = meii->anatomical_joint_pd_controllers_[i + 2].calculate(ref[i + 2], meii->get_anatomical_joint_position(i + 2), 0, meii->get_anatomical_joint_velocity(i + 2));
                     // rps_command_torques[i] = 0;
                 }
 
@@ -366,7 +378,7 @@ int main(int argc, char *argv[]) {
                 
 
                 // set anatomical command torques
-                meii.set_anatomical_raw_joint_torques(command_torques);
+                meii->set_anatomical_raw_joint_torques(command_torques);
                 
 
                 break;
@@ -379,14 +391,14 @@ int main(int argc, char *argv[]) {
             ms_ref.write_data(ref);
 
             // update all DAQ output channels
-            q8.write_all();
+            meii->daq_write_all();
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();
-            for (std::size_t i = 0; i < meii.n_rj; ++i) {
-                robot_log_row[3 * i + 1] = meii.get_robot_joint_position(i);
-                robot_log_row[3 * i + 2] = meii.get_robot_joint_velocity(i);
-                robot_log_row[3 * i + 3] = meii.get_robot_joint_command_torque(i);
+            for (std::size_t i = 0; i < meii->n_rj; ++i) {
+                robot_log_row[3 * i + 1] = meii->get_robot_joint_position(i);
+                robot_log_row[3 * i + 2] = meii->get_robot_joint_velocity(i);
+                robot_log_row[3 * i + 3] = meii->get_robot_joint_command_torque(i);
             }
             robot_log.push_back(robot_log_row);
 
@@ -401,13 +413,13 @@ int main(int argc, char *argv[]) {
             timer.wait();
 
         }
-        meii.disable();
-        q8.disable();
+        meii->disable();
+        meii->daq_disable();
     }
     
     disable_realtime();
 
-    print("Do you want to save the robot data log? (Y/N)");
+    mahi::util::print("Do you want to save the robot data log? (Y/N)");
     int key_pressed = 0;
     while (key_pressed != 'y' && key_pressed != 'n'){
         key_pressed = get_key();

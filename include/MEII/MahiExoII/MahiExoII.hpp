@@ -100,9 +100,8 @@ namespace meii {
         
         SmoothReferenceTrajectory rps_init_par_ref_; // rps position controller for initialization
     
-    private:
-        const std::vector<double> m_robot_joint_speed = { 0.25, 0.25, 0.015, 0.015, 0.015 }; // [rad/s] and [m/s] constant speed at which robot joint reference trajectories are interpolated
-        const std::vector<double> m_anat_joint_speed = { 0.25, 0.35, 0.15, 0.15, 0.015 }; // [rad/s] and [m/s] constant speed at which anatomical joint reference trajectories are interpolated
+        const std::vector<double> robot_joint_speed = { 0.25, 0.35, 0.015, 0.015, 0.015 }; // [rad/s] and [m/s] constant speed at which robot joint reference trajectories are interpolated
+        const std::vector<double> anat_joint_speed = { 0.25, 0.35, 0.15, 0.15, 0.015 }; // [rad/s] and [m/s] constant speed at which anatomical joint reference trajectories are interpolated
 
     ///////////////////////// TORQUE SETTING FUNCTIONS /////////////////////////
     // Use smooth_pos_ctrl_torques when you have a smooth reference trajectory

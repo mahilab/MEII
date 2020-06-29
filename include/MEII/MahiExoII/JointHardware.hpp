@@ -35,7 +35,7 @@ public:
                   double actuator_transmission,
                   mahi::daq::EncoderHandle* position_sensor,
                   double position_transmission,
-                  double &velocity_sensor,
+                  const double &velocity_sensor,
                   double velocity_transmission,
                   double motor_kt,
                   double amp_gain,
@@ -60,7 +60,7 @@ public:
 
 private:    
     mahi::daq::EncoderHandle* m_position_sensor;  // pointer to the PositionSensor of this Joint
-    double &m_velocity_sensor;                    // pointer to the VelocitySensor of this Joint
+    const double &m_velocity_sensor;                    // pointer to the VelocitySensor of this Joint
 
     double m_actuator_transmission;    // transmission ratio describing the
                                      // multiplicative gain in torque from Joint

@@ -35,7 +35,7 @@ namespace meii {
             m_robot_joint_velocities.push_back(0.0);
             m_robot_joint_torques.push_back(0.0);
         }
-        std::vector<double> rps_par_joint_speed_(m_robot_joint_speed.begin()+2,m_robot_joint_speed.end());
+        std::vector<double> rps_par_joint_speed_(robot_joint_speed.begin()+2,robot_joint_speed.end());
         rps_init_par_ref_ = SmoothReferenceTrajectory(rps_par_joint_speed_, m_rps_init_pos,{false,false,true,true,true});
     }
 
@@ -154,14 +154,18 @@ namespace meii {
     std::vector<double> MahiExoII::set_robot_smooth_pos_ctrl_torques(SmoothReferenceTrajectory& robot_ref, Time current_time) {
 
         std::vector<double> command_torques(n_aj, 0.0);
+        
+        size_t num_active = 0;
 
         for (size_t i = 0; i < 5; i++){
             // if the dof is active, calculate the torque to use, else it remains 0
             if (robot_ref.m_active_dofs[i]){
                 // calculate the new reference position
-                double smooth_ref = robot_ref.calculate_smooth_ref(0, current_time);
+                double smooth_ref = robot_ref.calculate_smooth_ref(num_active, current_time);
                 // calculate the new torque based on the reference position
                 command_torques[i] = robot_joint_pd_controllers_[i].calculate(smooth_ref, get_robot_joint_position(i), 0, get_robot_joint_velocity(i));
+
+                num_active++;
             }
         }
         set_robot_raw_joint_torques(command_torques);
@@ -173,13 +177,17 @@ namespace meii {
 
         std::vector<double> command_torques(n_aj, 0.0);
 
+        size_t num_active = 0;
+
         for (size_t i = 0; i < 5; i++){
             // if the dof is active, calculate the torque to use, else it remains 0
             if (anat_ref.m_active_dofs[i]){
                 // calculate the new reference position
-                double smooth_ref = anat_ref.calculate_smooth_ref(0, current_time);
+                double smooth_ref = anat_ref.calculate_smooth_ref(num_active, current_time);
                 // calculate the new torque based on the reference position
                 command_torques[i] = anatomical_joint_pd_controllers_[i].calculate(smooth_ref, get_anatomical_joint_position(i), 0, get_anatomical_joint_velocity(i));
+
+                num_active++;
             }
         }
         set_anatomical_raw_joint_torques(command_torques);
@@ -303,7 +311,7 @@ namespace meii {
 			LOG(Warning) << "Input argument given to MEII::set_rps_init_pos() contains value outside valid range.";
 		}
 		m_rps_init_pos = new_rps_init_par_pos;
-        std::vector<double> rps_par_joint_speed_(m_robot_joint_speed.begin()+2,m_robot_joint_speed.end());
+        std::vector<double> rps_par_joint_speed_(robot_joint_speed.begin()+2,robot_joint_speed.end());
 		rps_init_par_ref_ = SmoothReferenceTrajectory(rps_par_joint_speed_, m_rps_init_pos,{false,false,true,true,true});
 		return new_pos_valid;
 	}
@@ -599,6 +607,7 @@ namespace meii {
         return eigen_vec;
     }
 
+    // TODO: Make this much more efficient
     void MahiExoII::calibrate_auto(volatile std::atomic<bool>& stop) {
 
         // calibration offsets for the joints
@@ -608,7 +617,7 @@ namespace meii {
         std::array<double, 5> neutral_points  = { -35 * DEG2RAD, 00 * DEG2RAD, 0.13, 0.13, 0.13 };
         
         // create needed variables
-        std::array<double, 5> zeros = { 0, 0, 0, 0, 0 }; // determined zero positions for each joint
+        std::vector<double> zeros = { 0, 0, 0, 0, 0 }; // determined zero positions for each joint
         std::array<int, 5> dir = { 1 , -1, 1, 1, 1 };    // direction to rotate each joint
         uint32 calibrating_joint = 0;               // joint currently calibrating
         bool returning = false;                          // bool to track if calibrating joint is return to zero
@@ -630,17 +639,24 @@ namespace meii {
 
         std::array<double, 5> sat_torques = { 2.0, 2.0, 15.0, 15.0, 15.0 }; // temporary saturation torques
 
-        Time timeout = seconds(45); // max amout of time we will allow calibration to occur for
+        Time timeout = seconds(60); // max amout of time we will allow calibration to occur for
 
         // enable DAQs, zero encoders, and start watchdog
         daq_enable();
         for (size_t i = 0; i < 5; i++){
-            daq_encoder_write(i,0);
+            daq_encoder_write((int32)i,0);
         }
         daq_watchdog_start();
 
         // enable MEII
         enable();
+
+        daq_read_all();
+        update_kinematics();
+
+        zeros = get_robot_joint_positions();
+        pos_ref = zeros[calibrating_joint];
+        par_pos_ref = {zeros[2], zeros[3], zeros[4]};
 
         // start the clock
         Timer timer(milliseconds(1), Timer::WaitMode::Hybrid);
@@ -650,6 +666,7 @@ namespace meii {
 
             // read and reload DAQs
             daq_read_all();
+            update_kinematics();
             daq_watchdog_kick();
 
             if (calibrating_joint < 2){
@@ -672,9 +689,9 @@ namespace meii {
                             // check if the calibrating joint is still moving
                             stored_positions.push_back(pos_act);
                             bool moving = true;
-                            if (stored_positions.size() > 500) {
+                            if (stored_positions.size() > 100) {
                                 moving = false;
-                                for (size_t j = stored_positions.size() - 500; j < stored_positions.size(); j++) {
+                                for (size_t j = stored_positions.size() - 100; j < stored_positions.size(); j++) {
                                     moving = stored_positions[j] != stored_positions[j - 1];
                                     if (moving)
                                         break;
@@ -683,7 +700,7 @@ namespace meii {
 
                             // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                             if (!moving) {
-                                daq_encoder_write(i,encoder_offsets[i]);
+                                daq_encoder_write((int)i,encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
                                 pos_ref = meii_joints[i]->get_position();
@@ -700,7 +717,7 @@ namespace meii {
                             if (dir[i] * pos_ref <= dir[i] * neutral_points[i]) {
                                 // reset for the next joint
                                 calibrating_joint += 1;
-                                pos_ref = 0;
+                                pos_ref = zeros[calibrating_joint];
                                 returning = false;
                                 LOG(Info) << "Joint " << meii_joints[i]->get_name() << " calibrated";
                             }
@@ -716,12 +733,13 @@ namespace meii {
                         }
                         torque = clamp(torque, sat_torques[i]);
                     }
+                    // print("joint {} - pos: {}, ref: {}, torque: {}", i, pos_act, pos_ref, torque);
                     meii_joints[i]->set_torque(torque);
                 }
 
                 // set rps joint torques
                 for (std::size_t i = 0; i < 3; ++i) {
-					double torque = robot_joint_pd_controllers_[i + 2].calculate(0.0, meii_joints[i + 2]->get_position(), 0, meii_joints[i + 2]->get_velocity());
+					double torque = robot_joint_pd_controllers_[i + 2].calculate(zeros[i+2], meii_joints[i + 2]->get_position(), 0, meii_joints[i + 2]->get_velocity());
                     torque = clamp(torque, sat_torques[i]);
                     meii_joints[i + 2]->set_torque(torque);
 				}
@@ -737,13 +755,14 @@ namespace meii {
                 
                 for (std::size_t i = 0; i < 3; i++) {
                     double torque = 0;
-                    int dof_num = i+2;
+                    size_t dof_num = i+2;
                     // get positions and velocities
-                    double pos_act = meii_joints[dof_num]->get_position();
-                    double vel_act = meii_joints[dof_num]->get_velocity();
+                    double pos_act = get_robot_joint_position(dof_num);
+                    double vel_act = get_robot_joint_velocity(dof_num);
                     
                     if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })) {
                         par_pos_ref[i] += dir[dof_num] * vel_ref[dof_num] * timer.get_period().as_seconds();
+                        // print("{} - pos: {}, ref: {}", dof_num, pos_act, par_pos_ref[i]);
 
                         torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
                         torque = clamp(torque, sat_torques[dof_num]);
@@ -763,7 +782,7 @@ namespace meii {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                daq_encoder_write(j+2,encoder_offsets[j+2]);
+                                daq_encoder_write((int32)j+2,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
                                 par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
