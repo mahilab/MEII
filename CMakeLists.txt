@@ -92,7 +92,7 @@ target_include_directories(meii
 
 target_link_libraries(meii mahi::daq mahi::robo mahi::com)
 
-# if(EXAMPLES)
+if(MEII_EXAMPLES)
     message("Building MEII examples")
     add_subdirectory(examples)
-# endif()
+endif()

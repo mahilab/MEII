@@ -17,7 +17,7 @@
 
 #pragma once
 
-// #include <MEII/MahiExoII/MeiiConfigurationVirtual.hpp>
+#include <MEII/MahiExoII/MeiiConfigurationVirtual.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
 #include <Mahi/Util/Print.hpp>
 
@@ -29,22 +29,9 @@ namespace meii {
     
     public:
         /// Constructor
-        MahiExoIIVirtual();
+        MahiExoIIVirtual(MeiiConfigurationVirtual configuration);
 
-        // MeiiConfigurationVirtual config_vr; // meii configuration, consisting of daq, parameters, etc
-
-    private:
-        std::vector<double> m_rest_positions = {-45*mahi::util::DEG2RAD, 0, 0.0952, 0.0952, 0.0952}; // rest positions to use when there is no input from melshare
-        std::vector<std::string> m_torque_ms_names = {"ms_torque_1",
-                                                      "ms_torque_2",
-                                                      "ms_torque_3",
-                                                      "ms_torque_4",
-                                                      "ms_torque_5"}; // names for the torque melshares
-        std::vector<std::string> m_posvel_ms_names = {"ms_posvel_1",
-                                                      "ms_posvel_2",
-                                                      "ms_posvel_3",
-                                                      "ms_posvel_4",
-                                                      "ms_posvel_5"}; // names for the position and velocity melshares
+        MeiiConfigurationVirtual config_vr; // meii configuration, consisting of daq, parameters, etc
 
     //////////////// OVERRIDING PURE VIRTUAL FUNCTIONS OF MEII ////////////////
     public:

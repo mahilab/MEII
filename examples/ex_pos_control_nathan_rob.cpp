@@ -2,12 +2,7 @@
 #include <Mahi/Com.hpp>
 #include <Mahi/Daq.hpp>
 #include <Mahi/Robo.hpp>
-#include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEII/MahiExoII/MahiExoIIHardware.hpp>
-#include <MEII/MahiExoII/MahiExoIIVirtual.hpp>
-#include <MEII/Control/Trajectory.hpp>
-#include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/Control/MinimumJerk.hpp>
+#include <MEII/MEII.hpp>
 #include <vector>
 
 using namespace mahi::util;
@@ -58,7 +53,8 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<Q8Usb> q8 = nullptr;
     
     if(result.count("virtual") > 0){
-        meii = std::make_shared<MahiExoIIVirtual>();
+        MeiiConfigurationVirtual config_vr; 
+        meii = std::make_shared<MahiExoIIVirtual>(config_vr);
     }
     else{
         q8 = std::make_shared<Q8Usb>();
@@ -129,7 +125,7 @@ int main(int argc, char *argv[]) {
 		LOG(Info) << "MAHI Exo-II Trajectory Following.";
 
 		// setup trajectories
-		std::size_t num_full_cycles = 2;
+		std::size_t num_full_cycles = 1;
 		std::size_t current_cycle = 0;
 		std::vector<WayPoint> neutral_point_set = {
 			WayPoint(Time::Zero,{ -35 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 00 * DEG2RAD, 0.09 }),
@@ -181,8 +177,8 @@ int main(int argc, char *argv[]) {
 		// set up state machine
 		std::size_t state = 0;
 		Time backdrive_time = seconds(1);
-		Time wait_at_neutral_time = seconds(1);
-		Time wait_at_extreme_time = seconds(1);
+		Time wait_at_neutral_time = seconds(0.1);
+		Time wait_at_extreme_time = seconds(0.1);
 
 		// create data containers
 		std::vector<double> rj_positions(meii->n_rj);

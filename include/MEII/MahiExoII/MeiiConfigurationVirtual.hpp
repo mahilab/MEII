@@ -60,7 +60,8 @@ namespace meii {
 
         friend class MahiExoIIVirtual;
 
-        std::vector<double> m_rest_positions; // rest positions to use when there is no input from melshare
-        std::vector<std::string> m_torque_ms_names; // names for the torque melshares
-        std::vector<std::string> m_posvel_ms_names; // names for the position and velocity melshares
+        const std::vector<double> m_rest_positions; // rest positions to use when there is no input from melshare
+        const std::vector<std::string> m_torque_ms_names; // names for the torque melshares
+        const std::vector<std::string> m_posvel_ms_names; // names for the position and velocity melshares
+    };
 } // namespace meii

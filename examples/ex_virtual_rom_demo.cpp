@@ -1,8 +1,4 @@
-// #include <MEII/MEII.hpp>
-#include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEII/MahiExoII/MahiExoIIVirtual.hpp>
-#include <MEII/MahiExoII/MahiExoIIHardware.hpp>
-#include <MEII/Control/MinimumJerk.hpp>
+#include <MEII/MEII.hpp>
 #include <Mahi/Com.hpp>
 #include <Mahi/Util.hpp>
 #include <Mahi/Daq.hpp>
@@ -76,7 +72,8 @@ int main(int argc, char* argv[]) {
     std::shared_ptr<Q8Usb> q8 = nullptr;
     
     if(result.count("virtual") > 0){
-        meii = std::make_shared<MahiExoIIVirtual>();
+        MeiiConfigurationVirtual config_vr; 
+        meii = std::make_shared<MahiExoIIVirtual>(config_vr);
     }
     else{
         q8 = std::make_shared<Q8Usb>();

@@ -1,7 +1,4 @@
-#include <MEII/MahiExoII/MahiExoII.hpp>
-#include <MEII/MahiExoII/MahiExoIIVirtual.hpp>
-#include <MEII/MahiExoII/MahiExoIIHardware.hpp>
-#include <MEII/Control/Trajectory.hpp>
+#include <MEII/MEII.hpp>
 #include <Mahi/Daq.hpp>
 #include <Mahi/Util.hpp>
 #include <Mahi/Com.hpp>
@@ -52,7 +49,8 @@ int main(int argc, char *argv[]) {
     std::shared_ptr<Q8Usb> q8 = nullptr;
     
     if(result.count("virtual") > 0){
-        meii = std::make_shared<MahiExoIIVirtual>();
+        MeiiConfigurationVirtual config_vr; 
+        meii = std::make_shared<MahiExoIIVirtual>(config_vr);
     }
     else{
         q8 = std::make_shared<Q8Usb>();
@@ -165,7 +163,6 @@ int main(int argc, char *argv[]) {
                 // check for wait period to end
                 if (timer.get_elapsed_time() >= backdrive_time) {
                     meii->rps_init_par_ref_.start(meii->get_wrist_parallel_positions(), timer.get_elapsed_time());
-                    // print("{}, {}, {}",meii->get_wrist_parallel_positions()[0],meii->get_wrist_parallel_positions()[1],meii->get_wrist_parallel_positions()[2]);
                     state = 1;
                     LOG(Info) << "Initializing RPS Mechanism.";
                 }
@@ -176,10 +173,6 @@ int main(int argc, char *argv[]) {
                 // calculate commanded torques
                 rps_command_torques = meii->set_robot_smooth_pos_ctrl_torques(meii->rps_init_par_ref_, timer.get_elapsed_time());
                 std::copy(rps_command_torques.begin(), rps_command_torques.end(), command_torques.begin() + 2);
-                // print("{}, {}, {}",meii->rps_init_par_ref_.calculate_smooth_ref(0, timer.get_elapsed_time()),
-                                //    meii->rps_init_par_ref_.calculate_smooth_ref(1, timer.get_elapsed_time()),
-                                //    meii->rps_init_par_ref_.calculate_smooth_ref(2, timer.get_elapsed_time()));
-                // print("{}, {}, {}",rps_command_torques[2],rps_command_torques[3],rps_command_torques[4]);
 
                 // check for RPS Initialization target reached
                 if (meii->check_rps_init()) {
@@ -232,12 +225,16 @@ int main(int argc, char *argv[]) {
             int key_press = -1;
             key_press = get_key_nb();
             if (key_press == 13) {
+                print("here");
                 stop = true;
             }
 
             // kick watchdog
-            if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded())
+            if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()){
+                print("here");
                 stop = true;
+            }
+                
 
             // wait for remainder of sample period
             timer.wait();
