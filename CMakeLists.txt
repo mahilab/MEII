@@ -26,13 +26,8 @@ endif()
 # create project
 project(mahiexoii VERSION 0.1.0 LANGUAGES CXX)
 
-# add ./cmake to CMake module path so our .cmake files can be found
-# list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake)
-include(GNUInstallDirs) # defines conventional GNU isntallation directories
-
-# Enable IDE folders and set them for predefined CMake projects
-# set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-# set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "CMake")
+# defines conventional GNU isntallation directories
+include(GNUInstallDirs)
 
 # set compiler flags
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU")
@@ -76,6 +71,10 @@ set(SRC_MEII
 file(GLOB_RECURSE INC_MEII "include/*.hpp")
 
 add_library(meii src/MEII/Control/DisturbanceObserver.cpp)
+add_library(meii::meii ALIAS meii)
+set_target_properties(meii PROPERTIES DEBUG_POSTFIX -d)
+target_compile_features(meii PUBLIC cxx_std_11)
+set_target_properties(meii PROPERTIES OUTPUT_NAME meii)
 
 target_compile_features(meii PUBLIC cxx_std_11)
 install(TARGETS meii EXPORT meii-targets LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
