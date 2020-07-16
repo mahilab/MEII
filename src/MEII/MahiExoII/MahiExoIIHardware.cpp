@@ -25,6 +25,7 @@ namespace meii {
 
             // set encoder counts
             config_hw.m_daq.encoder.units[i] = (2 * PI / params_.encoder_res_[i]);
+            encoder_handles.emplace_back(EncoderHandle(config_hw.m_daq.encoder,i));
 
             auto joint = std::make_shared<JointHardware>("meii_joint_" + std::to_string(i),
                                                         std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
@@ -34,7 +35,7 @@ namespace meii {
                                                                     params_.motor_peak_limits_[i],
                                                                     params_.motor_i2t_times_[i]),
                                                         params_.eta_[i],
-                                                        &EncoderHandle(config_hw.m_daq.encoder,i),
+                                                        &encoder_handles[i],
                                                         params_.eta_[i],
                                                         config_hw.m_daq.velocity.velocities[i],
                                                         params_.eta_[i],

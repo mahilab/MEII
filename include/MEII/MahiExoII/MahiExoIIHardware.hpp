@@ -19,6 +19,7 @@
 
 #include <MEII/MahiExoII/MeiiConfigurationHardware.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
+#include <Mahi/Daq/Handle.hpp>
 
 namespace meii {
     /// Class for controlling the Mahi Exo II Exoskeleton
@@ -31,6 +32,8 @@ namespace meii {
         MahiExoIIHardware(MeiiConfigurationHardware configuration);
 
         MeiiConfigurationHardware config_hw;                       // meii configuration, consisting of daq, parameters, etc
+
+        std::vector<mahi::daq::EncoderHandle> encoder_handles;
 
     //////////////// OVERRIDING PURE VIRTUAL FUNCTIONS OF MEII ////////////////
 
