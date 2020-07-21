@@ -33,7 +33,7 @@ namespace meii {
 
         MeiiConfigurationHardware config_hw;                       // meii configuration, consisting of daq, parameters, etc
 
-        std::vector<mahi::daq::EncoderHandle> encoder_handles;
+        std::vector<mahi::daq::EncoderHandle*> encoder_handles;
 
     //////////////// OVERRIDING PURE VIRTUAL FUNCTIONS OF MEII ////////////////
 

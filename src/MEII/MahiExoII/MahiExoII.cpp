@@ -72,7 +72,7 @@ namespace meii {
         daq_enable();
         std::vector<int32> encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
         for (int i = 0; i < n_rj; i++) {
-            daq_encoder_write(i, encoder_offsets[i]);
+            daq_encoder_write(i+1, encoder_offsets[i]);
         }
         daq_disable();
         stop = true;
@@ -368,7 +368,6 @@ namespace meii {
 
     void MahiExoII::update_kinematics() {
         // update m_q_par (q parallel) with the three prismatic link positions
-
         m_q_par << meii_joints[2]->get_position(), meii_joints[3]->get_position(), meii_joints[4]->get_position();
         m_q_par_dot << meii_joints[2]->get_velocity(), meii_joints[3]->get_velocity(), meii_joints[4]->get_velocity();
 
@@ -646,7 +645,7 @@ namespace meii {
         for (size_t i = 0; i < 5; i++){
             daq_encoder_write((int32)i,0);
         }
-        daq_watchdog_start();
+        // daq_watchdog_start();
 
         // enable MEII
         enable();
@@ -700,7 +699,7 @@ namespace meii {
 
                             // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                             if (!moving) {
-                                daq_encoder_write((int)i,encoder_offsets[i]);
+                                daq_encoder_write((int)(i+1),encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
                                 pos_ref = meii_joints[i]->get_position();
@@ -782,7 +781,7 @@ namespace meii {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                daq_encoder_write((int32)j+2,encoder_offsets[j+2]);
+                                daq_encoder_write((int32)j+3,encoder_offsets[j+3]);
                                 // update the reference position to be the current one
                                 par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
@@ -818,6 +817,8 @@ namespace meii {
             
             // write all DAQs
             daq_write_all();
+
+            // daq_watchdog_kick();
 
             // check joint velocity limits
             if (any_velocity_limit_exceeded() || any_torque_limit_exceeded()) {

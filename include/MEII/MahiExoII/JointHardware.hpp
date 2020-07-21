@@ -33,7 +33,7 @@ public:
                   double torque_limit,
                   mahi::robo::Limiter limiter,
                   double actuator_transmission,
-                  mahi::daq::EncoderHandle* position_sensor,
+                  std::shared_ptr<mahi::daq::EncoderHandle> position_sensor,
                   double position_transmission,
                   const double &velocity_sensor,
                   double velocity_transmission,
@@ -59,7 +59,7 @@ public:
     bool disable();
 
 private:    
-    mahi::daq::EncoderHandle* m_position_sensor;  // pointer to the PositionSensor of this Joint
+    std::shared_ptr<mahi::daq::EncoderHandle> m_position_sensor;  // pointer to the PositionSensor of this Joint
     const double &m_velocity_sensor;                    // pointer to the VelocitySensor of this Joint
 
     double m_actuator_transmission;    // transmission ratio describing the

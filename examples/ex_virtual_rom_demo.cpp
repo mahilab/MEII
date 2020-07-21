@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 
     // calibrate - manually zero the encoders (right arm supinated)
     if (result.count("calibrate") > 0) {
-        meii->calibrate_auto(stop);
+        meii->calibrate(stop);
         LOG(Info) << "MAHI Exo-II encoders calibrated.";
         return 0;
     }
@@ -130,10 +130,10 @@ int main(int argc, char* argv[]) {
     std::vector<double> ref;
 
     // waypoints                                   Elbow F/E       Forearm P/S   Wrist F/E     Wrist R/U     LastDoF
-    WayPoint neutral_point = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.09});
-    WayPoint bottom_elbow  = WayPoint(Time::Zero, {-65 * DEG2RAD,  30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.09});
-    WayPoint top_elbow     = WayPoint(Time::Zero, { -5 * DEG2RAD, -30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.09});
-    WayPoint top_wrist     = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 15 * DEG2RAD, 0.09});
+    WayPoint neutral_point = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.11});
+    WayPoint bottom_elbow  = WayPoint(Time::Zero, {-65 * DEG2RAD,  30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.11});
+    WayPoint top_elbow     = WayPoint(Time::Zero, { -5 * DEG2RAD, -30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.11});
+    WayPoint top_wrist     = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 15 * DEG2RAD, 0.11});
 
     // construct timer in hybrid mode to avoid using 100% CPU
     Timer timer(Ts, Timer::Hybrid);
@@ -254,7 +254,8 @@ int main(int argc, char* argv[]) {
             stop = true;
         }
 
-        ms_ref.write_data(ref);
+        ms_ref.write_data(meii->get_robot_joint_positions());
+        ms_pos.write_data(meii->get_robot_joint_velocities());
 
         // wait for remainder of sample period
         t = timer.wait().as_seconds();
@@ -269,6 +270,7 @@ int main(int argc, char* argv[]) {
 
     // clear console buffer
     while (get_key_nb() != 0);
+    print("here");
 
     return 0;
 }

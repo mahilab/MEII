@@ -14,7 +14,7 @@ JointHardware::JointHardware(const std::string &name,
              double torque_limit,
              mahi::robo::Limiter limiter,
              double actuator_transmission,
-             mahi::daq::EncoderHandle* position_sensor,
+             std::shared_ptr<mahi::daq::EncoderHandle> position_sensor,
              double position_transmission,
              const double &velocity_sensor,
              double velocity_transmission,
@@ -47,8 +47,8 @@ bool JointHardware::enable() {
 }
 
 bool JointHardware::disable() {
-    if (!m_motor_enable_handle.write_level(!m_motor_enable_value)) return false;
     set_torque(0.0);
+    if (!m_motor_enable_handle.write_level(!m_motor_enable_value)) return false;
     m_enabled = false;
     return true;
 }
