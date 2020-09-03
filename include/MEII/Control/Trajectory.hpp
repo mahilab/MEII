@@ -1,7 +1,7 @@
 // MIT License
 //
-// MEII - MAHI Exo-II Extension of MEL, the MAHI Exoskeleton Library
-// Copyright (c) 2018 Mechatronics and Haptic Interfaces Lab - Rice University
+// MEII - MAHI Exo-II Library
+// Copyright (c) 2020 Mechatronics and Haptic Interfaces Lab - Rice University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -15,12 +15,11 @@
 //
 // Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
 
-#ifndef MEII_TRAJECTORY_HPP
-#define MEII_TRAJECTORY_HPP
+#pragma once
 
 #include <MEII/Control/WayPoint.hpp>
-#include <MEL/Math/Constants.hpp>
-#include <MEL/Core/Time.hpp>
+#include <Mahi/Util/Math/Constants.hpp>
+#include <Mahi/Util/Timing/Time.hpp>
 #include <vector>
 
 namespace meii {
@@ -46,18 +45,18 @@ namespace meii {
         /// Linearly interpolates between the two points based on the given time.
         /// Saturates to initial and final values if time is outside of range.
         static WayPoint linear_time_interpolate(const WayPoint &initial, const WayPoint &final,
-            const mel::Time &t);
+            const mahi::util::Time &t);
 
         /// Constructor
         Trajectory();
         Trajectory(std::size_t path_dim, const std::vector<WayPoint> &waypoints,
             Interp interp_method = Interp::Linear,
-            const std::vector<double> &max_diff = { mel::INF });
+            const std::vector<double> &max_diff = { mahi::util::INF });
 
         /// Returns a position along the trajectory at the specific instant in time
         /// using one of the available interpolation methods
         std::vector<double>
-            at_time(const mel::Time &instant, Interp interp_method = Interp::Linear) const;
+            at_time(const mahi::util::Time &instant, Interp interp_method = Interp::Linear) const;
 
         /// Index-based read access to waypoints
         const WayPoint &operator[](std::size_t index) const;
@@ -74,7 +73,7 @@ namespace meii {
         /// Sets the waypoints that make the trajectory
         bool set_waypoints(std::size_t path_dim, const std::vector<WayPoint> &waypoints,
             Interp interp_method = Interp::Linear,
-            const std::vector<double> &max_diff = { mel::INF });
+            const std::vector<double> &max_diff = { mahi::util::INF });
 
         /// Sets the method of interpolation to be used
         void set_interp_method(Interp interp_method);
@@ -127,7 +126,7 @@ namespace meii {
 
         std::vector<WayPoint> waypoints_; ///< vector of underlying waypoints
 
-        std::vector<mel::Time>
+        std::vector<mahi::util::Time>
             times_; ///< vector of the times associated with the underlying waypoints
 
         std::vector<double> max_diff_;
@@ -135,5 +134,3 @@ namespace meii {
     };
 
 } // namespace meii
-
-#endif // MEII_TRAJECTORY_HPP

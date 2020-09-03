@@ -1,5 +1,4 @@
 {
-    "cmake.buildDirectory": "${workspaceRoot}/build-${buildKit}-${variant:buildType}",
     "files.associations": {
         "*.in": "cmake",
         "vector": "cpp",
@@ -79,44 +78,13 @@
         "queue": "cpp",
         "set": "cpp",
         "xcomplex": "cpp",
-        "clocale": "cpp",
+        "concepts": "cpp",
+        "optional": "cpp",
         "cstdarg": "cpp",
-        "cwctype": "cpp",
-        "stack": "cpp",
-        "xfunctional": "cpp",
-        "*.tcc": "cpp",
-        "concepts": "cpp"
-    },
-    "cSpell.enabledLanguageIds": [
-        "asciidoc",
-        "c",
-        "csharp",
-        "css",
-        "git-commit",
-        "go",
-        "handlebars",
-        "html",
-        "jade",
-        "java",
-        "javascript",
-        "javascriptreact",
-        "json",
-        "jsonc",
-        "latex",
-        "less",
-        "markdown",
-        "php",
-        "plaintext",
-        "pug",
-        "python",
-        "restructuredtext",
-        "rust",
-        "scala",
-        "scss",
-        "text",
-        "typescript",
-        "typescriptreact",
-        "yaml",
-        "yml"
-    ]
+        "core": "cpp",
+        "clocale": "cpp",
+        "resumable": "cpp",
+        "forward_list": "cpp",
+        "variant": "cpp"
+    }
 }

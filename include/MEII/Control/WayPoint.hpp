@@ -1,7 +1,7 @@
 // MIT License
 //
-// MEII - MAHI Exo-II Extension of MEL, the MAHI Exoskeleton Library
-// Copyright (c) 2018 Mechatronics and Haptic Interfaces Lab - Rice University
+// MEII - MAHI Exo-II Library
+// Copyright (c) 2020 Mechatronics and Haptic Interfaces Lab - Rice University
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -15,11 +15,10 @@
 //
 // Author(s): Craig McDonald (craig.g.mcdonald@gmail.com)
 
-#ifndef MEII_WAYPOINT_HPP
-#define MEII_WAYPOINT_HPP
+#pragma once
 
-#include <MEL/Math/Constants.hpp>
-#include <MEL/Core/Time.hpp>
+#include <Mahi/Util/Math/Constants.hpp>
+#include <Mahi/Util/Timing/Time.hpp>
 #include <vector>
 
 namespace meii {
@@ -33,9 +32,9 @@ namespace meii {
     public:
         /// Constructor
         WayPoint();
-        WayPoint(const mel::Time &time, const std::vector<double> &position);
+        WayPoint(const mahi::util::Time &time, const std::vector<double> &position);
 
-        const mel::Time &when() const;
+        const mahi::util::Time &when() const;
 
         const std::vector<double> &get_pos() const;
 
@@ -49,7 +48,7 @@ namespace meii {
 
         bool empty() const;
 
-        WayPoint set_time(const mel::Time &time);
+        WayPoint set_time(const mahi::util::Time &time);
 
         /// Applies resize() to the position vector, changing its dimension and
         /// clearing the contents
@@ -68,7 +67,7 @@ namespace meii {
 		friend std::ostream& operator<<(std::ostream& os, const WayPoint& waypoint);
 
     private:
-        mel::Time time_;
+        mahi::util::Time time_;
 
         std::vector<double> pos_;
 
@@ -76,5 +75,3 @@ namespace meii {
     };
 
 } // namespace meii
-
-#endif // MEII_WAYPOINT_HPP
