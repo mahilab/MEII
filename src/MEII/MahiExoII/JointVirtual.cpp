@@ -49,10 +49,13 @@ double JointVirtual::get_velocity() {
 
 void JointVirtual::set_torque(double new_torque) {
     if (m_enabled){
-        m_torque = new_torque;
+        m_com_torque = new_torque;
         if (torque_limit_exceeded()) {
             LOG(Warning) << "Joint " << get_name() << " command torque saturated to " << m_torque_limit;
-            m_torque = clamp(m_torque, m_torque_limit);
+            m_torque = clamp(m_com_torque, m_torque_limit);
+        }
+        else{
+            m_torque = m_com_torque;
         }
         ms_torque->write_data({m_torque});
     }

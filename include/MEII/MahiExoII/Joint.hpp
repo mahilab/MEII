@@ -75,9 +75,10 @@ public:
 protected:
     std::string m_name;              // pointer to the Actuator of this Joint
 
-    double m_torque;    // the stored torque of the Joint since the last call to set_torque()
-    double m_position;  // the stored position of the Joint since the last call to get_position()
-    double m_velocity;  // the stored velocity of the Joint since the last call to get_velocity()
+    double m_torque;     // the stored torque (limited) of the Joint since the last call to set_torque()
+    double m_com_torque; // the stored commanded (unlimited) torque of the Joint since the last call to set_torque()
+    double m_position;   // the stored position of the Joint since the last call to get_position()
+    double m_velocity;   // the stored velocity of the Joint since the last call to get_velocity()
 
     mahi::robo::Limiter m_limiter; // limiter that handles the limiting of the joint based on I^2t values
 

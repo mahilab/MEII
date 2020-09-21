@@ -14,6 +14,7 @@ Joint::Joint(const std::string &name,
              mahi::robo::Limiter limiter):
     m_name(name),
     m_torque(0.0),
+    m_com_torque(0.0),
     m_position(0.0),
     m_velocity(0.0),
     m_torque_limit(torque_limit),
@@ -49,8 +50,8 @@ bool Joint::velocity_limit_exceeded() {
 
 bool Joint::torque_limit_exceeded() {
     bool exceeded = false;
-    if (has_torque_limit_ && abs(m_torque) > m_torque_limit) {
-        LOG(Warning) << "Joint " << get_name() << " command torque exceeded the torque limit " << m_torque_limit << " with a value of " << m_torque;
+    if (has_torque_limit_ && abs(m_com_torque) > m_torque_limit) {
+        LOG(Warning) << "Joint " << get_name() << " command torque exceeded the torque limit " << m_torque_limit << " with a value of " << m_com_torque;
         exceeded = true;
     }
     return exceeded;

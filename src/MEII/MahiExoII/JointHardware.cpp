@@ -63,10 +63,13 @@ double JointHardware::get_velocity() {
 
 void JointHardware::set_torque(double new_torque) {
     if (m_enabled){
-        m_torque = new_torque;
+        m_com_torque = new_torque;
         if (torque_limit_exceeded()) {
             LOG(Warning) << "Joint " << get_name() << " command torque saturated to " << m_torque_limit;
-            m_torque = clamp(m_torque, m_torque_limit);
+            m_torque = clamp(m_com_torque, m_torque_limit);
+        }
+        else{
+            m_torque = m_com_torque;
         }
         double motor_torque = m_torque * m_actuator_transmission;             // (Nm) * (Nm / Nm) = Nm
         double command_current = motor_torque/m_motor_kt;                     // (Nm) / (Nm / A)  = A
