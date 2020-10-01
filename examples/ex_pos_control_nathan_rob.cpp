@@ -576,15 +576,19 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
+			// kick watchdog
+			if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
+				stop = true;
+			}
+
+			// update all DAQ output channels
+			if (!stop) meii->daq_write_all();
 
 			// write ref to MelShares
 			ms_pos.write_data(aj_positions);
 			ms_vel.write_data(aj_velocities);
 			ms_trq.write_data(command_torques);
 			ms_ref.write_data(ref);
-			
-			// update all DAQ output channels
-			meii->daq_write_all();
 
             // check for stop key
             int key_press = -1;
@@ -602,10 +606,7 @@ int main(int argc, char *argv[]) {
 			}
 			robot_log.push_back(robot_log_row);
 
-			// kick watchdog
-			if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
-				stop = true;
-			}
+			
 
 			// wait for remainder of sample period
 			timer.wait();

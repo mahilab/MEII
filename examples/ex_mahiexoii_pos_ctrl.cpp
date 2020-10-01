@@ -231,7 +231,6 @@ int main(int argc, char *argv[]) {
 
             // kick watchdog
             if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()){
-                print("here");
                 stop = true;
             }
                 
@@ -387,8 +386,13 @@ int main(int argc, char *argv[]) {
             ms_trq.write_data(command_torques);
             ms_ref.write_data(ref);
 
+            // kick watchdog
+            if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()){
+                stop = true;
+            }
+
             // update all DAQ output channels
-            meii->daq_write_all();
+            if (!stop) meii->daq_write_all();
 
             // write to robot data log
             robot_log_row[0] = timer.get_elapsed_time().as_seconds();

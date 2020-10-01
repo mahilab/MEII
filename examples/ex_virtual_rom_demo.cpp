@@ -246,13 +246,13 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // update all DAQ output channels
-        meii->daq_write_all();
-
         // kick watchdog
         if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
             stop = true;
         }
+
+        // update all DAQ output channels
+        if (!stop) meii->daq_write_all();
 
         ms_ref.write_data(meii->get_robot_joint_positions());
         ms_pos.write_data(meii->get_robot_joint_velocities());
@@ -260,9 +260,9 @@ int main(int argc, char* argv[]) {
         // wait for remainder of sample period
         t = timer.wait().as_seconds();
     }
-    meii->daq_disable();
-    meii->disable();
     
+    meii->disable();
+    meii->daq_disable();
 
     // delete meii;
 
