@@ -781,7 +781,7 @@ namespace meii {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                daq_encoder_write((int32)j+3,encoder_offsets[j+3]);
+                                daq_encoder_write((int32)j+3,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
                                 par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
@@ -796,17 +796,21 @@ namespace meii {
                             torque = robot_joint_pd_controllers_[dof_num].calculate(par_pos_ref[i], pos_act, 0, vel_act);
                             torque = clamp(torque, sat_torques[dof_num]);
 
+                            if (i == 2) print_var(par_pos_ref[i]);
+
                             if (dir[dof_num] * par_pos_ref[i] <= dir[dof_num] * neutral_points[dof_num]) {
                                 // reset for the next joint
                                 par_returning[i] = false;
                                 par_pos_ref[i] = 0;
                                 LOG(Info) << "Joint " << meii_joints[dof_num]->get_name() << " calibrated";
                                 if (std::all_of(par_returning.begin(), par_returning.end(), [](bool v) { return !v; })){
+                                    print("shoulda stopped!");
                                     stop = true;
                                 }
                             }
                         }
                         else{
+                            // LOG(Info) << "Joint " << meii_joints[dof_num]->get_name() << " waiting";
                             torque = robot_joint_pd_controllers_[dof_num].calculate(neutral_points[dof_num], pos_act, 0, vel_act);
                             torque = clamp(torque, sat_torques[dof_num]);
                         }

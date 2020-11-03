@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
 
     // calibrate - manually zero the encoders (right arm supinated)
     if (result.count("calibrate") > 0) {
-        meii->calibrate(stop);
+        meii->calibrate_auto(stop);
         LOG(Info) << "MAHI Exo-II encoders calibrated.";
         return 0;
     }
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
     WayPoint neutral_point = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.10});
     WayPoint bottom_elbow  = WayPoint(Time::Zero, {-65 * DEG2RAD,  30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.10});
     WayPoint top_elbow     = WayPoint(Time::Zero, { -5 * DEG2RAD, -30 * DEG2RAD, 00  * DEG2RAD, 00 * DEG2RAD, 0.10});
-    WayPoint top_wrist     = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 15 * DEG2RAD, 0.10});
+    WayPoint top_wrist     = WayPoint(Time::Zero, {-35 * DEG2RAD,  00 * DEG2RAD, 00  * DEG2RAD, 12 * DEG2RAD, 0.10});
 
     // construct timer in hybrid mode to avoid using 100% CPU
     Timer timer(Ts, Timer::Hybrid);
@@ -172,7 +172,7 @@ int main(int argc, char* argv[]) {
 	
     meii->enable();
 	
-	meii->daq_watchdog_start();    
+	// meii->daq_watchdog_start();    
 
     // trajectory following
     LOG(Info) << "Starting Movement.";
@@ -199,8 +199,8 @@ int main(int argc, char* argv[]) {
         else {
             ref[0] = neutral_point.get_pos()[0];
             ref[1] = neutral_point.get_pos()[1];
-            ref[2] = 15.0 * DEG2RAD * sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
-            ref[3] = 15.0 * DEG2RAD * cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
+            ref[2] = 12.0 * DEG2RAD * sin(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
+            ref[3] = 12.0 * DEG2RAD * cos(2.0 * PI * ref_traj_clock.get_elapsed_time() / state_times[wrist_circle]);
             ref[4] = neutral_point.get_pos()[4];
         }
 
@@ -247,7 +247,10 @@ int main(int argc, char* argv[]) {
         }
 
         // kick watchdog
-        if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
+        // if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
+        //     stop = true;
+        // }
+        if (meii->any_limit_exceeded()) {
             stop = true;
         }
 
