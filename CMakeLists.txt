@@ -57,10 +57,10 @@ add_definitions(-D_CRT_SECURE_NO_WARNINGS -DNOMINMAX -D_WINSOCK_DEPRECATED_NO_WA
 
 set(SRC_MEII 
     src/MEII/Control/DisturbanceObserver.cpp
-    src/MEII/Control/DynamicMotionPrimitive.cpp
-    src/MEII/Control/MinimumJerk.cpp
-    src/MEII/Control/Trajectory.cpp
-    src/MEII/Control/Waypoint.cpp
+    # src/MEII/Control/DynamicMotionPrimitive.cpp
+    # src/MEII/Control/MinimumJerk.cpp
+    # src/MEII/Control/Trajectory.cpp
+    # src/MEII/Control/Waypoint.cpp
     src/MEII/MahiExoII/Joint.cpp
     src/MEII/MahiExoII/JointHardware.cpp
     src/MEII/MahiExoII/JointVirtual.cpp

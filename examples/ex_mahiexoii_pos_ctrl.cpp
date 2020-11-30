@@ -2,12 +2,14 @@
 #include <Mahi/Daq.hpp>
 #include <Mahi/Util.hpp>
 #include <Mahi/Com.hpp>
+#include <Mahi/Robo.hpp>
 
 using namespace meii;
 
 using namespace mahi::daq;
 using namespace mahi::util;
 using namespace mahi::com;
+using namespace mahi::robo;
 
 // create global stop variable CTRL-C handler function
 ctrl_bool stop(false);

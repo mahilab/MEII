@@ -1,6 +1,3 @@
-add_executable(trajectory ex_trajectory.cpp)
-target_link_libraries(trajectory meii::meii)
-
 add_executable(mahiexoii_pos_ctrl ex_mahiexoii_pos_ctrl.cpp)
 target_link_libraries(mahiexoii_pos_ctrl meii::meii)
 

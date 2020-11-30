@@ -2,14 +2,13 @@
 #include <Mahi/Util.hpp>
 #include <Mahi/Com.hpp>
 #include <Mahi/Daq.hpp>
-#include <MEII/Control/Trajectory.hpp>
-#include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/Control/MinimumJerk.hpp>
+#include <Mahi/Robo.hpp>
 #include <vector>
 
 using namespace mahi::util;
 using namespace mahi::com;
 using namespace mahi::daq;
+using namespace mahi::robo;
 using namespace meii;
 
 

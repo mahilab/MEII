@@ -28,7 +28,6 @@
 #include <Eigen/Dense>
 #include <Eigen/LU>
 #include <Eigen/StdVector>
-#include <MEII/Control/Trajectory.hpp>
 
 namespace meii {
     /// Class for controlling the Mahi Exo II Exoskeleton

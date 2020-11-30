@@ -1,10 +1,8 @@
-#include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/Control/Trajectory.hpp>
+#include <Mahi/Robo.hpp>
 #include <Mahi/Util.hpp>
 
-
 using namespace mahi::util;
-using namespace meii;
+using namespace mahi::robo;
 
 int main() {
 

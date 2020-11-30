@@ -1,6 +1,3 @@
-#include <MEII/Control/DynamicMotionPrimitive.hpp>
-#include <MEII/Control/MinimumJerk.hpp>
-#include <MEII/Control/Trajectory.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
 #include <Mahi/Com.hpp>
 #include <Mahi/Util.hpp>
