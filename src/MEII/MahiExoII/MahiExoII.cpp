@@ -645,10 +645,13 @@ namespace meii {
         for (size_t i = 0; i < 5; i++){
             daq_encoder_write((int32)i,0);
         }
-        // daq_watchdog_start();
+
+        enable_realtime();
 
         // enable MEII
         enable();
+
+        // daq_watchdog_start();
 
         daq_read_all();
         update_kinematics();
@@ -666,7 +669,7 @@ namespace meii {
             // read and reload DAQs
             daq_read_all();
             update_kinematics();
-            daq_watchdog_kick();
+            // daq_watchdog_kick();
 
             if (calibrating_joint < 2){
                 // iterate over all joints
@@ -692,6 +695,7 @@ namespace meii {
                                 moving = false;
                                 for (size_t j = stored_positions.size() - 100; j < stored_positions.size(); j++) {
                                     moving = stored_positions[j] != stored_positions[j - 1];
+                                    // daq_watchdog_kick();
                                     if (moving)
                                         break;
                                 }
@@ -773,6 +777,7 @@ namespace meii {
                             par_moving[i] = false;
                             for (size_t j = par_stored_positions[i].size() - 500; j < par_stored_positions[i].size(); j++) {
                                 par_moving[i] = par_stored_positions[i][j] != par_stored_positions[i][j-1];
+                                // daq_watchdog_kick();
                                 if (par_moving[i])
                                     break;
                             }
@@ -822,10 +827,8 @@ namespace meii {
             // write all DAQs
             daq_write_all();
 
-            // daq_watchdog_kick();
-
             // check joint velocity limits
-            if (any_velocity_limit_exceeded() || any_torque_limit_exceeded()) {
+            if (any_limit_exceeded()) {
                 stop = true;
                 break;
             }
@@ -839,6 +842,8 @@ namespace meii {
 
         // disable DAQ
         daq_disable();
+
+        disable_realtime();
     }
 
     ///////////////////////////////////////////////////

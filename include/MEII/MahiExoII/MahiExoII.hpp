@@ -193,9 +193,11 @@ namespace meii {
         /// read wrist serial positions after using update_kinematics
         std::vector<double> get_wrist_serial_positions() const;
     
+    public:
+        std::vector<double> m_anatomical_joint_velocities; // vector of anatomical joint velocities
     private:
         std::vector<double> m_anatomical_joint_positions; // vector of anatomical joint positions
-        std::vector<double> m_anatomical_joint_velocities; // vector of anatomical joint velocities
+        // std::vector<double> m_anatomical_joint_velocities; // vector of anatomical joint velocities
         std::vector<double> m_anatomical_joint_torques; // vector of anatomical joint torquescd
 
         std::vector<double> m_robot_joint_positions; // vector of robot joint positions

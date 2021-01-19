@@ -12,6 +12,26 @@ using namespace mahi::robo;
 using namespace mahi::com;
 using namespace meii;
 
+class MedianFilter {
+public:
+    MedianFilter(int N)  { resize(N); }
+    double filter(double sample) {
+        size_t W = buffer1.size();
+        buffer1[W-1] = sample;
+        buffer2 = buffer1;
+        std::sort(buffer2.begin(), buffer2.end());
+        size_t M = W/2;
+        double value = buffer2[M];
+        for (size_t i = 1; i < W; ++i)
+            buffer1[i-1] = buffer1[i];
+        return value;
+    }   
+    void resize(int N) { buffer1.resize(N); buffer2.resize(N); } 
+private:
+    std::vector<double> buffer1;
+    std::vector<double> buffer2;
+};
+
 enum state {
     to_neutral_0,     // 0
     to_bottom_elbow,  // 1
@@ -111,8 +131,13 @@ int main(int argc, char* argv[]) {
     MelShare ms_trq("ms_trq");
     MelShare ms_ref("ms_ref");
 
-    Butterworth vel_filter(2,20_Hz,Ts.to_frequency());
+    Butterworth vel_filter(2,400_Hz,Ts.to_frequency());
+    Butterworth vel_filter2(2,400_Hz,Ts.to_frequency());
+    MedianFilter vel_filter3(71);
     double t_last{-0.001};
+
+    // meii->anatomical_joint_pd_controllers_[0].kp *= 1.55;
+    // meii->anatomical_joint_pd_controllers_[0].kd = 1.25*4.0;
 
     // create ranges for saturating trajectories for safety  MIN            MAX
     std::vector<std::vector<double>> setpoint_rad_ranges = {{-90 * DEG2RAD, 0 * DEG2RAD},
@@ -175,7 +200,7 @@ int main(int argc, char* argv[]) {
 	
     meii->enable();
 	
-	// meii->daq_watchdog_start();    
+	meii->daq_watchdog_start();    
 
     // trajectory following
     LOG(Info) << "Starting Movement.";
@@ -200,6 +225,9 @@ int main(int argc, char* argv[]) {
         double crappy_vel = (meii->get_robot_joint_position(0)-pos_last)/(t-t_last);
         double vel1_filtered = vel_filter.update(crappy_vel);
         pos_last = meii->get_robot_joint_position(0);
+        double vel_vel_filtered = vel_filter2.update(meii->get_anatomical_joint_velocity(0));
+        double median_vel_filtered = vel_filter3.filter(meii->get_anatomical_joint_velocity(0));
+        // meii->m_anatomical_joint_velocities[0] = median_vel_filtered;
 
         if (current_state != wrist_circle) {
             // update reference from trajectory
@@ -256,19 +284,19 @@ int main(int argc, char* argv[]) {
         }
 
         // kick watchdog
-        // if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
-        //     stop = true;
-        // }
-        if (meii->any_limit_exceeded()) {
+        if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
             stop = true;
         }
+        // if (meii->any_limit_exceeded()) {
+        //     stop = true;
+        // }
 
         // update all DAQ output channels
         if (!stop) meii->daq_write_all();
 
         // ms_ref.write_data(meii->get_robot_joint_positions());
         // ms_pos.write_data(meii->get_robot_joint_velocities());
-        ms_vel.write_data({meii->get_robot_joint_velocity(0), vel1_filtered});
+        ms_vel.write_data({meii->get_robot_joint_velocity(0), vel1_filtered, vel_vel_filtered, median_vel_filtered});
 
         // wait for remainder of sample period
         t_last = t;
