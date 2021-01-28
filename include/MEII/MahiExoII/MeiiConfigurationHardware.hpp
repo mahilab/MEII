@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <Mahi/Daq/Quanser/Q8Usb.hpp>
+#include <Mahi/Daq/Quanser/QPid.hpp>
 #include <Mahi/Daq/Quanser/QuanserEncoder.hpp>
 #include <Mahi/Daq/Types.hpp>
 #include <Mahi/Daq/Watchdog.hpp>
@@ -41,7 +41,7 @@ namespace meii {
     public:
 
         /// Constructor for standard configuration
-        MeiiConfigurationHardware(mahi::daq::Q8Usb&                     daq,
+        MeiiConfigurationHardware(mahi::daq::QPid&                     daq,
                                   const std::vector<mahi::daq::ChanNum> encoder_channels = {1,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> enable_channels = {1,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> current_write_channels = {1,2,3,4,5},
@@ -60,7 +60,7 @@ namespace meii {
 
         friend class MahiExoIIHardware;
 
-        mahi::daq::Q8Usb&                     m_daq;                    // DAQ controlling the MahiExoII
+        mahi::daq::QPid&                     m_daq;                    // DAQ controlling the MahiExoII
         const std::vector<mahi::daq::ChanNum> m_encoder_channels;       // encoder channels that measure motor positions
         const std::vector<mahi::daq::ChanNum> m_enable_channels;        // DO channels that enable/disable motors
         const std::vector<mahi::daq::ChanNum> m_current_write_channels; // AI channels that write current to amps

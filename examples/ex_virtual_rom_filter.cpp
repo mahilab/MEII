@@ -89,14 +89,14 @@ int main(int argc, char* argv[]) {
     // construct and config MEII   //
     /////////////////////////////////
     std::shared_ptr<MahiExoII> meii = nullptr;
-    std::shared_ptr<Q8Usb> q8 = nullptr;
+    std::shared_ptr<QPid> q8 = nullptr;
     
     if(result.count("virtual") > 0){
         MeiiConfigurationVirtual config_vr; 
         meii = std::make_shared<MahiExoIIVirtual>(config_vr);
     }
     else{
-        q8 = std::make_shared<Q8Usb>();
+        q8 = std::make_shared<QPid>();
         q8->open();
         std::vector<TTL> idle_values(8,TTL_HIGH);
         q8->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
