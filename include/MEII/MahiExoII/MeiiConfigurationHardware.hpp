@@ -42,7 +42,7 @@ namespace meii {
 
         /// Constructor for standard configuration
         MeiiConfigurationHardware(mahi::daq::QPid&                     daq,
-                                  const std::vector<mahi::daq::ChanNum> encoder_channels = {1,2,3,4,5},
+                                  const std::vector<mahi::daq::ChanNum> encoder_channels = {6,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> enable_channels = {1,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> current_write_channels = {1,2,3,4,5},
                                   const std::vector<mahi::daq::TTL>     enable_values = std::vector<mahi::daq::TTL>(5,mahi::daq::TTL_LOW),

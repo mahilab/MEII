@@ -99,8 +99,12 @@ int main(int argc, char* argv[]) {
         q8 = std::make_shared<QPid>();
         q8->open();
         std::vector<TTL> idle_values(8,TTL_HIGH);
-        q8->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
-        q8->DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+        q8->DO.set_channels({0,1,2,3,4,5,6,7});
+        for (size_t i = 0; i < 8; i++){
+            q8->DO.enable_values[i] = TTL_HIGH;
+            q8->DO.disable_values[i] = TTL_HIGH;
+            // qpid.DO.expire_values[i] = TTL_HIGH;
+        }
         q8->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
         MeiiConfigurationHardware config_hw(*q8); 
         meii = std::make_shared<MahiExoIIHardware>(config_hw);
@@ -137,7 +141,7 @@ int main(int argc, char* argv[]) {
     double t_last{-0.001};
 
     // meii->anatomical_joint_pd_controllers_[0].kp *= 1.55;
-    // meii->anatomical_joint_pd_controllers_[0].kd = 1.25*4.0;
+    meii->anatomical_joint_pd_controllers_[0].kd = 1.25*9.0;
 
     // create ranges for saturating trajectories for safety  MIN            MAX
     std::vector<std::vector<double>> setpoint_rad_ranges = {{-90 * DEG2RAD, 0 * DEG2RAD},
@@ -227,7 +231,7 @@ int main(int argc, char* argv[]) {
         pos_last = meii->get_robot_joint_position(0);
         double vel_vel_filtered = vel_filter2.update(meii->get_anatomical_joint_velocity(0));
         double median_vel_filtered = vel_filter3.filter(meii->get_anatomical_joint_velocity(0));
-        // meii->m_anatomical_joint_velocities[0] = median_vel_filtered;
+        meii->m_anatomical_joint_velocities[0] = vel1_filtered;
 
         if (current_state != wrist_circle) {
             // update reference from trajectory
@@ -305,6 +309,7 @@ int main(int argc, char* argv[]) {
     
     meii->disable();
     meii->daq_disable();
+    meii->daq_close();
 
     // delete meii;
 

@@ -18,3 +18,6 @@ target_link_libraries(virtual_rom_demo meii::meii)
 
 add_executable(virtual_rom_filter ex_virtual_rom_filter.cpp)
 target_link_libraries(virtual_rom_filter meii::meii)
+
+add_executable(qpid_test ex_qpid_test.cpp)
+target_link_libraries(qpid_test meii::meii)
