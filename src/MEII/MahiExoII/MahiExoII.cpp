@@ -743,7 +743,7 @@ namespace meii {
                 // set rps joint torques
                 for (std::size_t i = 0; i < 3; ++i) {
 					double torque = robot_joint_pd_controllers_[i + 2].calculate(zeros[i+2], meii_joints[i + 2]->get_position(), 0, meii_joints[i + 2]->get_velocity());
-                    torque = clamp(torque, sat_torques[i]);
+                    torque = clamp(torque, sat_torques[i]+2);
                     meii_joints[i + 2]->set_torque(torque);
 				}
             }

@@ -137,7 +137,7 @@ int main(int argc, char* argv[]) {
     double t_last{-0.001};
 
     // meii->anatomical_joint_pd_controllers_[0].kp *= 1.55;
-    // meii->anatomical_joint_pd_controllers_[0].kd = 1.25*4.0;
+    meii->anatomical_joint_pd_controllers_[0].kd = 1.25*7.0;
 
     // create ranges for saturating trajectories for safety  MIN            MAX
     std::vector<std::vector<double>> setpoint_rad_ranges = {{-90 * DEG2RAD, 0 * DEG2RAD},
@@ -227,7 +227,7 @@ int main(int argc, char* argv[]) {
         pos_last = meii->get_robot_joint_position(0);
         double vel_vel_filtered = vel_filter2.update(meii->get_anatomical_joint_velocity(0));
         double median_vel_filtered = vel_filter3.filter(meii->get_anatomical_joint_velocity(0));
-        // meii->m_anatomical_joint_velocities[0] = median_vel_filtered;
+        meii->m_anatomical_joint_velocities[0] = vel1_filtered;
 
         if (current_state != wrist_circle) {
             // update reference from trajectory
