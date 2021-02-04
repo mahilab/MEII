@@ -1,9 +1,6 @@
 add_executable(mahiexoii_pos_ctrl ex_mahiexoii_pos_ctrl.cpp)
 target_link_libraries(mahiexoii_pos_ctrl meii::meii)
 
-add_executable(pos_control_nathan ex_pos_control_nathan.cpp)
-target_link_libraries(pos_control_nathan meii::meii)
-
 add_executable(ex_pos_control_nathan_rob ex_pos_control_nathan_rob.cpp)
 target_link_libraries(ex_pos_control_nathan_rob meii::meii)
 

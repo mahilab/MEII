@@ -50,21 +50,21 @@ int main(int argc, char *argv[]) {
     // construct and config MEII   //
     /////////////////////////////////
     std::shared_ptr<MahiExoII> meii = nullptr;
-    std::shared_ptr<Q8Usb> q8 = nullptr;
+    std::shared_ptr<QPid> daq = nullptr;
     
     if(result.count("virtual") > 0){
         MeiiConfigurationVirtual config_vr; 
         meii = std::make_shared<MahiExoIIVirtual>(config_vr);
     }
     else{
-        q8 = std::make_shared<Q8Usb>();
-        q8->open();
+        daq = std::make_shared<QPid>();
+        daq->open();
         std::vector<TTL> idle_values(8,TTL_HIGH);
-        q8->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
-        q8->DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
-        q8->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
-        MeiiConfigurationHardware config_hw(*q8); 
-        meii = std::make_shared<MahiExoIIHardware>(config_hw);
+        daq->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
+        daq->DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
+        daq->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
+        MeiiConfigurationHardware<QPid> config_hw(*daq); 
+        meii = std::make_shared<MahiExoIIHardware<QPid>>(config_hw);
     }
 
 	Time Ts = milliseconds(1); // sample period for DAQ

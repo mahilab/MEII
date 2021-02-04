@@ -19,19 +19,53 @@
 
 #include <MEII/MahiExoII/MeiiConfigurationHardware.hpp>
 #include <MEII/MahiExoII/MahiExoII.hpp>
+#include <MEII/MahiExoII/JointHardware.hpp>
+#include <Mahi/Robo/Control/Limiter.hpp>
 #include <Mahi/Daq/Handle.hpp>
 
 namespace meii {
     /// Class for controlling the Mahi Exo II Exoskeleton
+    template<typename Q>
     class MahiExoIIHardware : public MahiExoII {
 
     ///////////////////////// STANDARD CLASS FUNCTIONS AND PARAMS /////////////////////////
     
     public:
-        /// Constructor
-        MahiExoIIHardware(MeiiConfigurationHardware configuration);
+    /// Constructor
+        MahiExoIIHardware(MeiiConfigurationHardware<Q> configuration) :
+            MahiExoII(),
+            config_hw(configuration)
+        {
+            for (int i = 0; i < n_rj; ++i) {
 
-        MeiiConfigurationHardware config_hw;                       // meii configuration, consisting of daq, parameters, etc
+                // set encoder counts
+                config_hw.m_daq.encoder.units[config_hw.m_encoder_channels[i]] = (2 * mahi::util::PI / params_.encoder_res_[i]);
+                // encoder_handles.push_back(&EncoderHandle(config_hw.m_daq.encoder,i));
+
+                auto encoder_handle = std::make_shared<mahi::daq::EncoderHandle>(config_hw.m_daq.encoder,config_hw.m_encoder_channels[i]);
+
+                auto joint = std::make_shared<JointHardware>("meii_joint_" + std::to_string(i),
+                                                            std::array<double, 2>({ params_.pos_limits_min_[i] , params_.pos_limits_max_[i] }),
+                                                            params_.vel_limits_[i],
+                                                            params_.joint_torque_limits[i],
+                                                            mahi::robo::Limiter(params_.motor_cont_limits_[i],
+                                                                        params_.motor_peak_limits_[i],
+                                                                        params_.motor_i2t_times_[i]),
+                                                            params_.eta_[i],
+                                                            encoder_handle,
+                                                            params_.eta_[i],
+                                                            config_hw.m_daq.velocity.velocities[config_hw.m_encoder_channels[i]],
+                                                            params_.eta_[i],
+                                                            params_.kt_[i],
+                                                            config_hw.m_amp_gains[i],
+                                                            mahi::daq::DOHandle(config_hw.m_daq.DO,config_hw.m_enable_channels[i]),
+                                                            config_hw.m_enable_values[i],
+                                                            mahi::daq::AOHandle(config_hw.m_daq.AO,config_hw.m_current_write_channels[i]));
+
+                meii_joints.push_back(joint);
+            }
+        }
+        MeiiConfigurationHardware<Q> config_hw;                       // meii configuration, consisting of daq, parameters, etc
 
         std::vector<mahi::daq::EncoderHandle*> encoder_handles;
 
