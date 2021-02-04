@@ -85,6 +85,7 @@
         "clocale": "cpp",
         "resumable": "cpp",
         "forward_list": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "string_view": "cpp"
     }
 }

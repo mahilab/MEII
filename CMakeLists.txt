@@ -65,7 +65,7 @@ set(SRC_MEII
     src/MEII/MahiExoII/JointHardware.cpp
     src/MEII/MahiExoII/JointVirtual.cpp
     src/MEII/MahiExoII/MahiExoII.cpp
-    src/MEII/MahiExoII/MahiExoIIHardware.cpp
+    # src/MEII/MahiExoII/MahiExoIIHardware.cpp
     src/MEII/MahiExoII/MahiExoIIVirtual.cpp)
 
 file(GLOB_RECURSE INC_MEII "include/*.hpp")
@@ -95,3 +95,5 @@ if(MEII_EXAMPLES)
     message("Building MEII examples")
     add_subdirectory(examples)
 endif()
+
+add_subdirectory(test)

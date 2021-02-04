@@ -18,6 +18,7 @@
 #pragma once
 
 #include <Mahi/Daq/Quanser/QPid.hpp>
+#include <Mahi/Daq/Quanser/Q8usb.hpp>
 #include <Mahi/Daq/Quanser/QuanserEncoder.hpp>
 #include <Mahi/Daq/Types.hpp>
 #include <Mahi/Daq/Watchdog.hpp>
@@ -28,7 +29,7 @@ namespace meii {
     //==============================================================================
     // FORWARD DECLARATIONS
     //==============================================================================
-
+    template <typename Q>
     class MahiExoIIHardware;
 
     //==============================================================================
@@ -36,12 +37,13 @@ namespace meii {
     //==============================================================================
 
     /// Encapsulates the hardware configuration for a MahiExoII
+    template <typename Q>
     class MeiiConfigurationHardware {
 
     public:
 
         /// Constructor for standard configuration
-        MeiiConfigurationHardware(mahi::daq::QPid&                     daq,
+        MeiiConfigurationHardware(Q*                                    daq,
                                   const std::vector<mahi::daq::ChanNum> encoder_channels = {6,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> enable_channels = {1,2,3,4,5},
                                   const std::vector<mahi::daq::ChanNum> current_write_channels = {1,2,3,4,5},
@@ -56,11 +58,21 @@ namespace meii {
             {
             }
 
-    private:
+        /// Constructor for standard configuration
+        MeiiConfigurationHardware(){
+            m_daq = Q8Usb();
+            m_encoder_channels = {6,2,3,4,5};
+            m_enable_channels = {1,2,3,4,5};
+            m_current_write_channels = {1,2,3,4,5};
+            m_enable_values = std::vector<mahi::daq::TTL>(5,mahi::daq::TTL_LOW);
+            m_amp_gains = {1.8, 1.8, 0.184, 0.184, 0.184};
+        }
 
+    public:
+        template <typename Q>
         friend class MahiExoIIHardware;
 
-        mahi::daq::QPid&                     m_daq;                    // DAQ controlling the MahiExoII
+        Q*                                    m_daq;                    // DAQ controlling the MahiExoII
         const std::vector<mahi::daq::ChanNum> m_encoder_channels;       // encoder channels that measure motor positions
         const std::vector<mahi::daq::ChanNum> m_enable_channels;        // DO channels that enable/disable motors
         const std::vector<mahi::daq::ChanNum> m_current_write_channels; // AI channels that write current to amps

@@ -88,27 +88,28 @@ int main(int argc, char* argv[]) {
     /////////////////////////////////
     // construct and config MEII   //
     /////////////////////////////////
-    std::shared_ptr<MahiExoII> meii = nullptr;
-    std::shared_ptr<QPid> q8 = nullptr;
+    // std::shared_ptr<MahiExoII> meii = nullptr;
+    // std::shared_ptr<QPid> q8 = nullptr;
     
-    if(result.count("virtual") > 0){
-        MeiiConfigurationVirtual config_vr; 
-        meii = std::make_shared<MahiExoIIVirtual>(config_vr);
-    }
-    else{
-        q8 = std::make_shared<QPid>();
-        q8->open();
+    // if(result.count("virtual") > 0){
+    //     MeiiConfigurationVirtual config_vr; 
+    //     meii = std::make_shared<MahiExoIIVirtual>(config_vr);
+    // }
+    // else{
+        // q8 = std::make_shared<QPid>();
+        Q8Usb q8;
+        q8.open();
         std::vector<TTL> idle_values(8,TTL_HIGH);
-        q8->DO.set_channels({0,1,2,3,4,5,6,7});
+        q8.DO.set_channels({0,1,2,3,4,5,6,7});
         for (size_t i = 0; i < 8; i++){
-            q8->DO.enable_values[i] = TTL_HIGH;
-            q8->DO.disable_values[i] = TTL_HIGH;
+            q8.DO.enable_values[i] = TTL_HIGH;
+            q8.DO.disable_values[i] = TTL_HIGH;
             // qpid.DO.expire_values[i] = TTL_HIGH;
         }
-        q8->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
-        MeiiConfigurationHardware config_hw(*q8); 
-        meii = std::make_shared<MahiExoIIHardware>(config_hw);
-    }
+        q8.DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
+        MeiiConfigurationHardware<Q8Usb> config_hw(&q8); 
+        MahiExoIIHardware<Q8Usb> meii(config_hw);
+    // }
 
     Time Ts = milliseconds(1);  // sample period for DAQ
 
@@ -124,7 +125,7 @@ int main(int argc, char* argv[]) {
 
     // calibrate - manually zero the encoders (right arm supinated)
     if (result.count("calibrate") > 0) {
-        meii->calibrate_auto(stop);
+        meii.calibrate_auto(stop);
         LOG(Info) << "MAHI Exo-II encoders calibrated.";
         return 0;
     }
@@ -140,8 +141,8 @@ int main(int argc, char* argv[]) {
     MedianFilter vel_filter3(71);
     double t_last{-0.001};
 
-    // meii->anatomical_joint_pd_controllers_[0].kp *= 1.55;
-    meii->anatomical_joint_pd_controllers_[0].kd = 1.25*9.0;
+    // meii.anatomical_joint_pd_controllers_[0].kp *= 1.55;
+    meii.anatomical_joint_pd_controllers_[0].kd = 1.25*1.0;
 
     // create ranges for saturating trajectories for safety  MIN            MAX
     std::vector<std::vector<double>> setpoint_rad_ranges = {{-90 * DEG2RAD, 0 * DEG2RAD},
@@ -200,38 +201,38 @@ int main(int argc, char* argv[]) {
     ref_traj_clock.restart();
 	
 	// enable DAQ and exo
-	meii->daq_enable();
+	meii.daq_enable();
 	
-    meii->enable();
+    meii.enable();
 	
-	meii->daq_watchdog_start();    
+	meii.daq_watchdog_start();    
 
     // trajectory following
     LOG(Info) << "Starting Movement.";
 
     //initialize kinematics
-    meii->daq_read_all();
-    meii->update_kinematics();
+    meii.daq_read_all();
+    meii.update_kinematics();
 
-    WayPoint start_pos(Time::Zero, meii->get_anatomical_joint_positions());
+    WayPoint start_pos(Time::Zero, meii.get_anatomical_joint_positions());
 
     mj.set_endpoints(start_pos, neutral_point.set_time(state_times[to_neutral_0]));
 
-    double pos_last = meii->get_robot_joint_position(0);
+    double pos_last = meii.get_robot_joint_position(0);
 
     while (!stop) {
         // update all DAQ input channels
-        meii->daq_read_all();
+        meii.daq_read_all();
 
         // update MahiExoII kinematics
-        meii->update_kinematics();
+        meii.update_kinematics();
 
-        double crappy_vel = (meii->get_robot_joint_position(0)-pos_last)/(t-t_last);
+        double crappy_vel = (meii.get_robot_joint_position(0)-pos_last)/(t-t_last);
         double vel1_filtered = vel_filter.update(crappy_vel);
-        pos_last = meii->get_robot_joint_position(0);
-        double vel_vel_filtered = vel_filter2.update(meii->get_anatomical_joint_velocity(0));
-        double median_vel_filtered = vel_filter3.filter(meii->get_anatomical_joint_velocity(0));
-        meii->m_anatomical_joint_velocities[0] = vel1_filtered;
+        pos_last = meii.get_robot_joint_position(0);
+        double vel_vel_filtered = vel_filter2.update(meii.get_anatomical_joint_velocity(0));
+        double median_vel_filtered = vel_filter3.filter(meii.get_anatomical_joint_velocity(0));
+        meii.m_anatomical_joint_velocities[0] = vel1_filtered;
 
         if (current_state != wrist_circle) {
             // update reference from trajectory
@@ -246,17 +247,17 @@ int main(int argc, char* argv[]) {
         }
 
         // constrain trajectory to be within range
-        for (std::size_t i = 0; i < meii->n_aj; ++i) {
+        for (std::size_t i = 0; i < meii.n_aj; ++i) {
             ref[i] = clamp(ref[i], setpoint_rad_ranges[i][0], setpoint_rad_ranges[i][1]);
         }
         
         // calculate anatomical command torques
         if (result.count("no_torque") > 0){
             command_torques = {0.0, 0.0, 0.0, 0.0, 0.0};
-            meii->set_anatomical_raw_joint_torques(command_torques);
+            meii.set_anatomical_raw_joint_torques(command_torques);
         }
         else{
-            command_torques = meii->set_anat_pos_ctrl_torques(ref);
+            command_torques = meii.set_anat_pos_ctrl_torques(ref);
         }
 
         // if enough time has passed, continue to the next state. See to_state function at top of file for details
@@ -288,28 +289,28 @@ int main(int argc, char* argv[]) {
         }
 
         // kick watchdog
-        if (!meii->daq_watchdog_kick() || meii->any_limit_exceeded()) {
+        if (!meii.daq_watchdog_kick() || meii.any_limit_exceeded()) {
             stop = true;
         }
-        // if (meii->any_limit_exceeded()) {
+        // if (meii.any_limit_exceeded()) {
         //     stop = true;
         // }
 
         // update all DAQ output channels
-        if (!stop) meii->daq_write_all();
+        if (!stop) meii.daq_write_all();
 
-        // ms_ref.write_data(meii->get_robot_joint_positions());
-        // ms_pos.write_data(meii->get_robot_joint_velocities());
-        ms_vel.write_data({meii->get_robot_joint_velocity(0), vel1_filtered, vel_vel_filtered, median_vel_filtered});
+        // ms_ref.write_data(meii.get_robot_joint_positions());
+        // ms_pos.write_data(meii.get_robot_joint_velocities());
+        ms_vel.write_data({meii.get_robot_joint_velocity(0), vel1_filtered, vel_vel_filtered, median_vel_filtered});
 
         // wait for remainder of sample period
         t_last = t;
         t = timer.wait().as_seconds();
     }
     
-    meii->disable();
-    meii->daq_disable();
-    meii->daq_close();
+    meii.disable();
+    meii.daq_disable();
+    meii.daq_close();
 
     // delete meii;
 
