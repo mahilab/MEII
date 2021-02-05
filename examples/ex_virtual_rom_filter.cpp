@@ -98,11 +98,14 @@ int main(int argc, char* argv[]) {
     else{
         daq = std::make_shared<QPid>();
         daq->open();
+
+        MeiiConfigurationHardware<QPid> config_hw(*daq); 
+
         std::vector<TTL> idle_values(8,TTL_HIGH);
         daq->DO.enable_values.set({0,1,2,3,4,5,6,7},idle_values);
         daq->DO.disable_values.set({0,1,2,3,4,5,6,7},idle_values);
-        daq->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);    
-        MeiiConfigurationHardware<QPid> config_hw(*daq); 
+        daq->DO.expire_values.write({0,1,2,3,4,5,6,7},idle_values);     
+
         meii = std::make_shared<MahiExoIIHardware<QPid>>(config_hw);
     }
 
