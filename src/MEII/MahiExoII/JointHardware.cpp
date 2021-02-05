@@ -2,6 +2,8 @@
 #include <Mahi/Util/Math/Functions.hpp>
 #include <Mahi/Util/Logging/Log.hpp>
 #include <Mahi/Com/MelShare.hpp>
+#include <Mahi/Util/Timing/Frequency.hpp>
+#include <Mahi/Util/Print.hpp>
 #include <iostream>
 
 using namespace mahi::util;
@@ -17,6 +19,7 @@ JointHardware::JointHardware(const std::string &name,
              std::shared_ptr<mahi::daq::EncoderHandle> position_sensor,
              double position_transmission,
              const double &velocity_sensor,
+             VelocityEstimator velocity_estimator,
              double velocity_transmission,
              double motor_kt,
              double amp_gain,
@@ -26,6 +29,7 @@ JointHardware::JointHardware(const std::string &name,
     Joint(name,position_limits,velocity_limit,torque_limit,limiter),
     m_position_sensor(position_sensor),
     m_velocity_sensor(velocity_sensor),
+    m_velocity_estimator(velocity_estimator),
     m_actuator_transmission(actuator_transmission),
     m_position_transmission(position_transmission),
     m_velocity_transmission(velocity_transmission),
@@ -33,9 +37,12 @@ JointHardware::JointHardware(const std::string &name,
     m_amp_gain(amp_gain),
     m_motor_enable_handle(motor_enable_handle),
     m_motor_enable_value(motor_enable_value),
-    m_amp_write_handle(amp_write_handle)
+    m_amp_write_handle(amp_write_handle),
+    m_velocity_filter(2,400_Hz,1000_Hz),
+    m_clock()
     {
-
+        m_clock.restart();
+        m_pos_last = get_position();
     }
 
 bool JointHardware::enable() {
@@ -58,7 +65,24 @@ double JointHardware::get_position() {
 }
 
 double JointHardware::get_velocity() {
-    return m_velocity_transmission*m_velocity_sensor;
+    if(m_velocity_estimator == VelocityEstimator::Hardware){
+        return m_velocity_transmission*m_velocity_sensor;
+    }
+    else{
+        if (m_pos_last == 0) {
+            std::cout << "Debug";
+            m_pos_last = get_position(); 
+        }
+        auto pos_curr  = get_position();
+        auto time_curr = m_clock.get_elapsed_time().as_seconds();
+        mahi::util::print("curr time: {}, last time: {}\ncurr pos: {}, last pos: {}", time_curr, m_time_last, pos_curr, m_pos_last);
+        auto vel_est = (pos_curr-m_pos_last)/(time_curr - m_time_last);
+        
+        m_time_last = time_curr;
+        m_pos_last  = pos_curr;
+
+        return m_velocity_filter.update(vel_est);
+    }
 }
 
 void JointHardware::set_torque(double new_torque) {

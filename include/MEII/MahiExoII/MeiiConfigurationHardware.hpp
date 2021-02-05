@@ -25,6 +25,11 @@
 #include <vector>
 
 namespace meii {
+    // Represents how we are handling velocity estimation
+    enum VelocityEstimator {
+        Hardware,  // velocity estimated from q8/qpid
+        Software   // velocity estimated in software filter(dtheta/dtime)
+    };
 
     //==============================================================================
     // FORWARD DECLARATIONS
@@ -43,12 +48,14 @@ namespace meii {
     public:
 
         /// Constructor for standard configuration
-        MeiiConfigurationHardware(Q&                     daq,
+        MeiiConfigurationHardware(Q&                              daq,
+                                  VelocityEstimator               velocity_estimator = VelocityEstimator::Hardware,
                                   std::vector<mahi::daq::ChanNum> enable_channels = {1,2,3,4,5},
                                   std::vector<mahi::daq::ChanNum> current_write_channels = {1,2,3,4,5},
                                   std::vector<mahi::daq::TTL>     enable_values = std::vector<mahi::daq::TTL>(5,mahi::daq::TTL_LOW),
                                   std::vector<double>             amp_gains = {1.8, 1.8, 0.184, 0.184, 0.184}):
             m_daq(daq),
+            m_velocity_estimator(velocity_estimator),
             m_enable_channels(enable_channels),
             m_current_write_channels(current_write_channels),
             m_enable_values(enable_values),
@@ -70,7 +77,8 @@ namespace meii {
         template<typename Q>
         friend class MahiExoIIHardware;
 
-        Q&                     m_daq;                    // DAQ controlling the MahiExoII
+        Q&                              m_daq;                    // DAQ controlling the MahiExoII
+        VelocityEstimator               m_velocity_estimator;     // deterimnes how velocity is estimated
         std::vector<mahi::daq::ChanNum> m_encoder_channels;       // encoder channels that measure motor positions
         std::vector<mahi::daq::ChanNum> m_enable_channels;        // DO channels that enable/disable motors
         std::vector<mahi::daq::ChanNum> m_current_write_channels; // AI channels that write current to amps

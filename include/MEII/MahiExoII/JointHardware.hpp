@@ -16,7 +16,10 @@
 
 #pragma once
 #include <MEII/MahiExoII/Joint.hpp>
+#include <MEII/MahiExoII/MeiiConfigurationHardware.hpp>
 #include <Mahi/Daq/Handle.hpp>
+#include <Mahi/Util/Math/Butterworth.hpp>
+#include <Mahi/Util/Timing/Clock.hpp>
 
 namespace meii {
 
@@ -36,6 +39,7 @@ public:
                   std::shared_ptr<mahi::daq::EncoderHandle> position_sensor,
                   double position_transmission,
                   const double &velocity_sensor,
+                  VelocityEstimator velocity_estimator,
                   double velocity_transmission,
                   double motor_kt,
                   double amp_gain,
@@ -60,7 +64,14 @@ public:
 
 private:    
     std::shared_ptr<mahi::daq::EncoderHandle> m_position_sensor;  // pointer to the PositionSensor of this Joint
-    const double &m_velocity_sensor;                    // pointer to the VelocitySensor of this Joint
+    const double &m_velocity_sensor;                              // pointer to the VelocitySensor of this Joint
+    VelocityEstimator m_velocity_estimator;                       // defines if velocity is from daq or estimated in software
+    mahi::util::Butterworth m_velocity_filter;                                // velocity filter to use if software velocity filter
+
+    double m_pos_last;
+    double m_time_last = -0.001;
+
+    mahi::util::Clock m_clock;
 
     double m_actuator_transmission;    // transmission ratio describing the
                                      // multiplicative gain in torque from Joint

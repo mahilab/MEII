@@ -55,6 +55,7 @@ namespace meii {
                                                             encoder_handle,
                                                             params_.eta_[i],
                                                             config_hw.m_daq.velocity.velocities[config_hw.m_encoder_channels[i]],
+                                                            (i > 0) ? VelocityEstimator::Hardware : config_hw.m_velocity_estimator,
                                                             params_.eta_[i],
                                                             params_.kt_[i],
                                                             config_hw.m_amp_gains[i],
