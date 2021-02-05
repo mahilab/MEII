@@ -48,10 +48,13 @@ public:
     void set_torque(double new_torque);
 
     /// Enables the joint's position sensor, velocity sensor, and actuator
-    bool enable();
+    bool enable() override;
 
     /// Disables the joint's position sensor, velocity sensor, and actuator
-    bool disable();
+    bool disable() override;
+
+    /// does nothing because this is a virtual joint, and the velocity is not noisy
+    void filter_velocity() override {}
 
 private:
     const double m_rest_pos; // value to send if there is no melshare available

@@ -371,6 +371,12 @@ namespace meii {
         m_q_par << meii_joints[2]->get_position(), meii_joints[3]->get_position(), meii_joints[4]->get_position();
         m_q_par_dot << meii_joints[2]->get_velocity(), meii_joints[3]->get_velocity(), meii_joints[4]->get_velocity();
 
+        // update joint velocities if necessary (only if using hardware version and filtering is done in software) 
+        // otherwise this does nothing
+        for (size_t i = 0; i < n_rj; i++){
+            meii_joints[i]->filter_velocity();
+        }
+
         for (size_t i = 0; i < n_rj; i++){
             m_robot_joint_positions[i] = meii_joints[i]->get_position();
             m_robot_joint_velocities[i] = meii_joints[i]->get_velocity();

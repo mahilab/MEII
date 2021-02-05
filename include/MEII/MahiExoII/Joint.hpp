@@ -72,6 +72,10 @@ public:
     /// Disables the joint's position sensor, velocity sensor, and actuator
     virtual bool disable() = 0;
 
+    /// updates velocity if necessary (only if using hardware version and filtering
+    ///  is done in software). otherwise this does nothing.
+    virtual void filter_velocity() = 0;
+
 protected:
     std::string m_name;              // pointer to the Actuator of this Joint
 

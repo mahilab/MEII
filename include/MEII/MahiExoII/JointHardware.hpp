@@ -57,10 +57,13 @@ public:
     void set_torque(double new_torque);
 
     /// Enables the joint's position sensor, velocity sensor, and actuator
-    bool enable();
+    bool enable() override;
 
     /// Disables the joint's position sensor, velocity sensor, and actuator
-    bool disable();
+    bool disable() override;
+
+    /// if velocity estimator is Software, this filters velocity. Otherwise this does nothing
+    void filter_velocity() override;
 
 private:    
     std::shared_ptr<mahi::daq::EncoderHandle> m_position_sensor;  // pointer to the PositionSensor of this Joint
@@ -68,8 +71,9 @@ private:
     VelocityEstimator m_velocity_estimator;                       // defines if velocity is from daq or estimated in software
     mahi::util::Butterworth m_velocity_filter;                                // velocity filter to use if software velocity filter
 
-    double m_pos_last;
+    double m_pos_last = 0;
     double m_time_last = -0.001;
+    double m_vel_filtered = 0;
 
     mahi::util::Clock m_clock;
 

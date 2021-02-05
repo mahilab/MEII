@@ -42,7 +42,6 @@ JointHardware::JointHardware(const std::string &name,
     m_clock()
     {
         m_clock.restart();
-        m_pos_last = get_position();
     }
 
 bool JointHardware::enable() {
@@ -60,6 +59,29 @@ bool JointHardware::disable() {
     return true;
 }
 
+void JointHardware::filter_velocity(){
+    // only filter velocity if we are doing software filtering. otherwise it will
+    // be coming straight from hardware already filtered
+    if(m_velocity_estimator == VelocityEstimator::Software){
+        // if this is the first loop through and it hasn't had a chance to get
+        // position yet, then get the position. If this is the case, then the velocity
+        // will read 0 for the first iteration (m_pos_last = pos_curr = get_position()),
+        // but this should correct on the second pass-through
+        if (m_pos_last == 0) {
+            m_pos_last = get_position(); 
+        }
+        auto pos_curr  = get_position();
+        auto time_curr = m_clock.get_elapsed_time().as_seconds();
+        // mahi::util::print("curr time: {}, last time: {}\ncurr pos: {}, last pos: {}", time_curr, m_time_last, pos_curr, m_pos_last);
+        auto vel_estimate = (pos_curr-m_pos_last)/(time_curr - m_time_last);
+
+        m_vel_filtered = m_velocity_filter.update(vel_estimate);
+        
+        m_time_last = time_curr;
+        m_pos_last  = pos_curr;
+    }
+}
+
 double JointHardware::get_position() {
     return m_position_transmission*m_position_sensor->get_pos();
 }
@@ -69,19 +91,7 @@ double JointHardware::get_velocity() {
         return m_velocity_transmission*m_velocity_sensor;
     }
     else{
-        if (m_pos_last == 0) {
-            std::cout << "Debug";
-            m_pos_last = get_position(); 
-        }
-        auto pos_curr  = get_position();
-        auto time_curr = m_clock.get_elapsed_time().as_seconds();
-        mahi::util::print("curr time: {}, last time: {}\ncurr pos: {}, last pos: {}", time_curr, m_time_last, pos_curr, m_pos_last);
-        auto vel_est = (pos_curr-m_pos_last)/(time_curr - m_time_last);
-        
-        m_time_last = time_curr;
-        m_pos_last  = pos_curr;
-
-        return m_velocity_filter.update(vel_est);
+        return m_vel_filtered;
     }
 }
 
