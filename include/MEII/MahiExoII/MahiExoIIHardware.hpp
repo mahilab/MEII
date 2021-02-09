@@ -55,7 +55,7 @@ namespace meii {
                                                             encoder_handle,
                                                             params_.eta_[i],
                                                             config_hw.m_daq.velocity.velocities[config_hw.m_encoder_channels[i]],
-                                                            (i > 0) ? VelocityEstimator::Hardware : config_hw.m_velocity_estimator,
+                                                            config_hw.m_velocity_estimator,
                                                             params_.eta_[i],
                                                             params_.kt_[i],
                                                             config_hw.m_amp_gains[i],
@@ -90,6 +90,6 @@ namespace meii {
         /// writes all from the daq
         bool daq_write_all(){return config_hw.m_daq.write_all();};
         /// sets encoders to input position (in counts)
-        bool daq_encoder_write(int index, mahi::util::int32 encoder_offset){return config_hw.m_daq.encoder.write(index,encoder_offset);};
+        bool daq_encoder_write(int index, mahi::util::int32 encoder_offset){return config_hw.m_daq.encoder.write(config_hw.m_encoder_channels[index],encoder_offset);};
     };
 } // namespace meii

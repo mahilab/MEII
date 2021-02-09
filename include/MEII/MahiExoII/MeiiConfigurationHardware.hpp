@@ -23,6 +23,7 @@
 #include <Mahi/Daq/Types.hpp>
 #include <Mahi/Daq/Watchdog.hpp>
 #include <vector>
+#include <iostream>
 
 namespace meii {
     // Represents how we are handling velocity estimation

@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <Mahi/Util/Print.hpp>
 #include <Mahi/Util/Logging/Log.hpp>
+#include <Mahi/Com/MelShare.hpp>
 
 using namespace mahi::util;
 using namespace mahi::daq;
@@ -72,7 +73,7 @@ namespace meii {
         daq_enable();
         std::vector<int32> encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
         for (int i = 0; i < n_rj; i++) {
-            daq_encoder_write(i+1, encoder_offsets[i]);
+            daq_encoder_write(i, encoder_offsets[i]);
         }
         daq_disable();
         stop = true;
@@ -649,7 +650,7 @@ namespace meii {
         // enable DAQs, zero encoders, and start watchdog
         daq_enable();
         for (size_t i = 0; i < 5; i++){
-            daq_encoder_write((int32)i,0);
+            daq_encoder_write(i,0);
         }
 
         enable_realtime();
@@ -709,7 +710,7 @@ namespace meii {
 
                             // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                             if (!moving) {
-                                daq_encoder_write((int)(i+1),encoder_offsets[i]);
+                                daq_encoder_write(i,encoder_offsets[i]);
                                 returning = true;
                                 // update the reference position to be the current one
                                 pos_ref = meii_joints[i]->get_position();
@@ -792,7 +793,7 @@ namespace meii {
                         // if it's not moving, it's at a hardstop so record the position and deduce the zero location
                         if (std::all_of(par_moving.begin(), par_moving.end(), [](bool v) { return !v; })) {
                             for (size_t j = 0; j < 3; j++){
-                                daq_encoder_write((int32)j+3,encoder_offsets[j+2]);
+                                daq_encoder_write((int32)j+2,encoder_offsets[j+2]);
                                 // update the reference position to be the current one
                                 par_pos_ref[j] = meii_joints[j+2]->get_position();
                             }                        
