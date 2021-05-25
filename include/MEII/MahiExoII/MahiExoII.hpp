@@ -181,11 +181,11 @@ namespace meii {
         /// get single robot joint velocity
         double get_robot_joint_velocity(std::size_t index) const {return m_robot_joint_velocities[index];};
         /// read all commanded joint torques (in joint space) from the desired joint. NOTE THAT THESE ARE COMMANDED TORQUE, SO IT IS NOT YET CLAMPED
-        std::vector<double> get_robot_joint_command_torques(std::size_t index) const {return m_robot_joint_torques;};
+        std::vector<double> get_robot_joint_command_torques() const {return m_robot_joint_torques;};
         /// return the commanded joint torque (in joint space) from the desired joint. NOTE THAT THESE ARE COMMANDED TORQUE, SO IT IS NOT YET CLAMPED
         double get_robot_joint_command_torque(std::size_t index) const {return m_robot_joint_torques[index];};
         /// read all commanded anatomical joint torques from the desired joint (ONLY VALID IF ANATOMICAL SET TORQUE FUNCTION CALLED)
-        std::vector<double> get_anatomical_joint_command_torques(std::size_t index) const {return m_robot_joint_torques;};
+        std::vector<double> get_anatomical_joint_command_torques() const {return m_robot_joint_torques;};
         /// return the commanded anatomical joint torque from the desired joint (ONLY VALID IF ANATOMICAL SET TORQUE FUNCTION CALLED)
         double get_anatomical_joint_command_torque(std::size_t index) const {return m_robot_joint_torques[index];};
         /// read wrist parallel positions after using update_kinematics
