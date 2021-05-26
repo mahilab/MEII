@@ -133,7 +133,7 @@ namespace meii {
             if (ref_[dof] == prev_ref_[dof]) {
                 return ref_[dof];
             }
-            return prev_ref_[dof] + (ref_[dof] - prev_ref_[dof]) * (current_time.as_seconds() - start_time_.as_seconds()) * speed_[dof] / std::abs(ref_[dof] - prev_ref_[dof]);
+            return prev_ref_[dof] + (ref_[dof] - prev_ref_[dof]) * clamp((current_time.as_seconds() - start_time_.as_seconds()) * speed_[dof] / std::abs(ref_[dof] - prev_ref_[dof]),0.0,1.0);
         }
         else {
             print("ERROR: Must give reference point first.");
@@ -616,6 +616,8 @@ namespace meii {
     // TODO: Make this much more efficient
     void MahiExoII::calibrate_auto(volatile std::atomic<bool>& stop) {
 
+        mahi::com::MelShare ms_pos("ms_pos");
+
         // calibration offsets for the joints
         std::array<int32, 5>  encoder_offsets = { 0, -33259, 29125, 29125, 29125 };
 
@@ -839,6 +841,8 @@ namespace meii {
                 stop = true;
                 break;
             }
+
+            ms_pos.write_data(get_robot_joint_positions());
 
             // wait the clock
             timer.wait();
