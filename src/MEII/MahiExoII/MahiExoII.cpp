@@ -645,7 +645,7 @@ namespace meii {
         std::vector<double> par_pos_ref = {0.0, 0.0, 0.0};
         std::vector<bool>   par_returning = {false, false, false};
 
-        std::array<double, 5> sat_torques = { 2.0, 2.0, 15.0, 15.0, 15.0 }; // temporary saturation torques
+        std::array<double, 5> sat_torques = { 4.0, 2.0, 15.0, 15.0, 15.0 }; // temporary saturation torques
 
         Time timeout = seconds(60); // max amout of time we will allow calibration to occur for
 
